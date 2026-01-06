@@ -175,7 +175,10 @@ function renderTournaments() {
     const status = document.createElement('p');
     status.textContent = 'Status: ' + (t.status || 'open');
     const teamsCount = document.createElement('p');
-    teamsCount.textContent = 'Teams: ' + (t.teams ? t.teams.length : 0);
+    // Display current number of teams and maximum slots if defined
+    const currentCount = t.teams ? t.teams.length : 0;
+    const maxCount = t.maxTeams ? t.maxTeams : null;
+    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
     const link = document.createElement('a');
     link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
     link.className = 'button';
@@ -207,8 +210,14 @@ function renderAdminTournaments() {
     title.textContent = t.name;
     const status = document.createElement('p');
     status.textContent = 'Status: ' + (t.status || 'open');
+    // Display current team count and maximum
     const teamsCount = document.createElement('p');
-    teamsCount.textContent = 'Teams: ' + (t.teams ? t.teams.length : 0);
+    const currentCount = t.teams ? t.teams.length : 0;
+    const maxCount = t.maxTeams ? t.maxTeams : null;
+    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    // Display max teams explicitly (optional)
+    // const maxTeamsEl = document.createElement('p');
+    // maxTeamsEl.textContent = 'Max teams: ' + (t.maxTeams || '—');
     // Actions
     const actions = document.createElement('div');
     actions.className = 'admin-actions';
@@ -220,6 +229,13 @@ function renderAdminTournaments() {
     startBtn.addEventListener('click', () => {
       startTournament(t.id);
     });
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => {
+      editTournament(t.id);
+    });
     // Delete button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete';
@@ -228,6 +244,7 @@ function renderAdminTournaments() {
       deleteTournament(t.id);
     });
     actions.appendChild(startBtn);
+    actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
     card.appendChild(title);
     card.appendChild(status);
@@ -239,33 +256,35 @@ function renderAdminTournaments() {
 
 function createTournamentFromForm() {
   const nameInput = document.getElementById('tournament-name');
-  const teamsInput = document.getElementById('tournament-teams');
+  const maxTeamsInput = document.getElementById('tournament-max-teams');
   const name = nameInput.value.trim();
   if (!name) {
     alert('Please enter a tournament name.');
     return;
   }
-  const teamsText = teamsInput.value.trim();
-  const teams = teamsText
-    ? teamsText
-        .split(/\r?\n/)
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0)
-    : [];
+  // Read the maximum number of teams from the admin input
+  const maxVal = parseInt(maxTeamsInput.value, 10);
+  if (!maxVal || maxVal < 2) {
+    alert('Please enter a valid maximum number of teams (at least 2).');
+    return;
+  }
   const tournaments = loadTournaments();
   const id = Date.now().toString();
+  // Create a new tournament object with an empty teams array and maxTeams limit
   const newTournament = {
     id,
     name,
-    teams,
+    teams: [],
+    maxTeams: maxVal,
     created: new Date().toISOString(),
     status: 'open',
     bracket: [],
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
+  // Reset form fields
   nameInput.value = '';
-  teamsInput.value = '';
+  maxTeamsInput.value = '';
   renderAdminTournaments();
   alert('Tournament created successfully.');
 }
@@ -276,6 +295,45 @@ function deleteTournament(id) {
   tournaments = tournaments.filter((t) => t.id !== id);
   saveTournaments(tournaments);
   renderAdminTournaments();
+}
+
+// Allow the admin to edit tournament details (name and maximum number of teams)
+function editTournament(id) {
+  let tournaments = loadTournaments();
+  const index = tournaments.findIndex((t) => t.id === id);
+  if (index === -1) return;
+  const t = tournaments[index];
+  // Prompt the admin for a new name
+  const newName = prompt('Edit tournament name:', t.name);
+  if (newName !== null) {
+    const trimmed = newName.trim();
+    if (trimmed.length > 0) {
+      t.name = trimmed;
+    }
+  }
+  // If the tournament has not started yet, allow editing maxTeams
+  if (t.status !== 'started') {
+    const currentTeams = t.teams ? t.teams.length : 0;
+    const maxPrompt = prompt('Edit maximum number of teams:', t.maxTeams || currentTeams || 2);
+    if (maxPrompt !== null && maxPrompt !== '') {
+      const maxVal = parseInt(maxPrompt, 10);
+      if (isNaN(maxVal) || maxVal < 2 || maxVal < currentTeams) {
+        alert(
+          'Invalid maximum. It must be a number at least equal to the number of registered teams (' +
+            currentTeams +
+            ') and at least 2.'
+        );
+      } else {
+        t.maxTeams = maxVal;
+      }
+    }
+  } else {
+    alert('Cannot edit maximum teams after the tournament has started.');
+  }
+  tournaments[index] = t;
+  saveTournaments(tournaments);
+  renderAdminTournaments();
+  alert('Tournament updated.');
 }
 
 function startTournament(id) {
@@ -319,10 +377,17 @@ function renderTournamentDetails(id) {
   detail.appendChild(title);
   detail.appendChild(status);
   detail.appendChild(created);
+  // Show current and maximum team slots if available
+  if (tournament.maxTeams) {
+    const maxInfo = document.createElement('p');
+    const currentCount = tournament.teams ? tournament.teams.length : 0;
+    maxInfo.textContent = 'Teams: ' + currentCount + ' / ' + tournament.maxTeams;
+    detail.appendChild(maxInfo);
+  }
   // Teams list
   if (tournament.teams && tournament.teams.length > 0) {
     const teamsHeading = document.createElement('h3');
-    teamsHeading.textContent = 'Teams';
+    teamsHeading.textContent = 'Registered Teams';
     const teamsList = document.createElement('ul');
     teamsList.className = 'teams-list';
     tournament.teams.forEach((team) => {
@@ -332,6 +397,78 @@ function renderTournamentDetails(id) {
     });
     detail.appendChild(teamsHeading);
     detail.appendChild(teamsList);
+  }
+
+  // Allow non-admin users to register their own team while the tournament is open
+  if (role !== 'admin' && tournament.status !== 'started') {
+    const currentCount = tournament.teams ? tournament.teams.length : 0;
+    const maxCount = tournament.maxTeams || null;
+    // Show registration form only if there is no limit or if slots remain
+    if (!maxCount || currentCount < maxCount) {
+      const joinHeading = document.createElement('h3');
+      joinHeading.textContent = 'Register Your Team';
+      const joinForm = document.createElement('form');
+      joinForm.id = 'join-team-form';
+      joinForm.style.marginTop = '1rem';
+      // Team name input
+      const teamInput = document.createElement('input');
+      teamInput.type = 'text';
+      teamInput.placeholder = 'Team name';
+      teamInput.required = true;
+      teamInput.style.display = 'block';
+      teamInput.style.width = '100%';
+      teamInput.style.padding = '0.5rem';
+      teamInput.style.marginBottom = '0.5rem';
+      teamInput.style.border = 'none';
+      teamInput.style.borderRadius = '4px';
+      teamInput.style.backgroundColor = '#1e2153';
+      teamInput.style.color = '#ffffff';
+      // Register button
+      const joinBtn = document.createElement('button');
+      joinBtn.textContent = 'Register';
+      joinBtn.className = 'button';
+      joinForm.appendChild(teamInput);
+      joinForm.appendChild(joinBtn);
+      joinForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const name = teamInput.value.trim();
+        if (!name) {
+          alert('Please enter a team name.');
+          return;
+        }
+        // Prevent duplicate team names
+        if (tournament.teams && tournament.teams.includes(name)) {
+          alert('A team with this name is already registered.');
+          return;
+        }
+        // Ensure there is room to add
+        const current = tournament.teams ? tournament.teams.length : 0;
+        if (tournament.maxTeams && current >= tournament.maxTeams) {
+          alert('Registration is full for this tournament.');
+          return;
+        }
+        // Append the new team
+        if (!tournament.teams) tournament.teams = [];
+        tournament.teams.push(name);
+        // Persist changes to storage
+        const allTournaments = loadTournaments();
+        const idx = allTournaments.findIndex((tt) => tt.id === tournament.id);
+        if (idx !== -1) {
+          allTournaments[idx] = tournament;
+          saveTournaments(allTournaments);
+        }
+        // Re-render details to reflect new team
+        renderTournamentDetails(tournament.id);
+        alert('Team registered successfully!');
+      });
+      detail.appendChild(joinHeading);
+      detail.appendChild(joinForm);
+    } else {
+      // Tournament is full
+      const fullMsg = document.createElement('p');
+      fullMsg.textContent = 'Registration is full for this tournament.';
+      detail.appendChild(fullMsg);
+    }
   }
   // Bracket
   if (tournament.status === 'started' && tournament.bracket) {

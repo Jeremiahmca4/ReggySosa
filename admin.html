@@ -29,9 +29,11 @@
           <input type="text" id="tournament-name" required />
         </label>
         <label>
-          Teams (one per line):
-          <textarea id="tournament-teams" rows="6" placeholder="Team 1\nTeam 2\nTeam 3\n..."></textarea>
+          Maximum number of teams:
+          <!-- Allow the admin to set how many teams can register for this tournament. -->
+          <input type="number" id="tournament-max-teams" min="2" required />
         </label>
+        <!-- Removed the initial teams text area. Teams will be registered by users later. -->
         <button type="submit" class="button">Create Tournament</button>
       </form>
     </section>
