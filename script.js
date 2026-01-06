@@ -406,6 +406,13 @@ function renderTournaments() {
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    // Prepare start date element if available; we'll append after teams count
+    let startP = null;
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      startP = document.createElement('p');
+      startP.textContent = 'Starts: ' + sd.toLocaleDateString();
+    }
     const link = document.createElement('a');
     link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
     link.className = 'button';
@@ -413,7 +420,57 @@ function renderTournaments() {
     card.appendChild(title);
     card.appendChild(status);
     card.appendChild(teamsCount);
+    // Append start date after teams count, if present
+    if (startP) {
+      card.appendChild(startP);
+    }
     card.appendChild(link);
+    listEl.appendChild(card);
+  });
+}
+
+/**
+ * Render the list of past tournament winners.
+ *
+ * This looks for tournaments marked as completed with a winner defined and
+ * displays them in the past-winners-list container. If there are no past
+ * winners, the containing section is hidden.
+ */
+function renderPastWinners() {
+  const section = document.getElementById('past-winners-section');
+  const listEl = document.getElementById('past-winners-list');
+  if (!section || !listEl) return;
+  const tournaments = loadTournaments();
+  // Filter tournaments that have been completed and have a winner
+  const past = tournaments.filter(
+    (t) => t.status === 'completed' && t.winner
+  );
+  listEl.innerHTML = '';
+  if (past.length === 0) {
+    // Hide the section if no past winners
+    section.style.display = 'none';
+    return;
+  }
+  // Ensure the section is visible
+  section.style.display = '';
+  // Sort past tournaments by creation date descending
+  past.sort((a, b) => new Date(b.created) - new Date(a.created));
+  past.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card';
+    const title = document.createElement('h3');
+    title.textContent = t.name;
+    card.appendChild(title);
+    const winnerEl = document.createElement('p');
+    winnerEl.textContent = 'Winner: ' + t.winner;
+    card.appendChild(winnerEl);
+    // Show start date if available
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      const startEl = document.createElement('p');
+      startEl.textContent = 'Started: ' + sd.toLocaleDateString();
+      card.appendChild(startEl);
+    }
     listEl.appendChild(card);
   });
 }
@@ -442,6 +499,13 @@ function renderAdminTournaments() {
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    // Prepare start date element if available; we'll append after team count for consistent ordering
+    let startEl = null;
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      startEl = document.createElement('p');
+      startEl.textContent = 'Starts: ' + sd.toLocaleDateString();
+    }
     // Display max teams explicitly (optional)
     // const maxTeamsEl = document.createElement('p');
     // maxTeamsEl.textContent = 'Max teams: ' + (t.maxTeams || '—');
@@ -476,6 +540,10 @@ function renderAdminTournaments() {
     card.appendChild(title);
     card.appendChild(status);
     card.appendChild(teamsCount);
+    // Append start date after teams count, if present
+    if (startEl) {
+      card.appendChild(startEl);
+    }
     card.appendChild(actions);
     listEl.appendChild(card);
   });
@@ -484,6 +552,8 @@ function renderAdminTournaments() {
 function createTournamentFromForm() {
   const nameInput = document.getElementById('tournament-name');
   const maxTeamsInput = document.getElementById('tournament-max-teams');
+  // Start date input (optional)
+  const dateInput = document.getElementById('tournament-start-date');
   const name = nameInput.value.trim();
   if (!name) {
     alert('Please enter a tournament name.');
@@ -498,20 +568,26 @@ function createTournamentFromForm() {
   const tournaments = loadTournaments();
   const id = Date.now().toString();
   // Create a new tournament object with an empty teams array and maxTeams limit
+  // Create a new tournament object. Start date is optional; winner is initially null.
   const newTournament = {
     id,
     name,
     teams: [],
     maxTeams: maxVal,
     created: new Date().toISOString(),
+    startDate: dateInput && dateInput.value ? dateInput.value : null,
     status: 'open',
     bracket: [],
+    winner: null,
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
   // Reset form fields
   nameInput.value = '';
   maxTeamsInput.value = '';
+  if (dateInput) {
+    dateInput.value = '';
+  }
   renderAdminTournaments();
   alert('Tournament created successfully.');
 }
@@ -539,7 +615,7 @@ function editTournament(id) {
     }
   }
   // If the tournament has not started yet, allow editing maxTeams
-  if (t.status !== 'started') {
+    if (t.status !== 'started') {
     const currentTeams = t.teams ? t.teams.length : 0;
     const maxPrompt = prompt('Edit maximum number of teams:', t.maxTeams || currentTeams || 2);
     if (maxPrompt !== null && maxPrompt !== '') {
@@ -552,6 +628,16 @@ function editTournament(id) {
         );
       } else {
         t.maxTeams = maxVal;
+      }
+      // Prompt the admin to edit start date. Accept an empty value to clear the date.
+      const newDate = prompt('Edit start date (YYYY-MM-DD):', t.startDate || '');
+      if (newDate !== null) {
+        const trimmedDate = newDate.trim();
+        if (trimmedDate) {
+          t.startDate = trimmedDate;
+        } else {
+          t.startDate = null;
+        }
       }
     }
   } else {
@@ -662,6 +748,11 @@ function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
       }
     }
   }
+  // If there is no next round, this was the final match. Mark the tournament as completed and set the winner.
+  if (!nextRound) {
+    tournament.winner = winnerName;
+    tournament.status = 'completed';
+  }
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
 }
@@ -689,6 +780,19 @@ function renderTournamentDetails(id) {
   detail.appendChild(title);
   detail.appendChild(status);
   detail.appendChild(created);
+  // Display start date if defined
+  if (tournament.startDate) {
+    const sd = new Date(tournament.startDate);
+    const startP = document.createElement('p');
+    startP.textContent = 'Start date: ' + sd.toLocaleDateString();
+    detail.appendChild(startP);
+  }
+  // Display champion if tournament completed
+  if (tournament.status === 'completed' && tournament.winner) {
+    const champTitle = document.createElement('h3');
+    champTitle.textContent = 'Champion: ' + tournament.winner;
+    detail.appendChild(champTitle);
+  }
   // Show current and maximum team slots if available
   if (tournament.maxTeams) {
     const maxInfo = document.createElement('p');

@@ -34,6 +34,11 @@
     <div id="tournaments-list" class="tournament-list">
       <!-- Tournament cards populated by script.js -->
     </div>
+    <!-- Past winners section: initially hidden. Populated by script.js when tournaments are completed. -->
+    <section id="past-winners-section" style="display:none;">
+      <h2>Past Winners</h2>
+      <div id="past-winners-list" class="tournament-list"></div>
+    </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -47,6 +52,8 @@
       renderTournaments();
       // Render the user's team management section once tournaments are loaded
       renderUserTeam();
+      // Render past winners after tournaments and user team have been rendered
+      renderPastWinners();
     });
   </script>
 </body>
