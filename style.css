@@ -323,6 +323,22 @@ button.delete:hover {
   font-size: 0.9rem;
 }
 
+/* Admin score reporting controls inside matches */
+.report-score {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.report-score select {
+  padding: 0.4rem;
+  border: 1px solid #2f3459;
+  border-radius: 4px;
+  background-color: #0f1433;
+  color: #d0d6f9;
+}
+
 /* Team management section on tournaments page */
 .team-section {
   margin-top: 2rem;

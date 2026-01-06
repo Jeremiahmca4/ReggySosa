@@ -637,6 +637,35 @@ function removeTeamFromTournament(tournamentId, teamId) {
   }
 }
 
+// Report a match result for a given tournament. Updates the winner and propagates
+// the winner to the next round. Only called by admins.
+function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
+  let tournaments = loadTournaments();
+  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  if (idx === -1) return;
+  const tournament = tournaments[idx];
+  const bracket = tournament.bracket;
+  if (!bracket || !bracket[roundIndex] || !bracket[roundIndex][matchIndex]) return;
+  const match = bracket[roundIndex][matchIndex];
+  // Set the winner on the match
+  match.winner = winnerName;
+  // Propagate the winner to the next round, if there is one
+  const nextRound = bracket[roundIndex + 1];
+  if (nextRound) {
+    const nextMatchIndex = Math.floor(matchIndex / 2);
+    const nextMatch = nextRound[nextMatchIndex];
+    if (nextMatch) {
+      if (matchIndex % 2 === 0) {
+        nextMatch.team1 = winnerName;
+      } else {
+        nextMatch.team2 = winnerName;
+      }
+    }
+  }
+  tournaments[idx] = tournament;
+  saveTournaments(tournaments);
+}
+
 function renderTournamentDetails(id) {
   const container = document.getElementById('tournament-container');
   if (!container) return;
@@ -762,12 +791,77 @@ function renderTournamentDetails(id) {
       round.forEach((match, mIndex) => {
         const matchDiv = document.createElement('div');
         matchDiv.className = 'match';
+        // Title: show matchup
         const matchTitle = document.createElement('p');
         matchTitle.textContent = match.team1 + ' vs. ' + (match.team2 || 'BYE');
-        const code = document.createElement('p');
-        code.textContent = 'Match code: ' + match.code;
         matchDiv.appendChild(matchTitle);
-        matchDiv.appendChild(code);
+        // Show winner if available
+        if (match.winner) {
+          const winnerEl = document.createElement('p');
+          winnerEl.textContent = 'Winner: ' + match.winner;
+          matchDiv.appendChild(winnerEl);
+        }
+        // Determine whether to show code
+        let showCode = false;
+        const currentTeam = getUserTeam();
+        if (role === 'admin') {
+          showCode = true;
+        } else if (currentTeam) {
+          const teamName = currentTeam.name;
+          // Check if this user’s team is involved in the match
+          if (match.team1 === teamName || match.team2 === teamName) {
+            showCode = true;
+          }
+        }
+        const codeEl = document.createElement('p');
+        if (showCode) {
+          codeEl.textContent = 'Match code: ' + match.code;
+        } else {
+          codeEl.textContent = 'Match code: (hidden)';
+        }
+        matchDiv.appendChild(codeEl);
+        // Admin-only reporting controls
+        if (
+          role === 'admin' &&
+          tournament.status === 'started' &&
+          match.team1 && match.team1 !== 'BYE' &&
+          match.team2 && match.team2 !== 'BYE' &&
+          !match.winner
+        ) {
+          const reportDiv = document.createElement('div');
+          reportDiv.className = 'report-score';
+          const select = document.createElement('select');
+          // default option
+          const defOpt = document.createElement('option');
+          defOpt.value = '';
+          defOpt.textContent = 'Select winner';
+          select.appendChild(defOpt);
+          const opt1 = document.createElement('option');
+          opt1.value = match.team1;
+          opt1.textContent = match.team1;
+          select.appendChild(opt1);
+          const opt2 = document.createElement('option');
+          opt2.value = match.team2;
+          opt2.textContent = match.team2;
+          select.appendChild(opt2);
+          const reportBtn = document.createElement('button');
+          reportBtn.textContent = 'Report Score';
+          reportBtn.className = 'button';
+          reportBtn.style.marginTop = '0.5rem';
+          reportBtn.addEventListener('click', function () {
+            const winnerName = select.value;
+            if (!winnerName) {
+              alert('Please select a winner.');
+              return;
+            }
+            reportMatchResult(tournament.id, rIndex, mIndex, winnerName);
+            // After updating, re-render details
+            renderTournamentDetails(tournament.id);
+          });
+          reportDiv.appendChild(select);
+          reportDiv.appendChild(reportBtn);
+          matchDiv.appendChild(reportDiv);
+        }
         roundDiv.appendChild(matchDiv);
       });
       bracketDiv.appendChild(roundDiv);
