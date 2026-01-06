@@ -24,6 +24,10 @@
   <main class="container">
     <h1>CHEL Tournaments</h1>
     <p>Browse upcoming and ongoing tournaments below.</p>
+      <!-- Team management section.  This area will be populated by script.js to allow
+           logged‑in users to create a team, view their team members and invites,
+           and invite others.  It remains empty for guests. -->
+      <div id="user-team-section" class="team-section"></div>
     <div id="tournaments-list" class="tournament-list">
       <!-- Tournament cards populated by script.js -->
     </div>
@@ -38,6 +42,8 @@
     window.addEventListener('DOMContentLoaded', function () {
       populateAuthLinks();
       renderTournaments();
+      // Render the user's team management section once tournaments are loaded
+      renderUserTeam();
     });
   </script>
 </body>

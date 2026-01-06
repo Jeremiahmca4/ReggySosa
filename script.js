@@ -48,6 +48,226 @@ function setCurrentUser(email) {
   }
 }
 
+// === Team management helpers ===
+function loadTeams() {
+  try {
+    return JSON.parse(localStorage.getItem('teams')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTeams(teams) {
+  localStorage.setItem('teams', JSON.stringify(teams));
+}
+
+// Retrieve the team object for the current user, if any
+function getUserTeam() {
+  const currentEmail = getCurrentUser();
+  if (!currentEmail) return null;
+  const users = loadUsers();
+  const user = users.find((u) => u.email === currentEmail);
+  if (!user || !user.teamId) return null;
+  const teams = loadTeams();
+  return teams.find((t) => t.id === user.teamId) || null;
+}
+
+// Set the teamId for a given user in the users array
+function setUserTeam(email, teamId) {
+  const users = loadUsers();
+  const idx = users.findIndex((u) => u.email === email);
+  if (idx !== -1) {
+    users[idx].teamId = teamId;
+    saveUsers(users);
+  }
+}
+
+// Accept any pending team invites for the given email upon registration/login
+function acceptInvitesForUser(email) {
+  const teams = loadTeams();
+  let updated = false;
+  teams.forEach((team) => {
+    if (team.invites && team.invites.includes(email)) {
+      // Remove from invites
+      team.invites = team.invites.filter((inv) => inv !== email);
+      // Add to members if not already
+      if (!team.members.includes(email)) {
+        team.members.push(email);
+        // Assign teamId to user if they do not have one
+        const users = loadUsers();
+        const uIdx = users.findIndex((u) => u.email === email);
+        if (uIdx !== -1) {
+          if (!users[uIdx].teamId) {
+            users[uIdx].teamId = team.id;
+          }
+          saveUsers(users);
+        }
+      }
+      updated = true;
+    }
+  });
+  if (updated) {
+    saveTeams(teams);
+  }
+}
+
+// Create a new team with the given name for the current user as captain
+function createTeam(name) {
+  const currentEmail = getCurrentUser();
+  if (!currentEmail) {
+    alert('You must be logged in to create a team.');
+    return null;
+  }
+  const trimmed = (name || '').trim();
+  if (!trimmed) {
+    alert('Please enter a team name.');
+    return null;
+  }
+  // Check that the user is not already in a team
+  if (getUserTeam()) {
+    alert('You are already a member of a team.');
+    return null;
+  }
+  const teams = loadTeams();
+  // Ensure unique name
+  if (teams.some((t) => t.name.toLowerCase() === trimmed.toLowerCase())) {
+    alert('A team with this name already exists.');
+    return null;
+  }
+  const id = Date.now().toString();
+  const newTeam = {
+    id: id,
+    name: trimmed,
+    captain: currentEmail,
+    members: [currentEmail],
+    invites: [],
+  };
+  teams.push(newTeam);
+  saveTeams(teams);
+  setUserTeam(currentEmail, id);
+  alert('Team created successfully.');
+  return newTeam;
+}
+
+// Invite a user (by email) to join the specified team
+function inviteToTeam(teamId, inviteEmail) {
+  const teams = loadTeams();
+  const team = teams.find((t) => t.id === teamId);
+  if (!team) return;
+  const email = (inviteEmail || '').trim().toLowerCase();
+  if (!email) {
+    alert('Please enter an email to invite.');
+    return;
+  }
+  if (team.members.includes(email)) {
+    alert('This user is already a member of the team.');
+    return;
+  }
+  if (team.invites && team.invites.includes(email)) {
+    alert('This user has already been invited.');
+    return;
+  }
+  team.invites.push(email);
+  saveTeams(teams);
+  alert('Invitation added. Note: no actual email is sent in this demo.');
+}
+
+// Render the current user's team or a creation form in tournaments.html
+function renderUserTeam() {
+  const section = document.getElementById('user-team-section');
+  if (!section) return;
+  section.innerHTML = '';
+  const currentEmail = getCurrentUser();
+  if (!currentEmail) {
+    const msg = document.createElement('p');
+    msg.textContent = 'Please log in to manage your team.';
+    section.appendChild(msg);
+    return;
+  }
+  const team = getUserTeam();
+  if (!team) {
+    const heading = document.createElement('h2');
+    heading.textContent = 'Create a Team';
+    section.appendChild(heading);
+    const form = document.createElement('form');
+    form.id = 'create-team-form';
+    const label = document.createElement('label');
+    label.textContent = 'Team Name:';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'team-name';
+    input.required = true;
+    input.style.marginLeft = '0.5rem';
+    label.appendChild(input);
+    const button = document.createElement('button');
+    button.textContent = 'Create Team';
+    button.className = 'button';
+    form.appendChild(label);
+    form.appendChild(button);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      createTeam(input.value);
+      renderUserTeam();
+    });
+    section.appendChild(form);
+  } else {
+    // Show team details
+    const heading = document.createElement('h2');
+    heading.textContent = 'Your Team: ' + team.name;
+    section.appendChild(heading);
+    // Members
+    const membersHeading = document.createElement('h3');
+    membersHeading.textContent = 'Members';
+    section.appendChild(membersHeading);
+    const membersList = document.createElement('ul');
+    team.members.forEach((member) => {
+      const li = document.createElement('li');
+      li.textContent = member + (member === team.captain ? ' (Captain)' : '');
+      membersList.appendChild(li);
+    });
+    section.appendChild(membersList);
+    // Pending invites
+    if (team.invites && team.invites.length > 0) {
+      const invitesHeading = document.createElement('h3');
+      invitesHeading.textContent = 'Pending Invites';
+      section.appendChild(invitesHeading);
+      const invitesList = document.createElement('ul');
+      team.invites.forEach((inv) => {
+        const li = document.createElement('li');
+        li.textContent = inv;
+        invitesList.appendChild(li);
+      });
+      section.appendChild(invitesList);
+    }
+    // If current user is captain, allow inviting
+    if (team.captain === currentEmail) {
+      const inviteForm = document.createElement('form');
+      inviteForm.id = 'invite-form';
+      inviteForm.style.marginTop = '1rem';
+      const label = document.createElement('label');
+      label.textContent = 'Invite by email:';
+      const emailInput = document.createElement('input');
+      emailInput.type = 'email';
+      emailInput.required = true;
+      emailInput.style.marginLeft = '0.5rem';
+      label.appendChild(emailInput);
+      const sendBtn = document.createElement('button');
+      sendBtn.textContent = 'Invite';
+      sendBtn.className = 'button';
+      inviteForm.appendChild(label);
+      inviteForm.appendChild(sendBtn);
+      inviteForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        inviteToTeam(team.id, emailInput.value);
+        emailInput.value = '';
+        // Re-render to show updated invites list
+        renderUserTeam();
+      });
+      section.appendChild(inviteForm);
+    }
+  }
+}
+
 // Ensure there is at least one admin user (for demo)
 function ensureDefaultAdmin() {
   // Pre-seeding an admin user is no longer necessary.
@@ -70,9 +290,14 @@ function handleRegister() {
   }
   // Assign role based on whether the email matches the single admin email.
   const role = email === ADMIN_EMAIL ? 'admin' : 'user';
-  users.push({ email, password, role });
+  // Capture the optional Discord handle
+  const discordInput = document.getElementById('register-discord');
+  const discord = discordInput ? discordInput.value.trim() : '';
+  users.push({ email, password, role, discord, teamId: null });
   saveUsers(users);
   setCurrentUser(email);
+  // Accept any pending invites to teams
+  acceptInvitesForUser(email);
   alert('Registration successful! You are now logged in.');
   window.location.href = 'tournaments.html';
 }
@@ -88,6 +313,8 @@ function handleLogin() {
     return;
   }
   setCurrentUser(email);
+  // Accept any pending invites to teams after logging in
+  acceptInvitesForUser(email);
   alert('Login successful!');
   // redirect to previous page or tournaments
   const params = new URLSearchParams(window.location.search);
@@ -347,11 +574,67 @@ function startTournament(id) {
     return;
   }
   t.status = 'started';
-  t.bracket = generateBracket(t.teams);
+  // Pass array of team names to bracket generator
+  const teamNames = (t.teams || []).map((team) => (typeof team === 'string' ? team : team.name));
+  t.bracket = generateBracket(teamNames);
   tournaments[index] = t;
   saveTournaments(tournaments);
   renderAdminTournaments();
   alert('Tournament started! The bracket has been generated.');
+}
+
+// Register the current user's team to a given tournament (by IDs)
+function registerTeamToTournament(tournamentId, teamId) {
+  let tournaments = loadTournaments();
+  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  if (idx === -1) return;
+  const tournament = tournaments[idx];
+  if (tournament.status === 'started') {
+    alert('This tournament has already started and cannot accept new teams.');
+    return;
+  }
+  if (!tournament.teams) tournament.teams = [];
+  const max = tournament.maxTeams || Infinity;
+  if (tournament.teams.length >= max) {
+    alert('Tournament is full.');
+    return;
+  }
+  // Check if team already registered
+  if (tournament.teams.some((team) => team.id === teamId)) {
+    alert('Your team is already registered for this tournament.');
+    return;
+  }
+  // Find the team object to get its name
+  const teams = loadTeams();
+  const teamObj = teams.find((t) => t.id === teamId);
+  if (!teamObj) {
+    alert('Team not found.');
+    return;
+  }
+  tournament.teams.push({ id: teamObj.id, name: teamObj.name });
+  tournaments[idx] = tournament;
+  saveTournaments(tournaments);
+  alert('Team registered successfully.');
+  // Re-render details view (if on details page)
+  // Note: caller should call renderTournamentDetails separately if needed
+}
+
+// Remove a team from a tournament (admin only)
+function removeTeamFromTournament(tournamentId, teamId) {
+  let tournaments = loadTournaments();
+  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  if (idx === -1) return;
+  const tournament = tournaments[idx];
+  if (tournament.status === 'started') {
+    alert('Cannot remove teams after the tournament has started.');
+    return;
+  }
+  if (tournament.teams) {
+    tournament.teams = tournament.teams.filter((team) => team.id !== teamId);
+    tournaments[idx] = tournament;
+    saveTournaments(tournaments);
+    alert('Team removed from tournament.');
+  }
 }
 
 function renderTournamentDetails(id) {
@@ -392,82 +675,76 @@ function renderTournamentDetails(id) {
     teamsList.className = 'teams-list';
     tournament.teams.forEach((team) => {
       const li = document.createElement('li');
-      li.textContent = team;
+      let name;
+      if (typeof team === 'string') {
+        name = team;
+      } else {
+        name = team.name;
+      }
+      // If admin, allow removing teams before tournament starts
+      if (role === 'admin' && tournament.status !== 'started') {
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = name;
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.className = 'delete';
+        removeBtn.style.marginLeft = '0.5rem';
+        removeBtn.addEventListener('click', function () {
+          if (confirm('Remove this team from the tournament?')) {
+            removeTeamFromTournament(tournament.id, team.id);
+            // Re-render details to reflect changes
+            renderTournamentDetails(tournament.id);
+          }
+        });
+        li.appendChild(nameSpan);
+        li.appendChild(removeBtn);
+      } else {
+        li.textContent = name;
+      }
       teamsList.appendChild(li);
     });
     detail.appendChild(teamsHeading);
     detail.appendChild(teamsList);
   }
 
-  // Allow non-admin users to register their own team while the tournament is open
+  // Allow non-admin users to register their team while the tournament is open
   if (role !== 'admin' && tournament.status !== 'started') {
-    const currentCount = tournament.teams ? tournament.teams.length : 0;
     const maxCount = tournament.maxTeams || null;
-    // Show registration form only if there is no limit or if slots remain
-    if (!maxCount || currentCount < maxCount) {
-      const joinHeading = document.createElement('h3');
-      joinHeading.textContent = 'Register Your Team';
-      const joinForm = document.createElement('form');
-      joinForm.id = 'join-team-form';
-      joinForm.style.marginTop = '1rem';
-      // Team name input
-      const teamInput = document.createElement('input');
-      teamInput.type = 'text';
-      teamInput.placeholder = 'Team name';
-      teamInput.required = true;
-      teamInput.style.display = 'block';
-      teamInput.style.width = '100%';
-      teamInput.style.padding = '0.5rem';
-      teamInput.style.marginBottom = '0.5rem';
-      teamInput.style.border = 'none';
-      teamInput.style.borderRadius = '4px';
-      teamInput.style.backgroundColor = '#1e2153';
-      teamInput.style.color = '#ffffff';
-      // Register button
-      const joinBtn = document.createElement('button');
-      joinBtn.textContent = 'Register';
-      joinBtn.className = 'button';
-      joinForm.appendChild(teamInput);
-      joinForm.appendChild(joinBtn);
-      joinForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const name = teamInput.value.trim();
-        if (!name) {
-          alert('Please enter a team name.');
-          return;
-        }
-        // Prevent duplicate team names
-        if (tournament.teams && tournament.teams.includes(name)) {
-          alert('A team with this name is already registered.');
-          return;
-        }
-        // Ensure there is room to add
-        const current = tournament.teams ? tournament.teams.length : 0;
-        if (tournament.maxTeams && current >= tournament.maxTeams) {
-          alert('Registration is full for this tournament.');
-          return;
-        }
-        // Append the new team
-        if (!tournament.teams) tournament.teams = [];
-        tournament.teams.push(name);
-        // Persist changes to storage
-        const allTournaments = loadTournaments();
-        const idx = allTournaments.findIndex((tt) => tt.id === tournament.id);
-        if (idx !== -1) {
-          allTournaments[idx] = tournament;
-          saveTournaments(allTournaments);
-        }
-        // Re-render details to reflect new team
-        renderTournamentDetails(tournament.id);
-        alert('Team registered successfully!');
-      });
-      detail.appendChild(joinHeading);
-      detail.appendChild(joinForm);
-    } else {
-      // Tournament is full
+    const currentCount = tournament.teams ? tournament.teams.length : 0;
+    const currentTeam = getUserTeam();
+    // If tournament is full
+    if (maxCount && currentCount >= maxCount) {
       const fullMsg = document.createElement('p');
       fullMsg.textContent = 'Registration is full for this tournament.';
       detail.appendChild(fullMsg);
+    } else if (!currentTeam) {
+      // No team yet
+      const noTeamMsg = document.createElement('p');
+      noTeamMsg.textContent = 'You need to create a team before you can register.';
+      detail.appendChild(noTeamMsg);
+      const link = document.createElement('a');
+      link.href = 'tournaments.html';
+      link.textContent = 'Create a team here.';
+      detail.appendChild(link);
+    } else {
+      // Check if current team is already registered
+      const alreadyRegistered = tournament.teams && tournament.teams.some((team) => team.id === currentTeam.id);
+      if (alreadyRegistered) {
+        const registeredMsg = document.createElement('p');
+        registeredMsg.textContent = 'Your team is already registered for this tournament.';
+        detail.appendChild(registeredMsg);
+      } else {
+      const registerBtn = document.createElement('button');
+        registerBtn.textContent = 'Register Your Team';
+        registerBtn.className = 'button';
+        registerBtn.style.marginTop = '1rem';
+        registerBtn.addEventListener('click', function () {
+          registerTeamToTournament(tournament.id, currentTeam.id);
+          // After registering, refresh the details view to show updated team list and hide button
+          renderTournamentDetails(tournament.id);
+        });
+        detail.appendChild(registerBtn);
+      }
     }
   }
   // Bracket
