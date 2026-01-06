@@ -35,6 +35,17 @@ header {
 .logo {
   font-size: 1.5rem;
   font-weight: bold;
+  /* Align logo image and text horizontally */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Logo image in nav */
+.logo-img {
+  height: 40px;
+  width: 40px;
+  object-fit: contain;
 }
 
 .nav-links {
@@ -111,6 +122,14 @@ h2 {
 .hero p {
   font-size: 1.1rem;
   line-height: 1.4;
+}
+
+/* Home page hero logo */
+.hero-logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 1rem;
+  display: inline-block;
 }
 
 /* Social links */
