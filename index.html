@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Home</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">Reggy&nbsp;Sosa</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links">
+        <!-- Populated by script.js -->
+      </div>
+    </nav>
+  </header>
+  <main class="container">
+    <section class="hero">
+      <h1>Welcome to Reggy Sosa’s Platform</h1>
+      <p>
+        Stay connected with everything Reggy&nbsp;Sosa! Explore upcoming CHEL
+        tournaments, check out our latest merchandise, and connect through all
+        of our social channels.
+      </p>
+    </section>
+    <section class="social-links">
+      <h2>Find me online</h2>
+      <ul class="social-list">
+        <li>
+          <a href="#" target="_blank">Instagram</a>
+        </li>
+        <li>
+          <a href="#" target="_blank">YouTube</a>
+        </li>
+        <li>
+          <a href="#" target="_blank">Twitter</a>
+        </li>
+        <li>
+          <a href="#" target="_blank">TikTok</a>
+        </li>
+      </ul>
+    </section>
+    <section class="cta">
+      <a class="button" href="tournaments.html">See Upcoming Tournaments</a>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <script src="script.js"></script>
+  <script>
+    // Display current year and setup auth links
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', function () {
+      populateAuthLinks();
+    });
+  </script>
+</body>
+</html>

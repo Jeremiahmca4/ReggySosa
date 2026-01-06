@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Register</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">Reggy&nbsp;Sosa</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>Register</h1>
+    <form id="register-form" class="auth-form">
+      <label>
+        Email:
+        <input type="email" id="register-email" required />
+      </label>
+      <label>
+        Password:
+        <input type="password" id="register-password" required />
+      </label>
+      <button type="submit" class="button">Register</button>
+    </form>
+    <p>
+      Already have an account? <a href="login.html">Login here</a>.
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', function () {
+      populateAuthLinks();
+      document
+        .getElementById('register-form')
+        .addEventListener('submit', function (e) {
+          e.preventDefault();
+          handleRegister();
+        });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+/* Base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  /* Dark theme background and text colors */
+  background-color: #0a0d2b;
+  color: #d0d6f9;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header {
+  /* Dark header matching site theme */
+  background-color: #0f1433;
+  color: #d0d6f9;
+  box-shadow: 0 2px 4px rgba(0, 255, 240, 0.1);
+}
+
+.navbar {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-links a {
+  /* Neon accent color for nav links */
+  color: #00fff0;
+  text-decoration: none;
+  padding: 0.5rem;
+}
+
+.nav-links a:hover {
+  /* Subtle glow effect on hover */
+  background-color: rgba(0, 255, 240, 0.1);
+  border-radius: 4px;
+}
+
+.auth-links {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.auth-links a,
+.auth-links button {
+  /* Authentication links use neon accents */
+  color: #00fff0;
+  text-decoration: none;
+  border: 1px solid #00fff0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 3px;
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.auth-links a:hover,
+.auth-links button:hover {
+  /* Glow on hover for auth links */
+  background-color: rgba(0, 255, 240, 0.1);
+}
+
+main.container {
+  flex: 1;
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+h1 {
+  margin-bottom: 1rem;
+  color: #00fff0;
+}
+
+h2 {
+  margin: 1.5rem 0 0.75rem;
+  color: #00a7ff;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.hero h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+/* Social links */
+.social-links ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.social-links a {
+  /* Dark cards with neon borders for social links */
+  background-color: #1a1f3c;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid #00fff0;
+  color: #00fff0;
+  text-decoration: none;
+}
+
+.social-links a:hover {
+  /* Slightly brighten on hover */
+  background-color: #293566;
+  filter: brightness(1.1);
+}
+
+/* Buttons */
+.button {
+  display: inline-block;
+  /* Use a vibrant gradient and neon shadow for primary buttons */
+  background-image: linear-gradient(90deg, #7f5af0, #5df2ff);
+  color: #0a0f23;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  margin-top: 1rem;
+  box-shadow: 0 0 6px rgba(127, 90, 240, 0.6);
+}
+
+.button:hover {
+  /* Intensify glow on hover */
+  filter: brightness(1.1);
+}
+
+/* Tournament list */
+.tournament-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  margin-top: 1rem;
+}
+
+.tournament-card {
+  /* Dark card with neon border and soft shadow */
+  background-color: #1a1f3c;
+  border: 1px solid #00fff0;
+  border-radius: 4px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #d0d6f9;
+  box-shadow: 0 0 6px rgba(0, 255, 240, 0.1);
+}
+
+.tournament-card h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.25rem;
+  color: #00fff0;
+}
+
+.tournament-card p {
+  font-size: 0.9rem;
+  color: #9fa8d1;
+}
+
+.tournament-card a {
+  margin-top: auto;
+}
+
+/* Forms */
+.auth-form,
+#create-tournament-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+}
+
+.auth-form input,
+#create-tournament-form input,
+#create-tournament-form textarea {
+  padding: 0.5rem;
+  border: 1px solid #2f3459;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #0f1433;
+  color: #d0d6f9;
+}
+
+.auth-form button,
+#create-tournament-form button {
+  align-self: flex-start;
+}
+
+/* Admin list actions */
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-actions button {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  color: #0a0f23;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-actions .edit {
+  background-image: linear-gradient(90deg, #7f5af0, #5df2ff);
+  box-shadow: 0 0 6px rgba(127, 90, 240, 0.6);
+}
+
+.admin-actions .delete {
+  background-image: linear-gradient(90deg, #ff3860, #ff9a8c);
+  box-shadow: 0 0 6px rgba(255, 56, 96, 0.6);
+}
+
+.admin-actions .start {
+  background-image: linear-gradient(90deg, #00ffc6, #00a7ff);
+  box-shadow: 0 0 6px rgba(0, 255, 198, 0.6);
+}
+
+.admin-actions .edit:hover,
+.admin-actions .delete:hover,
+.admin-actions .start:hover {
+  filter: brightness(1.1);
+}
+
+/*
+ * Standalone delete button (used on tournament detail page)
+ * Apply neon gradient styling similar to admin actions.
+ */
+button.delete {
+  background-image: linear-gradient(90deg, #ff3860, #ff9a8c);
+  color: #0a0f23;
+  border: none;
+  border-radius: 3px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(255, 56, 96, 0.6);
+}
+
+button.delete:hover {
+  filter: brightness(1.1);
+}
+
+/* Tournament details */
+.tournament-detail {
+  background-color: #1a1f3c;
+  padding: 1rem;
+  border: 1px solid #00fff0;
+  border-radius: 4px;
+  color: #d0d6f9;
+  box-shadow: 0 0 6px rgba(0, 255, 240, 0.1);
+}
+
+.tournament-detail h2 {
+  margin-bottom: 0.5rem;
+}
+
+.teams-list {
+  list-style: none;
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bracket {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.round {
+  flex: 1;
+}
+
+.match {
+  background-color: #1a1f3c;
+  border: 1px solid #00fff0;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #d0d6f9;
+  box-shadow: 0 0 4px rgba(0, 255, 240, 0.1);
+}
+
+.match p {
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+/* Footer */
+footer {
+  background-color: #0a0d2b;
+  color: #d0d6f9;
+  text-align: center;
+  padding: 1rem 0;
+  margin-top: auto;
+  box-shadow: 0 -2px 4px rgba(0, 255, 240, 0.1);
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Tournaments</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">Reggy&nbsp;Sosa</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links">
+        <!-- Populated by script.js -->
+      </div>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>CHEL Tournaments</h1>
+    <p>Browse upcoming and ongoing tournaments below.</p>
+    <div id="tournaments-list" class="tournament-list">
+      <!-- Tournament cards populated by script.js -->
+    </div>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    // Display tournaments
+    window.addEventListener('DOMContentLoaded', function () {
+      populateAuthLinks();
+      renderTournaments();
+    });
+  </script>
+</body>
+</html>

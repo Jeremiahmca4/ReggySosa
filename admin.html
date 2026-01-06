@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">Reggy&nbsp;Sosa</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>Admin Dashboard</h1>
+    <section id="create-section">
+      <h2>Create New Tournament</h2>
+      <form id="create-tournament-form">
+        <label>
+          Tournament Name:
+          <input type="text" id="tournament-name" required />
+        </label>
+        <label>
+          Teams (one per line):
+          <textarea id="tournament-teams" rows="6" placeholder="Team 1\nTeam 2\nTeam 3\n..."></textarea>
+        </label>
+        <button type="submit" class="button">Create Tournament</button>
+      </form>
+    </section>
+    <section id="manage-section">
+      <h2>Manage Tournaments</h2>
+      <div id="admin-tournament-list" class="tournament-list">
+        <!-- Populated by script.js -->
+      </div>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', function () {
+      populateAuthLinks();
+      ensureAdminAccess();
+      renderAdminTournaments();
+      document
+        .getElementById('create-tournament-form')
+        .addEventListener('submit', function (e) {
+          e.preventDefault();
+          createTournamentFromForm();
+        });
+    });
+  </script>
+</body>
+</html>
