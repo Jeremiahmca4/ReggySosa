@@ -9,6 +9,9 @@
  */
 
 // === Local storage helpers ===
+
+// Define the single admin email. Only this email is treated as admin.
+const ADMIN_EMAIL = '93pacc93@gmail.com';
 function loadUsers() {
   try {
     return JSON.parse(localStorage.getItem('users')) || [];
@@ -48,9 +51,19 @@ function setCurrentUser(email) {
 // Ensure there is at least one admin user (for demo)
 function ensureDefaultAdmin() {
   const users = loadUsers();
-  if (!users.some((u) => u.role === 'admin')) {
-    users.push({ email: 'admin@reggy.com', password: 'admin123', role: 'admin' });
+  // If the designated admin user does not exist, create it with a default password.
+  // We do not treat any other stored user as admin.
+  const existingAdminIndex = users.findIndex((u) => u.email === ADMIN_EMAIL);
+  if (existingAdminIndex === -1) {
+    // Add the admin user. Using a default password; should be updated by actual admin.
+    users.push({ email: ADMIN_EMAIL.toLowerCase(), password: 'admin123', role: 'admin' });
     saveUsers(users);
+  } else {
+    // Ensure the role for the admin email is always 'admin'.
+    if (users[existingAdminIndex].role !== 'admin') {
+      users[existingAdminIndex].role = 'admin';
+      saveUsers(users);
+    }
   }
 }
 
@@ -64,7 +77,9 @@ function handleRegister() {
     alert('An account with this email already exists.');
     return;
   }
-  users.push({ email, password, role: 'user' });
+  // Assign role based on whether the email matches the single admin email.
+  const role = email === ADMIN_EMAIL ? 'admin' : 'user';
+  users.push({ email, password, role });
   saveUsers(users);
   setCurrentUser(email);
   alert('Registration successful! You are now logged in.');
@@ -98,9 +113,9 @@ function logout() {
 function getCurrentUserRole() {
   const email = getCurrentUser();
   if (!email) return null;
-  const users = loadUsers();
-  const user = users.find((u) => u.email === email);
-  return user ? user.role : null;
+  // Only treat the designated admin email as admin.
+  if (email === ADMIN_EMAIL) return 'admin';
+  return 'user';
 }
 
 // Populate login/register or user/logout links in nav
