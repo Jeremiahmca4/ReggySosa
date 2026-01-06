@@ -50,21 +50,9 @@ function setCurrentUser(email) {
 
 // Ensure there is at least one admin user (for demo)
 function ensureDefaultAdmin() {
-  const users = loadUsers();
-  // If the designated admin user does not exist, create it with a default password.
-  // We do not treat any other stored user as admin.
-  const existingAdminIndex = users.findIndex((u) => u.email === ADMIN_EMAIL);
-  if (existingAdminIndex === -1) {
-    // Add the admin user. Using a default password; should be updated by actual admin.
-    users.push({ email: ADMIN_EMAIL.toLowerCase(), password: 'admin123', role: 'admin' });
-    saveUsers(users);
-  } else {
-    // Ensure the role for the admin email is always 'admin'.
-    if (users[existingAdminIndex].role !== 'admin') {
-      users[existingAdminIndex].role = 'admin';
-      saveUsers(users);
-    }
-  }
+  // Pre-seeding an admin user is no longer necessary.
+  // Admin will be treated specially only after registration.
+  return;
 }
 
 // === Authentication ===
@@ -74,7 +62,10 @@ function handleRegister() {
   const password = document.getElementById('register-password').value;
   const users = loadUsers();
   if (users.some((u) => u.email === email)) {
-    alert('An account with this email already exists.');
+    // If the email already exists, inform user and redirect to login page
+    alert('Account already exists — please log in.');
+    // Redirect to login page so the user can sign in
+    window.location.href = 'login.html';
     return;
   }
   // Assign role based on whether the email matches the single admin email.
