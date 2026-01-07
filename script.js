@@ -23,15 +23,7 @@ const API_BASE_URL = (typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BA
   ? window.NEXT_PUBLIC_API_BASE_URL
   : 'https://reggysosa-backend.vercel.app';
 
-// Base URL for the backend API. We attempt to read from a global environment
-// variable injected at deploy time (e.g. via Vercel). If it is undefined,
-// fall back to the default backend URL. This value is used when making
-// network requests to persist data. Without it, the app will continue
-// operating purely in localStorage but no requests will be sent.
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BASE_URL
-    ? window.NEXT_PUBLIC_API_BASE_URL
-    : 'https://reggysosa-backend.vercel.app';
+// Note: API_BASE_URL is defined above. Removed duplicate definition below.
 function loadUsers() {
   try {
     return JSON.parse(localStorage.getItem('users')) || [];
@@ -46,21 +38,8 @@ function saveUsers(users) {
 
 function loadTournaments() {
   try {
-    // Fire a background fetch to the backend to synchronise tournaments. This
-    // asynchronous call updates localStorage when it succeeds but does not
-    // block the return of locally stored data. If the network request fails,
-    // the catch is silently ignored and local data remains unchanged.
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/api/tournaments`);
-        if (resp.ok) {
-          const data = await resp.json();
-          localStorage.setItem('tournaments', JSON.stringify(data));
-        }
-      } catch (err) {
-        // Ignore network errors; keep using local data
-      }
-    })();
+    // Return locally stored tournaments. Synchronisation with the backend is
+    // handled explicitly by calling `syncTournamentsFromBackend()` elsewhere.
     return JSON.parse(localStorage.getItem('tournaments')) || [];
   } catch (e) {
     return [];
@@ -243,21 +222,8 @@ function createTeam(name) {
   teams.push(newTeam);
   saveTeams(teams);
   setUserTeam(currentEmail, id);
-  // Persist the newly created team to the backend. We send the team
-  // object as JSON. The request is fire‑and‑forget; any network errors are
-  // silently ignored so the UI remains responsive.
-  try {
-    fetch(`${API_BASE_URL}/api/teams`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newTeam),
-    });
-  } catch (err) {
-    // Ignore network errors
-  }
-  // Persist the new team to the back‑end. This call is fire‑and‑forget;
-  // any network errors will be logged to the console. The backend expects
-  // id, name, captain and members in the request body.
+  // Persist the newly created team to the backend. The request is
+  // fire‑and‑forget; any network errors are ignored to keep the UI responsive.
   try {
     fetch(`${API_BASE_URL}/api/teams`, {
       method: 'POST',
@@ -853,8 +819,7 @@ function registerTeamToTournament(tournamentId, teamId) {
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
   // Persist the registration to the back‑end. This call is fire‑and‑forget;
-  // any network errors will be logged to the console. The backend expects
-  // the teamId in the request body and the tournament ID in the URL.
+  // any network errors are ignored to avoid disrupting the UI.
   try {
     fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
       method: 'POST',
@@ -865,18 +830,6 @@ function registerTeamToTournament(tournamentId, teamId) {
     });
   } catch (err) {
     console.error('Failed to register team on backend:', err);
-  }
-  // Persist the registration to the backend. We send the teamId in the body
-  // and target the specific tournament endpoint. The request is non‑blocking;
-  // any network errors are ignored to avoid disrupting the UI.
-  try {
-    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teamId: teamObj.id }),
-    });
-  } catch (err) {
-    // Ignore network errors
   }
   alert('Team registered successfully.');
   // Re-render details view (if on details page)

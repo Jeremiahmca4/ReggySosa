@@ -58,17 +58,20 @@
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    // On page load, synchronise tournaments and teams from the backend before rendering.
-    window.addEventListener('DOMContentLoaded', async function () {
+    window.addEventListener('DOMContentLoaded', function () {
       populateAuthLinks();
       ensureAdminAccess();
+      // First synchronise tournaments from the backend, then render them.
       if (typeof syncTournamentsFromBackend === 'function') {
-        try { await syncTournamentsFromBackend(); } catch (_) {}
+        syncTournamentsFromBackend().then(() => {
+          renderAdminTournaments();
+        }).catch(() => {
+          // If sync fails, still attempt to render from local data
+          renderAdminTournaments();
+        });
+      } else {
+        renderAdminTournaments();
       }
-      if (typeof syncTeamsFromBackend === 'function') {
-        try { await syncTeamsFromBackend(); } catch (_) {}
-      }
-      renderAdminTournaments();
       document
         .getElementById('create-tournament-form')
         .addEventListener('submit', function (e) {

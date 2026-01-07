@@ -47,23 +47,30 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     // Display tournaments
-    // When the page loads, synchronise data from the back‑end before rendering.
-    window.addEventListener('DOMContentLoaded', async function () {
+    window.addEventListener('DOMContentLoaded', function () {
       populateAuthLinks();
-      // Fetch latest tournaments and teams from the API. Errors are logged
-      // in the console; the UI will still render using whatever data is
-      // available in localStorage if the network request fails.
-      if (typeof syncTournamentsFromBackend === 'function') {
-        try { await syncTournamentsFromBackend(); } catch (_) {}
+      // Synchronise tournaments and teams from the backend first. Once
+      // synchronisation completes (or fails), render the lists. This ensures
+      // that fresh data from Supabase is displayed instead of stale
+      // localStorage only.
+      if (typeof syncTournamentsFromBackend === 'function' && typeof syncTeamsFromBackend === 'function') {
+        Promise.all([syncTournamentsFromBackend(), syncTeamsFromBackend()])
+          .then(() => {
+            renderTournaments();
+            renderUserTeam();
+            renderPastWinners();
+          })
+          .catch(() => {
+            // Even if sync fails, render from local data
+            renderTournaments();
+            renderUserTeam();
+            renderPastWinners();
+          });
+      } else {
+        renderTournaments();
+        renderUserTeam();
+        renderPastWinners();
       }
-      if (typeof syncTeamsFromBackend === 'function') {
-        try { await syncTeamsFromBackend(); } catch (_) {}
-      }
-      renderTournaments();
-      // Render the user's team management section once tournaments are loaded
-      renderUserTeam();
-      // Render past winners after tournaments and user team have been rendered
-      renderPastWinners();
     });
   </script>
 </body>
