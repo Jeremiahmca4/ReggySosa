@@ -33,8 +33,17 @@
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    window.addEventListener('DOMContentLoaded', function () {
+    // On page load, synchronise data from the back‑end before rendering the
+    // tournament details. Without this, the page would rely solely on
+    // stale localStorage data and never issue any network requests.
+    window.addEventListener('DOMContentLoaded', async function () {
       populateAuthLinks();
+      if (typeof syncTournamentsFromBackend === 'function') {
+        try { await syncTournamentsFromBackend(); } catch (_) {}
+      }
+      if (typeof syncTeamsFromBackend === 'function') {
+        try { await syncTeamsFromBackend(); } catch (_) {}
+      }
       const params = new URLSearchParams(window.location.search);
       const id = params.get('id');
       renderTournamentDetails(id);

@@ -58,9 +58,16 @@
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    window.addEventListener('DOMContentLoaded', function () {
+    // On page load, synchronise tournaments and teams from the backend before rendering.
+    window.addEventListener('DOMContentLoaded', async function () {
       populateAuthLinks();
       ensureAdminAccess();
+      if (typeof syncTournamentsFromBackend === 'function') {
+        try { await syncTournamentsFromBackend(); } catch (_) {}
+      }
+      if (typeof syncTeamsFromBackend === 'function') {
+        try { await syncTeamsFromBackend(); } catch (_) {}
+      }
       renderAdminTournaments();
       document
         .getElementById('create-tournament-form')

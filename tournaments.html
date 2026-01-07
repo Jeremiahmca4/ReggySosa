@@ -47,8 +47,18 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     // Display tournaments
-    window.addEventListener('DOMContentLoaded', function () {
+    // When the page loads, synchronise data from the back‑end before rendering.
+    window.addEventListener('DOMContentLoaded', async function () {
       populateAuthLinks();
+      // Fetch latest tournaments and teams from the API. Errors are logged
+      // in the console; the UI will still render using whatever data is
+      // available in localStorage if the network request fails.
+      if (typeof syncTournamentsFromBackend === 'function') {
+        try { await syncTournamentsFromBackend(); } catch (_) {}
+      }
+      if (typeof syncTeamsFromBackend === 'function') {
+        try { await syncTeamsFromBackend(); } catch (_) {}
+      }
       renderTournaments();
       // Render the user's team management section once tournaments are loaded
       renderUserTeam();

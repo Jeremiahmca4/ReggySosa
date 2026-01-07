@@ -12,6 +12,26 @@
 
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
+
+// Base URL for API requests. If window.NEXT_PUBLIC_API_BASE_URL is defined
+// (for example via an inline script or environment variable injection), use that.
+// Otherwise fall back to the hard-coded backend deployment. This ensures
+// the frontend communicates with the persistent back‑end instead of
+// relying solely on localStorage. Adjust the fallback value if your
+// backend is deployed at a different domain.
+const API_BASE_URL = (typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BASE_URL)
+  ? window.NEXT_PUBLIC_API_BASE_URL
+  : 'https://reggysosa-backend.vercel.app';
+
+// Base URL for the backend API. We attempt to read from a global environment
+// variable injected at deploy time (e.g. via Vercel). If it is undefined,
+// fall back to the default backend URL. This value is used when making
+// network requests to persist data. Without it, the app will continue
+// operating purely in localStorage but no requests will be sent.
+const API_BASE_URL =
+  typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BASE_URL
+    ? window.NEXT_PUBLIC_API_BASE_URL
+    : 'https://reggysosa-backend.vercel.app';
 function loadUsers() {
   try {
     return JSON.parse(localStorage.getItem('users')) || [];
@@ -26,6 +46,21 @@ function saveUsers(users) {
 
 function loadTournaments() {
   try {
+    // Fire a background fetch to the backend to synchronise tournaments. This
+    // asynchronous call updates localStorage when it succeeds but does not
+    // block the return of locally stored data. If the network request fails,
+    // the catch is silently ignored and local data remains unchanged.
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/tournaments`);
+        if (resp.ok) {
+          const data = await resp.json();
+          localStorage.setItem('tournaments', JSON.stringify(data));
+        }
+      } catch (err) {
+        // Ignore network errors; keep using local data
+      }
+    })();
     return JSON.parse(localStorage.getItem('tournaments')) || [];
   } catch (e) {
     return [];
@@ -59,6 +94,69 @@ function loadTeams() {
 
 function saveTeams(teams) {
   localStorage.setItem('teams', JSON.stringify(teams));
+}
+
+/**
+ * Synchronise tournaments from the back‑end into localStorage.
+ *
+ * This fetches all tournaments from the API and converts them into the
+ * format used by the frontend. The local tournaments list is replaced
+ * entirely by the data returned from the server. If the request fails,
+ * the existing local data remains untouched. Errors are logged to the
+ * console for debugging purposes.
+ */
+async function syncTournamentsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tournaments`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const transformed = data.map((row) => ({
+        id: (row.id ?? '').toString(),
+        name: row.name,
+        teams: [],
+        maxTeams: row.max_teams ?? row.maxTeams ?? null,
+        startDate: row.start_date ?? row.startDate ?? null,
+        status: row.status || 'open',
+        created: row.created_at ?? row.created ?? new Date().toISOString(),
+        bracket: [],
+        winner: row.winner || null,
+      }));
+      saveTournaments(transformed);
+    }
+  } catch (err) {
+    console.error('Failed to sync tournaments from backend:', err);
+  }
+}
+
+/**
+ * Synchronise teams from the back‑end into localStorage.
+ *
+ * This fetches all teams from the API and converts them into the
+ * local format. Invites are not persisted server‑side, so each team
+ * receives an empty invites array. If the request fails, local data
+ * remains unchanged.
+ */
+async function syncTeamsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teams`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const transformed = data.map((row) => ({
+        id: (row.id ?? '').toString(),
+        name: row.name,
+        captain: row.captain,
+        members: Array.isArray(row.members) ? row.members : [],
+        invites: Array.isArray(row.invites) ? row.invites : [],
+      }));
+      saveTeams(transformed);
+    }
+  } catch (err) {
+    console.error('Failed to sync teams from backend:', err);
+  }
 }
 
 // Retrieve the team object for the current user, if any
@@ -145,6 +243,32 @@ function createTeam(name) {
   teams.push(newTeam);
   saveTeams(teams);
   setUserTeam(currentEmail, id);
+  // Persist the newly created team to the backend. We send the team
+  // object as JSON. The request is fire‑and‑forget; any network errors are
+  // silently ignored so the UI remains responsive.
+  try {
+    fetch(`${API_BASE_URL}/api/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTeam),
+    });
+  } catch (err) {
+    // Ignore network errors
+  }
+  // Persist the new team to the back‑end. This call is fire‑and‑forget;
+  // any network errors will be logged to the console. The backend expects
+  // id, name, captain and members in the request body.
+  try {
+    fetch(`${API_BASE_URL}/api/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, name: trimmed, captain: currentEmail, members: [currentEmail] }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to create team on backend:', err);
+  }
   alert('Team created successfully.');
   return newTeam;
 }
@@ -169,6 +293,20 @@ function inviteToTeam(teamId, inviteEmail) {
   }
   team.invites.push(email);
   saveTeams(teams);
+  // Persist the invite to the back‑end. This call is fire‑and‑forget; any
+  // network errors will be logged to the console. The backend expects the
+  // email in the request body and the team ID in the URL.
+  try {
+    fetch(`${API_BASE_URL}/api/teams/${encodeURIComponent(teamId)}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to send invite to backend:', err);
+  }
   alert('Invitation added. Note: no actual email is sent in this demo.');
 }
 
@@ -582,6 +720,20 @@ function createTournamentFromForm() {
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
+  // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
+  // any network errors will be logged to the console. The backend expects
+  // name, maxTeams and startDate in the request body.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, maxTeams: maxVal, startDate: newTournament.startDate }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to create tournament on backend:', err);
+  }
   // Reset form fields
   nameInput.value = '';
   maxTeamsInput.value = '';
@@ -700,6 +852,32 @@ function registerTeamToTournament(tournamentId, teamId) {
   tournament.teams.push({ id: teamObj.id, name: teamObj.name });
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
+  // Persist the registration to the back‑end. This call is fire‑and‑forget;
+  // any network errors will be logged to the console. The backend expects
+  // the teamId in the request body and the tournament ID in the URL.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: teamObj.id }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to register team on backend:', err);
+  }
+  // Persist the registration to the backend. We send the teamId in the body
+  // and target the specific tournament endpoint. The request is non‑blocking;
+  // any network errors are ignored to avoid disrupting the UI.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: teamObj.id }),
+    });
+  } catch (err) {
+    // Ignore network errors
+  }
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
   // Note: caller should call renderTournamentDetails separately if needed
