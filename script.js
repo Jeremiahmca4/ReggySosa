@@ -13,17 +13,44 @@
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
-// Base URL for API requests. If window.NEXT_PUBLIC_API_BASE_URL is defined
-// (for example via an inline script or environment variable injection), use that.
-// Otherwise fall back to the hard-coded backend deployment. This ensures
-// the frontend communicates with the persistent back‑end instead of
-// relying solely on localStorage. Adjust the fallback value if your
-// backend is deployed at a different domain.
-const API_BASE_URL = (typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BASE_URL)
-  ? window.NEXT_PUBLIC_API_BASE_URL
-  : 'https://reggysosa-backend.vercel.app';
+// === Supabase initialisation ===
+// Attempt to read Supabase credentials from global variables injected at deploy time.
+// These should be provided via NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+const SUPABASE_URL =
+  typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_URL
+    ? window.NEXT_PUBLIC_SUPABASE_URL
+    : '';
+const SUPABASE_ANON_KEY =
+  typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ? window.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    : '';
+// The UMD build of supabase attaches a global `supabase` object. Create a client if credentials are present.
+let supabaseClient = null;
+if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
-// Note: API_BASE_URL is defined above. Removed duplicate definition below.
+/**
+ * Synchronise the Supabase auth session into localStorage.
+ * If a session exists, set currentUser to the authenticated email.
+ * Otherwise, clear currentUser.
+ */
+async function syncSession() {
+  if (!supabaseClient) {
+    return;
+  }
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session && session.user && session.user.email) {
+      // Persist the authenticated email in lower case
+      setCurrentUser(session.user.email.toLowerCase());
+    } else {
+      setCurrentUser(null);
+    }
+  } catch (err) {
+    console.error('Failed to sync Supabase session:', err);
+  }
+}
 function loadUsers() {
   try {
     return JSON.parse(localStorage.getItem('users')) || [];
@@ -38,8 +65,6 @@ function saveUsers(users) {
 
 function loadTournaments() {
   try {
-    // Return locally stored tournaments. Synchronisation with the backend is
-    // handled explicitly by calling `syncTournamentsFromBackend()` elsewhere.
     return JSON.parse(localStorage.getItem('tournaments')) || [];
   } catch (e) {
     return [];
@@ -73,69 +98,6 @@ function loadTeams() {
 
 function saveTeams(teams) {
   localStorage.setItem('teams', JSON.stringify(teams));
-}
-
-/**
- * Synchronise tournaments from the back‑end into localStorage.
- *
- * This fetches all tournaments from the API and converts them into the
- * format used by the frontend. The local tournaments list is replaced
- * entirely by the data returned from the server. If the request fails,
- * the existing local data remains untouched. Errors are logged to the
- * console for debugging purposes.
- */
-async function syncTournamentsFromBackend() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/tournaments`, {
-      headers: { Accept: 'application/json' },
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      const transformed = data.map((row) => ({
-        id: (row.id ?? '').toString(),
-        name: row.name,
-        teams: [],
-        maxTeams: row.max_teams ?? row.maxTeams ?? null,
-        startDate: row.start_date ?? row.startDate ?? null,
-        status: row.status || 'open',
-        created: row.created_at ?? row.created ?? new Date().toISOString(),
-        bracket: [],
-        winner: row.winner || null,
-      }));
-      saveTournaments(transformed);
-    }
-  } catch (err) {
-    console.error('Failed to sync tournaments from backend:', err);
-  }
-}
-
-/**
- * Synchronise teams from the back‑end into localStorage.
- *
- * This fetches all teams from the API and converts them into the
- * local format. Invites are not persisted server‑side, so each team
- * receives an empty invites array. If the request fails, local data
- * remains unchanged.
- */
-async function syncTeamsFromBackend() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/teams`, {
-      headers: { Accept: 'application/json' },
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      const transformed = data.map((row) => ({
-        id: (row.id ?? '').toString(),
-        name: row.name,
-        captain: row.captain,
-        members: Array.isArray(row.members) ? row.members : [],
-        invites: Array.isArray(row.invites) ? row.invites : [],
-      }));
-      saveTeams(transformed);
-    }
-  } catch (err) {
-    console.error('Failed to sync teams from backend:', err);
-  }
 }
 
 // Retrieve the team object for the current user, if any
@@ -222,19 +184,6 @@ function createTeam(name) {
   teams.push(newTeam);
   saveTeams(teams);
   setUserTeam(currentEmail, id);
-  // Persist the newly created team to the backend. The request is
-  // fire‑and‑forget; any network errors are ignored to keep the UI responsive.
-  try {
-    fetch(`${API_BASE_URL}/api/teams`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id, name: trimmed, captain: currentEmail, members: [currentEmail] }),
-    }).catch(() => {
-      /* ignore errors */
-    });
-  } catch (err) {
-    console.error('Failed to create team on backend:', err);
-  }
   alert('Team created successfully.');
   return newTeam;
 }
@@ -259,20 +208,6 @@ function inviteToTeam(teamId, inviteEmail) {
   }
   team.invites.push(email);
   saveTeams(teams);
-  // Persist the invite to the back‑end. This call is fire‑and‑forget; any
-  // network errors will be logged to the console. The backend expects the
-  // email in the request body and the team ID in the URL.
-  try {
-    fetch(`${API_BASE_URL}/api/teams/${encodeURIComponent(teamId)}/invite`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    }).catch(() => {
-      /* ignore errors */
-    });
-  } catch (err) {
-    console.error('Failed to send invite to backend:', err);
-  }
   alert('Invitation added. Note: no actual email is sent in this demo.');
 }
 
@@ -380,55 +315,104 @@ function ensureDefaultAdmin() {
 }
 
 // === Authentication ===
-function handleRegister() {
+async function handleRegister() {
   ensureDefaultAdmin();
   const email = document.getElementById('register-email').value.trim().toLowerCase();
   const password = document.getElementById('register-password').value;
-  const users = loadUsers();
-  if (users.some((u) => u.email === email)) {
-    // If the email already exists, inform user and redirect to login page
-    alert('Account already exists — please log in.');
-    // Redirect to login page so the user can sign in
-    window.location.href = 'login.html';
-    return;
-  }
-  // Assign role based on whether the email matches the single admin email.
-  const role = email === ADMIN_EMAIL ? 'admin' : 'user';
   // Capture the optional Discord handle
   const discordInput = document.getElementById('register-discord');
   const discord = discordInput ? discordInput.value.trim() : '';
-  users.push({ email, password, role, discord, teamId: null });
-  saveUsers(users);
+  // If a Supabase client is configured, register the user via Supabase Auth.
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        alert(error.message || 'Registration failed.');
+        return;
+      }
+    } catch (err) {
+      alert('Registration failed.');
+      console.error(err);
+      return;
+    }
+  } else {
+    // Fallback: ensure email is unique in local storage
+    const users = loadUsers();
+    if (users.some((u) => u.email === email)) {
+      alert('Account already exists — please log in.');
+      window.location.href = 'login.html';
+      return;
+    }
+  }
+  // Update or create the user record in local storage without storing the password.
+  let usersList = loadUsers();
+  const existing = usersList.find((u) => u.email === email);
+  const role = email === ADMIN_EMAIL ? 'admin' : 'user';
+  if (existing) {
+    existing.role = role;
+    existing.discord = discord;
+    // Do not update password for security reasons
+  } else {
+    usersList.push({ email, password: '', role, discord, teamId: null });
+  }
+  saveUsers(usersList);
   setCurrentUser(email);
-  // Accept any pending invites to teams
   acceptInvitesForUser(email);
   alert('Registration successful! You are now logged in.');
   window.location.href = 'tournaments.html';
 }
 
-function handleLogin() {
+async function handleLogin() {
   ensureDefaultAdmin();
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const password = document.getElementById('login-password').value;
-  const users = loadUsers();
-  const user = users.find((u) => u.email === email && u.password === password);
-  if (!user) {
-    alert('Invalid email or password.');
-    return;
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert(error.message || 'Invalid email or password.');
+        return;
+      }
+    } catch (err) {
+      alert('Login failed.');
+      console.error(err);
+      return;
+    }
+  } else {
+    // Fallback: verify credentials against local storage
+    const users = loadUsers();
+    const user = users.find((u) => u.email === email && u.password === password);
+    if (!user) {
+      alert('Invalid email or password.');
+      return;
+    }
+  }
+  // Ensure a user record exists in local storage to track roles and team membership.
+  let usersList = loadUsers();
+  let existing = usersList.find((u) => u.email === email);
+  if (!existing) {
+    const role = email === ADMIN_EMAIL ? 'admin' : 'user';
+    usersList.push({ email, password: '', role, discord: '', teamId: null });
+    saveUsers(usersList);
   }
   setCurrentUser(email);
-  // Accept any pending invites to teams after logging in
   acceptInvitesForUser(email);
   alert('Login successful!');
-  // redirect to previous page or tournaments
   const params = new URLSearchParams(window.location.search);
   const redirect = params.get('redirect');
   window.location.href = redirect || 'tournaments.html';
 }
 
-function logout() {
+async function logout() {
+  // Sign out from Supabase session if configured
+  if (supabaseClient) {
+    try {
+      await supabaseClient.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out of Supabase:', err);
+    }
+  }
   setCurrentUser(null);
-  // reload current page to update UI
   window.location.reload();
 }
 
@@ -686,20 +670,6 @@ function createTournamentFromForm() {
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
-  // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
-  // any network errors will be logged to the console. The backend expects
-  // name, maxTeams and startDate in the request body.
-  try {
-    fetch(`${API_BASE_URL}/api/tournaments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, maxTeams: maxVal, startDate: newTournament.startDate }),
-    }).catch(() => {
-      /* ignore errors */
-    });
-  } catch (err) {
-    console.error('Failed to create tournament on backend:', err);
-  }
   // Reset form fields
   nameInput.value = '';
   maxTeamsInput.value = '';
@@ -818,19 +788,6 @@ function registerTeamToTournament(tournamentId, teamId) {
   tournament.teams.push({ id: teamObj.id, name: teamObj.name });
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
-  // Persist the registration to the back‑end. This call is fire‑and‑forget;
-  // any network errors are ignored to avoid disrupting the UI.
-  try {
-    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teamId: teamObj.id }),
-    }).catch(() => {
-      /* ignore errors */
-    });
-  } catch (err) {
-    console.error('Failed to register team on backend:', err);
-  }
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
   // Note: caller should call renderTournamentDetails separately if needed

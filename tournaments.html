@@ -43,34 +43,27 @@
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    // Display tournaments
-    window.addEventListener('DOMContentLoaded', function () {
-      populateAuthLinks();
-      // Synchronise tournaments and teams from the backend first. Once
-      // synchronisation completes (or fails), render the lists. This ensures
-      // that fresh data from Supabase is displayed instead of stale
-      // localStorage only.
-      if (typeof syncTournamentsFromBackend === 'function' && typeof syncTeamsFromBackend === 'function') {
-        Promise.all([syncTournamentsFromBackend(), syncTeamsFromBackend()])
-          .then(() => {
-            renderTournaments();
-            renderUserTeam();
-            renderPastWinners();
-          })
-          .catch(() => {
-            // Even if sync fails, render from local data
-            renderTournaments();
-            renderUserTeam();
-            renderPastWinners();
-          });
-      } else {
-        renderTournaments();
-        renderUserTeam();
-        renderPastWinners();
+    window.addEventListener('DOMContentLoaded', async function () {
+      // Sync Supabase session to local storage before rendering UI
+      if (typeof syncSession === 'function') {
+        await syncSession();
       }
+      populateAuthLinks();
+      // Fetch latest tournaments and teams from the backend before rendering
+      if (typeof syncTournamentsFromBackend === 'function') {
+        await syncTournamentsFromBackend();
+      }
+      if (typeof syncTeamsFromBackend === 'function') {
+        await syncTeamsFromBackend();
+      }
+      renderTournaments();
+      renderUserTeam();
+      renderPastWinners();
     });
   </script>
 </body>

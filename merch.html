@@ -32,10 +32,15 @@
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    window.addEventListener('DOMContentLoaded', function () {
+    window.addEventListener('DOMContentLoaded', async function () {
+      if (typeof syncSession === 'function') {
+        await syncSession();
+      }
       populateAuthLinks();
     });
   </script>

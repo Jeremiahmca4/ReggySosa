@@ -55,29 +55,27 @@
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    window.addEventListener('DOMContentLoaded', function () {
+    window.addEventListener('DOMContentLoaded', async function () {
+      // Sync Supabase session first
+      if (typeof syncSession === 'function') {
+        await syncSession();
+      }
       populateAuthLinks();
       ensureAdminAccess();
-      // First synchronise tournaments from the backend, then render them.
+      // Sync from backend to get latest tournaments
       if (typeof syncTournamentsFromBackend === 'function') {
-        syncTournamentsFromBackend().then(() => {
-          renderAdminTournaments();
-        }).catch(() => {
-          // If sync fails, still attempt to render from local data
-          renderAdminTournaments();
-        });
-      } else {
-        renderAdminTournaments();
+        await syncTournamentsFromBackend();
       }
-      document
-        .getElementById('create-tournament-form')
-        .addEventListener('submit', function (e) {
-          e.preventDefault();
-          createTournamentFromForm();
-        });
+      renderAdminTournaments();
+      document.getElementById('create-tournament-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        createTournamentFromForm();
+      });
     });
   </script>
 </body>

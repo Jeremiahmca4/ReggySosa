@@ -50,17 +50,21 @@
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    window.addEventListener('DOMContentLoaded', function () {
+    window.addEventListener('DOMContentLoaded', async function () {
+      // Sync Supabase session before populating UI
+      if (typeof syncSession === 'function') {
+        await syncSession();
+      }
       populateAuthLinks();
-      document
-        .getElementById('register-form')
-        .addEventListener('submit', function (e) {
-          e.preventDefault();
-          handleRegister();
-        });
+      document.getElementById('register-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        await handleRegister();
+      });
       // Add handler to reset local data (users and current session)
       const resetLink = document.getElementById('reset-data');
       if (resetLink) {
@@ -70,7 +74,6 @@
             localStorage.removeItem('users');
             localStorage.removeItem('currentUser');
             alert('Local data cleared. Please register again.');
-            // Reload page after clearing to ensure clean state
             window.location.href = 'register.html';
           }
         });
