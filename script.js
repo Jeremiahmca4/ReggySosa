@@ -16,14 +16,15 @@ const ADMIN_EMAIL = '93pacc93@gmail.com';
 // === Supabase initialisation ===
 // Attempt to read Supabase credentials from global variables injected at deploy time.
 // These should be provided via NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+// Supabase configuration. Use values provided via runtime globals if available,
+// otherwise fall back to the project's built‑in defaults.
+// These defaults correspond to your Supabase project and anon key.
 const SUPABASE_URL =
-  typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_URL
-    ? window.NEXT_PUBLIC_SUPABASE_URL
-    : '';
+  (typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_URL) ||
+  'https://jutrghyaucdupgiwixtv.supabase.co';
 const SUPABASE_ANON_KEY =
-  typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ? window.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    : '';
+  (typeof window !== 'undefined' && window.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1dHJnaHlhdWNkdXBnaXdpeHR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MDIxODcsImV4cCI6MjA4MzM3ODE4N30.XiJK6YQzVkofTK8ZyYYK6ZEzTfW3rX-LbuEGaT93aYc';
 // The UMD build of supabase attaches a global `supabase` object. Create a client if credentials are present.
 let supabaseClient = null;
 if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
