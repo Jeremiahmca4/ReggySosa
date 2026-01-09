@@ -31,6 +31,75 @@ if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+// === Backend API base URL ===
+// Define the base URL for the server‑side API. This allows the frontend to
+// communicate with the Next.js back‑end that persists data to Supabase.
+// It will prefer a runtime value exposed on the global object (via env.js)
+// but fall back to the production backend hosted on Vercel.
+const API_BASE_URL =
+  (typeof window !== 'undefined' && window.NEXT_PUBLIC_API_BASE_URL) ||
+  'https://reggysosa-backend.vercel.app';
+
+/**
+ * Synchronise tournaments from the back‑end into localStorage.
+ *
+ * This fetches all tournaments from the API, maps the fields into the local
+ * storage format and saves them. If the request fails for any reason, the
+ * existing local data remains untouched.
+ */
+async function syncTournamentsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tournaments`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const transformed = data.map((row) => ({
+        id: (row.id ?? '').toString(),
+        name: row.name,
+        teams: [],
+        maxTeams: row.max_teams ?? row.maxTeams ?? null,
+        startDate: row.start_date ?? row.startDate ?? null,
+        status: row.status || 'open',
+        created: row.created_at ?? row.created ?? new Date().toISOString(),
+        bracket: [],
+        winner: row.winner || null,
+      }));
+      saveTournaments(transformed);
+    }
+  } catch (err) {
+    console.error('Failed to sync tournaments from backend:', err);
+  }
+}
+
+/**
+ * Synchronise teams from the back‑end into localStorage.
+ *
+ * This fetches all teams from the API and converts them into the local
+ * format. Invites are persisted server‑side, so they are included in
+ * the returned data. If the request fails, local data remains unchanged.
+ */
+async function syncTeamsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teams`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const transformed = data.map((row) => ({
+        id: (row.id ?? '').toString(),
+        name: row.name,
+        captain: row.captain,
+        members: Array.isArray(row.members) ? row.members : [],
+        invites: Array.isArray(row.invites) ? row.invites : [],
+      }));
+      saveTeams(transformed);
+    }
+  } catch (err) {
+    console.error('Failed to sync teams from backend:', err);
+  }
+}
+
 /**
  * Synchronise the Supabase auth session into localStorage.
  * If a session exists, set currentUser to the authenticated email.
@@ -174,7 +243,13 @@ function createTeam(name) {
     alert('A team with this name already exists.');
     return null;
   }
-  const id = Date.now().toString();
+  // Generate a unique identifier for the team. Use crypto.randomUUID() when
+  // available (supported in modern browsers) and fall back to a timestamp
+  // string in older environments.
+  const id =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Date.now().toString();
   const newTeam = {
     id: id,
     name: trimmed,
@@ -185,6 +260,25 @@ function createTeam(name) {
   teams.push(newTeam);
   saveTeams(teams);
   setUserTeam(currentEmail, id);
+  // Persist the new team to the back‑end. This call is fire‑and‑forget; any
+  // network errors will be silently ignored so the UI remains responsive.
+  try {
+    fetch(`${API_BASE_URL}/api/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newTeam.id,
+        name: newTeam.name,
+        captain: newTeam.captain,
+        members: newTeam.members,
+        invites: newTeam.invites,
+      }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to create team on backend:', err);
+  }
   alert('Team created successfully.');
   return newTeam;
 }
@@ -209,6 +303,20 @@ function inviteToTeam(teamId, inviteEmail) {
   }
   team.invites.push(email);
   saveTeams(teams);
+  // Persist the invite to the back‑end. This call updates the invites
+  // array for the team on the server. It is non‑blocking; any network
+  // errors will be ignored to avoid disrupting the UI.
+  try {
+    fetch(`${API_BASE_URL}/api/teams/${encodeURIComponent(teamId)}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to invite user on backend:', err);
+  }
   alert('Invitation added. Note: no actual email is sent in this demo.');
 }
 
@@ -671,6 +779,24 @@ function createTournamentFromForm() {
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
+  // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
+  // any network errors will be logged to the console. The backend expects
+  // name, maxTeams and startDate in the request body.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        maxTeams: maxVal,
+        startDate: newTournament.startDate,
+      }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to create tournament on backend:', err);
+  }
   // Reset form fields
   nameInput.value = '';
   maxTeamsInput.value = '';
@@ -789,6 +915,20 @@ function registerTeamToTournament(tournamentId, teamId) {
   tournament.teams.push({ id: teamObj.id, name: teamObj.name });
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
+  // Persist the registration to the back‑end. We send the teamId in the body
+  // and target the specific tournament endpoint. The request is non‑blocking;
+  // any network errors are ignored to avoid disrupting the UI.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: teamObj.id }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to register team on backend:', err);
+  }
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
   // Note: caller should call renderTournamentDetails separately if needed
