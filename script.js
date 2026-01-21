@@ -31,6 +31,24 @@ if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+// === Static champions ===
+// A list of past tournaments and their champions prior to this website's launch.
+// These are displayed in the Past Champions section on the tournaments page.
+const STATIC_CHAMPIONS = [
+  {
+    tournament: 'The Inaugural Sosa Cup',
+    champion: 'P L A Y E R S',
+  },
+  {
+    tournament: 'October Sosa Cup',
+    champion: 'les canadiens francais',
+  },
+  {
+    tournament: "Reggy Sosa's Holiday Classic Cup",
+    champion: 'les canadiens français',
+  },
+];
+
 // === Backend API base URL ===
 // Define the base URL for the server‑side API. This allows the frontend to
 // communicate with the Next.js back‑end that persists data to Supabase.
@@ -683,6 +701,34 @@ function renderPastWinners() {
   });
 }
 
+/**
+ * Render the list of pre‑site tournament champions. These champions come from
+ * tournaments held before this site existed and are defined in STATIC_CHAMPIONS.
+ * The section is always displayed if STATIC_CHAMPIONS is non‑empty.
+ */
+function renderStaticChampions() {
+  const section = document.getElementById('past-champions-section');
+  const listEl = document.getElementById('past-champions-list');
+  if (!section || !listEl) return;
+  listEl.innerHTML = '';
+  if (!Array.isArray(STATIC_CHAMPIONS) || STATIC_CHAMPIONS.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  STATIC_CHAMPIONS.forEach((item) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card';
+    const title = document.createElement('h3');
+    title.textContent = item.tournament;
+    card.appendChild(title);
+    const champEl = document.createElement('p');
+    champEl.textContent = 'Champion: ' + item.champion;
+    card.appendChild(champEl);
+    listEl.appendChild(card);
+  });
+}
+
 function renderAdminTournaments() {
   const listEl = document.getElementById('admin-tournament-list');
   if (!listEl) return;
@@ -883,6 +929,40 @@ function editTournament(id) {
   }
   tournaments[index] = t;
   saveTournaments(tournaments);
+  // Persist the updated tournament details to the back‑end. If a specific
+  // update endpoint exists on the server, call it. Otherwise, attempt to
+  // update via Supabase if the client is configured. We prefer calling
+  // the REST API, but fall back to Supabase client update if available.
+  (async () => {
+    // Try REST API update if available
+    try {
+      await fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: t.name,
+          maxTeams: t.maxTeams,
+          startDate: t.startDate,
+        }),
+      });
+    } catch (err) {
+      // If fetch fails or no endpoint, try Supabase direct update
+      if (supabaseClient) {
+        try {
+          await supabaseClient
+            .from('tournaments')
+            .update({
+              name: t.name,
+              max_teams: t.maxTeams,
+              start_date: t.startDate || null,
+            })
+            .eq('id', id);
+        } catch (e) {
+          console.error('Failed to update tournament in Supabase:', e);
+        }
+      }
+    }
+  })();
   renderAdminTournaments();
   alert('Tournament updated.');
 }

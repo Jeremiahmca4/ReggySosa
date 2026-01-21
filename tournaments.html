@@ -40,6 +40,11 @@
       <h2>Past Winners</h2>
       <div id="past-winners-list" class="tournament-list"></div>
     </section>
+    <!-- Static past champions section: always visible if champions are defined. Populated by script.js. -->
+    <section id="past-champions-section" style="display:none;">
+      <h2>Past Champions</h2>
+      <div id="past-champions-list" class="tournament-list"></div>
+    </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -65,6 +70,7 @@
       renderTournaments();
       renderUserTeam();
       renderPastWinners();
+      renderStaticChampions();
     });
   </script>
 </body>
