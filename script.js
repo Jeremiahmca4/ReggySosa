@@ -279,6 +279,17 @@ function createTeam(name) {
   } catch (err) {
     console.error('Failed to create team on backend:', err);
   }
+  // Optionally refresh teams from the backend to keep IDs in sync. This
+  // call is non‑blocking; any errors are ignored.
+  if (typeof syncTeamsFromBackend === 'function') {
+    try {
+      syncTeamsFromBackend().catch(() => {
+        /* ignore errors */
+      });
+    } catch (_) {
+      /* ignore */
+    }
+  }
   alert('Team created successfully.');
   return newTeam;
 }
@@ -802,6 +813,18 @@ function createTournamentFromForm() {
   maxTeamsInput.value = '';
   if (dateInput) {
     dateInput.value = '';
+  }
+  // Optionally refresh from the back‑end so the local list uses the
+  // canonical data and avoids duplicates. This call is fire‑and‑forget;
+  // failures are ignored.
+  if (typeof syncTournamentsFromBackend === 'function') {
+    try {
+      syncTournamentsFromBackend().catch(() => {
+        /* ignore errors */
+      });
+    } catch (_) {
+      /* ignore */
+    }
   }
   renderAdminTournaments();
   alert('Tournament created successfully.');

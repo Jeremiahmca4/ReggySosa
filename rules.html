@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Tournament Rules</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="logo.png" alt="Reggy Sosa logo" class="logo-img" />
+        <span>Reggy&nbsp;Sosa</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <!-- Link to the rules page itself. This makes the section easily accessible from anywhere on the site. -->
+        <li><a href="rules.html">Rules</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>Official Tournament Rules</h1>
+    <!-- Format Section -->
+    <section>
+      <h2>Format</h2>
+      <ul>
+        <li>Single Elimination</li>
+        <li>1 Game per round</li>
+        <li>Crossplay ON (PS5 + Xbox)</li>
+        <li>NA-East servers</li>
+      </ul>
+    </section>
+    <!-- Setup Instructions -->
+    <section>
+      <h2>How to Set Up Your Private Match (World of CHEL)</h2>
+      <p>Both teams go to:</p>
+      <p><strong>World of CHEL → Clubs → Play → Private Match</strong></p>
+      <p>Use these Match Settings:</p>
+      <ul>
+        <li>Game Type: <strong>Private Game</strong></li>
+        <li>Password: <strong>(Generated for each match)</strong></li>
+        <li>Server Selection: <strong>North America East</strong></li>
+        <li>Replay Skipping: <strong>Yes</strong></li>
+        <li>Period Length: <strong>3 Minutes</strong></li>
+        <li>Grudge Match Game: <strong>Off</strong></li>
+        <li>Use Best Game Location: <strong>Relaxed</strong></li>
+        <li>Side Selection: <strong>(Highest Seed is Home)</strong></li>
+      </ul>
+      <p><em>Example:</em></p>
+      <p>Seed 2 vs Seed 5</p>
+      <p>Seed 2 selects Home</p>
+      <p>Seed 5 selects Away</p>
+      <p>Both players must pick the correct side or the game won’t match.</p>
+      <p>
+        After settings are entered, both teams press <strong>Search</strong> at the same time.<br />
+        → The game will auto‑match you based on password + side selection.
+      </p>
+      <p><strong>Lag‑outs = DQ (no exceptions)</strong></p>
+    </section>
+    <!-- Gameplay Rules -->
+    <section>
+      <h2>Gameplay Rules</h2>
+      <ul>
+        <li>Grudge Match setting = <strong>OFF</strong></li>
+        <li>Lag‑outs = <strong>DQ</strong> (no replays)</li>
+        <li>No pause abuse or toxic behavior</li>
+        <li>If your opponent no‑shows after 10 minutes, ping a mod in ⁠❓・tourney‑questions</li>
+      </ul>
+    </section>
+    <!-- Score Reporting -->
+    <section>
+      <h2>Reporting Scores</h2>
+      <ul>
+        <li>
+          Winner must post a screenshot of the final score in
+          ⁠🧊・score‑submissions in Reggy&nbsp;Sosa’s Discord
+        </li>
+        <li>No screenshot = no win</li>
+      </ul>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Set the current year in the footer and initialise auth links
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', async function () {
+      if (typeof syncSession === 'function') {
+        await syncSession();
+      }
+      populateAuthLinks();
+    });
+  </script>
+</body>
+</html>
