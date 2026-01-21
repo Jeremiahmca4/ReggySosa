@@ -72,17 +72,47 @@ async function syncTournamentsFromBackend() {
     });
     const data = await res.json();
     if (Array.isArray(data)) {
-      const transformed = data.map((row) => ({
-        id: (row.id ?? '').toString(),
-        name: row.name,
-        teams: [],
-        maxTeams: row.max_teams ?? row.maxTeams ?? null,
-        startDate: row.start_date ?? row.startDate ?? null,
-        status: row.status || 'open',
-        created: row.created_at ?? row.created ?? new Date().toISOString(),
-        bracket: [],
-        winner: row.winner || null,
-      }));
+      const transformed = [];
+      for (const row of data) {
+        const tournamentObj = {
+          id: (row.id ?? '').toString(),
+          name: row.name,
+          teams: [],
+          maxTeams: row.max_teams ?? row.maxTeams ?? null,
+          startDate: row.start_date ?? row.startDate ?? null,
+          status: row.status || 'open',
+          created: row.created_at ?? row.created ?? new Date().toISOString(),
+          bracket: [],
+          winner: row.winner || null,
+        };
+        // If we have a Supabase client, fetch registered teams for this tournament.
+        if (supabaseClient) {
+          try {
+            // Get all team IDs registered for this tournament
+            const { data: regs, error: regsErr } = await supabaseClient
+              .from('tournament_registrations')
+              .select('team_id')
+              .eq('tournament_id', row.id);
+            if (!regsErr && Array.isArray(regs) && regs.length > 0) {
+              const teamIds = regs.map((r) => r.team_id);
+              // Fetch team names for these IDs
+              const { data: teamsData, error: teamsErr } = await supabaseClient
+                .from('teams')
+                .select('id,name')
+                .in('id', teamIds);
+              if (!teamsErr && Array.isArray(teamsData)) {
+                tournamentObj.teams = teamsData.map((t) => ({
+                  id: (t.id ?? '').toString(),
+                  name: t.name,
+                }));
+              }
+            }
+          } catch (err) {
+            console.error('Failed to fetch teams for tournament', row.id, err);
+          }
+        }
+        transformed.push(tournamentObj);
+      }
       saveTournaments(transformed);
     }
   } catch (err) {
@@ -1031,6 +1061,19 @@ function registerTeamToTournament(tournamentId, teamId) {
     });
   } catch (err) {
     console.error('Failed to register team on backend:', err);
+  }
+  // After registering the team on the server, refresh tournaments from
+  // the back‑end so that the local state picks up the canonical data
+  // (including team registrations). This call is fire‑and‑forget;
+  // failures are ignored to keep the UI responsive.
+  if (typeof syncTournamentsFromBackend === 'function') {
+    try {
+      syncTournamentsFromBackend().catch(() => {
+        /* ignore errors */
+      });
+    } catch (_) {
+      /* ignore */
+    }
   }
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
