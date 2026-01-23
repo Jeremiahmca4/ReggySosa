@@ -52,6 +52,16 @@
         <!-- Populated by script.js -->
       </div>
     </section>
+    <!-- Admin users listing. Displays all registered users with their Discord handles. -->
+    <section id="admin-users-section" style="margin-top: 2rem;">
+      <h2>Registered Users</h2>
+      <ul id="users-list" class="admin-users-list"></ul>
+    </section>
+    <!-- Admin teams listing. Displays all teams on the platform with captain Discord handles. -->
+    <section id="admin-teams-section" style="margin-top: 2rem;">
+      <h2>Registered Teams</h2>
+      <ul id="admin-teams-list" class="admin-teams-list"></ul>
+    </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -73,6 +83,21 @@
         await syncTournamentsFromBackend();
       }
       renderAdminTournaments();
+      // Render lists of users and teams for the admin
+      if (typeof renderAdminUsers === 'function') {
+        try {
+          await renderAdminUsers();
+        } catch (err) {
+          console.error('Failed to render admin users list:', err);
+        }
+      }
+      if (typeof renderAdminTeams === 'function') {
+        try {
+          await renderAdminTeams();
+        } catch (err) {
+          console.error('Failed to render admin teams list:', err);
+        }
+      }
       document.getElementById('create-tournament-form').addEventListener('submit', function (e) {
         e.preventDefault();
         createTournamentFromForm();

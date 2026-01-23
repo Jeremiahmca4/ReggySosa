@@ -833,6 +833,111 @@ function renderAdminTournaments() {
   });
 }
 
+/**
+ * Render a list of all registered users (by email and Discord handle) for the
+ * admin dashboard. This function will attempt to fetch the data from a
+ * Supabase `profiles` table first if a Supabase client is configured. If
+ * that fails or no data is returned, it falls back to the local `users`
+ * list stored in the browser. The list is rendered into the element with
+ * ID `users-list` on admin.html.
+ */
+async function renderAdminUsers() {
+  const ul = document.getElementById('users-list');
+  if (!ul) return;
+  let usersArray = [];
+  // Attempt to fetch profiles from Supabase if a client is available
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        usersArray = data.map((row) => ({
+          email: (row.email || '').toLowerCase(),
+          discord: row.discord || '',
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch profiles from Supabase:', err);
+    }
+  }
+  // Fall back to local storage if no users were loaded
+  if (usersArray.length === 0) {
+    const localUsers = loadUsers();
+    usersArray = localUsers.map((u) => ({
+      email: (u.email || '').toLowerCase(),
+      discord: u.discord || '',
+    }));
+  }
+  // Sort users by email for consistent ordering
+  usersArray.sort((a, b) => (a.email < b.email ? -1 : a.email > b.email ? 1 : 0));
+  // Render list
+  ul.innerHTML = '';
+  usersArray.forEach((u) => {
+    const li = document.createElement('li');
+    li.textContent = u.email + ' — Discord: ' + (u.discord || '(none)');
+    ul.appendChild(li);
+  });
+}
+
+/**
+ * Render a list of all registered teams for the admin dashboard, including
+ * the Discord handle of each team captain if available. This function
+ * synchronises teams from the back‑end first (if configured) and then
+ * reads teams from local storage. It also loads user data to map
+ * captain emails to Discord handles. The result is rendered into the
+ * element with ID `admin-teams-list` on admin.html.
+ */
+async function renderAdminTeams() {
+  const ul = document.getElementById('admin-teams-list');
+  if (!ul) return;
+  // Ensure local teams data is up to date by syncing from the back‑end
+  if (typeof syncTeamsFromBackend === 'function') {
+    try {
+      await syncTeamsFromBackend();
+    } catch (err) {
+      console.error('Failed to sync teams from backend:', err);
+    }
+  }
+  const teams = loadTeams();
+  // Fetch users (email + discord) using the same helper as renderAdminUsers
+  let usersArray = [];
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        usersArray = data.map((row) => ({
+          email: (row.email || '').toLowerCase(),
+          discord: row.discord || '',
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch profiles from Supabase:', err);
+    }
+  }
+  if (usersArray.length === 0) {
+    const localUsers = loadUsers();
+    usersArray = localUsers.map((u) => ({
+      email: (u.email || '').toLowerCase(),
+      discord: u.discord || '',
+    }));
+  }
+  // Build a lookup for discord by email
+  const discordMap = {};
+  usersArray.forEach((u) => {
+    discordMap[u.email] = u.discord || '';
+  });
+  // Sort teams by name for consistent ordering
+  teams.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  // Render list
+  ul.innerHTML = '';
+  teams.forEach((team) => {
+    const li = document.createElement('li');
+    const captainEmail = (team.captain || '').toLowerCase();
+    const captainDiscord = discordMap[captainEmail] || '';
+    li.textContent = `${team.name} — Captain: ${team.captain} (Discord: ${captainDiscord || '(none)'})`;
+    ul.appendChild(li);
+  });
+}
+
 function createTournamentFromForm() {
   const nameInput = document.getElementById('tournament-name');
   const maxTeamsInput = document.getElementById('tournament-max-teams');
@@ -1180,19 +1285,41 @@ function renderTournamentDetails(id) {
     const teamsHeading = document.createElement('h3');
     teamsHeading.textContent = 'Registered Teams';
     const teamsList = document.createElement('ul');
-    teamsList.className = 'teams-list';
+      teamsList.className = 'teams-list';
     tournament.teams.forEach((team) => {
       const li = document.createElement('li');
       let name;
+      let idVal;
       if (typeof team === 'string') {
         name = team;
+        idVal = null;
       } else {
         name = team.name;
+        idVal = team.id;
+      }
+      // Determine captain email and discord handle if possible
+      let captainEmail = '';
+      let captainDiscord = '';
+      if (idVal) {
+        const fullTeam = loadTeams().find((t) => t.id === idVal);
+        if (fullTeam) {
+          captainEmail = fullTeam.captain || '';
+          // Look up discord handle from local users list
+          const u = loadUsers().find((usr) => usr.email.toLowerCase() === (captainEmail || '').toLowerCase());
+          if (u && u.discord) {
+            captainDiscord = u.discord;
+          }
+        }
       }
       // If admin, allow removing teams before tournament starts
       if (role === 'admin' && tournament.status !== 'started') {
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = name;
+        // Include captain and discord info if available
+        if (captainEmail) {
+          nameSpan.textContent = `${name} — Captain: ${captainEmail} (Discord: ${captainDiscord || '(none)'})`;
+        } else {
+          nameSpan.textContent = name;
+        }
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove';
         removeBtn.className = 'delete';
@@ -1207,7 +1334,12 @@ function renderTournamentDetails(id) {
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);
       } else {
-        li.textContent = name;
+        // Non-admin view: show name and captain info
+        if (captainEmail) {
+          li.textContent = `${name} — Captain: ${captainEmail} (Discord: ${captainDiscord || '(none)'})`;
+        } else {
+          li.textContent = name;
+        }
       }
       teamsList.appendChild(li);
     });
