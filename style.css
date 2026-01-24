@@ -48,6 +48,10 @@ header {
   height: 40px;
   width: 40px;
   object-fit: contain;
+  /* Remove visible background by blending with dark site background */
+  /* Darken blend removes light backgrounds on the logo */
+  mix-blend-mode: darken;
+  filter: brightness(1.5);
 }
 
 .nav-links {
@@ -192,12 +196,30 @@ h2 {
 }
 
 /* Hero buttons layout */
+/* Hero buttons: stacked vertically and centred */
 .hero-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem; /* approximately 12px vertical spacing */
   margin-top: 1rem;
+}
+
+/* Ensure hero CTA buttons share the same width */
+.hero-buttons .button,
+.hero-buttons .secondary-button {
+  width: 230px !important;
+  text-align: center;
+  margin: 0 auto;
+  display: block;
+}
+
+/* Remove default margin-top from primary and secondary buttons within the hero
+   so that spacing is controlled solely by the flex gap. Without this override
+   the .button global margin-top would add extra space above the first CTA. */
+.hero-buttons .button,
+.hero-buttons .secondary-button {
+  margin-top: 0 !important;
 }
 
 /* Secondary button for hero section */
@@ -265,13 +287,18 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Ensure cards are consistently sized */
+  min-height: 200px;
 }
 .feature-card h3 {
   color: #00fff0;
   margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 .feature-card p {
   color: #b0b8d1;
+  font-size: 0.9rem;
 }
 
 /* Social links section separate styling */
@@ -300,6 +327,8 @@ h2 {
   height: auto;
   margin-bottom: 1rem;
   display: inline-block;
+  mix-blend-mode: darken;
+  filter: brightness(1.5);
 }
 
 /* Social links */
