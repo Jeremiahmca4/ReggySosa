@@ -686,6 +686,192 @@ function renderTournaments() {
 }
 
 /**
+ * Render active/open tournaments into the active tournaments tab. Active tournaments
+ * are defined as those not started (status !== 'completed') where either
+ * the start date is in the past or not defined. Started tournaments also
+ * appear here. Each card shows a status badge indicating whether it is
+ * Open, Full, Started or Completed, along with team counts and start date.
+ */
+function renderActiveTournaments() {
+  const listEl = document.getElementById('active-tournaments-list');
+  if (!listEl) return;
+  const tournaments = loadTournaments();
+  const now = new Date();
+  const filtered = tournaments.filter((t) => {
+    if (t.status === 'completed') return false;
+    // Upcoming if a future start date exists
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      if (sd > now) return false;
+    }
+    return true;
+  });
+  // Sort by creation date descending
+  filtered.sort((a, b) => new Date(b.created) - new Date(a.created));
+  listEl.innerHTML = '';
+  if (filtered.length === 0) {
+    const emptyMsg = document.createElement('p');
+    emptyMsg.textContent = 'No active tournaments.';
+    listEl.appendChild(emptyMsg);
+    return;
+  }
+  filtered.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card';
+    // Status badge
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    let statusText;
+    if (t.status === 'completed') {
+      statusText = 'Completed';
+    } else if (t.status === 'started') {
+      statusText = 'Started';
+    } else {
+      const currentCount = t.teams ? t.teams.length : 0;
+      const maxCount = t.maxTeams ? t.maxTeams : null;
+      if (maxCount && currentCount >= maxCount) {
+        statusText = 'Full';
+      } else {
+        statusText = 'Open';
+      }
+    }
+    badge.classList.add('badge-' + statusText.toLowerCase());
+    badge.textContent = statusText;
+    card.appendChild(badge);
+    const title = document.createElement('h3');
+    title.textContent = t.name;
+    card.appendChild(title);
+    const teamsCount = document.createElement('p');
+    const currentCount = t.teams ? t.teams.length : 0;
+    const maxCount = t.maxTeams ? t.maxTeams : null;
+    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    card.appendChild(teamsCount);
+    // Start date
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      const startP = document.createElement('p');
+      startP.textContent = 'Starts: ' + sd.toLocaleDateString();
+      card.appendChild(startP);
+    }
+    const link = document.createElement('a');
+    link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
+    link.className = 'button';
+    link.textContent = 'View';
+    card.appendChild(link);
+    listEl.appendChild(card);
+  });
+}
+
+/**
+ * Render upcoming tournaments into the upcoming tab. An upcoming tournament
+ * has a future start date and is not yet started or completed. The card
+ * includes a status badge, teams count and start date.
+ */
+function renderUpcomingTournaments() {
+  const listEl = document.getElementById('upcoming-tournaments-list');
+  if (!listEl) return;
+  const tournaments = loadTournaments();
+  const now = new Date();
+  const filtered = tournaments.filter((t) => {
+    if (t.status === 'completed' || t.status === 'started') return false;
+    if (!t.startDate) return false;
+    const sd = new Date(t.startDate);
+    return sd > now;
+  });
+  // Sort by start date ascending
+  filtered.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  listEl.innerHTML = '';
+  if (filtered.length === 0) {
+    const emptyMsg = document.createElement('p');
+    emptyMsg.textContent = 'No upcoming tournaments.';
+    listEl.appendChild(emptyMsg);
+    return;
+  }
+  filtered.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card';
+    // Status badge
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    let statusText;
+    const currentCount = t.teams ? t.teams.length : 0;
+    const maxCount = t.maxTeams ? t.maxTeams : null;
+    if (maxCount && currentCount >= maxCount) {
+      statusText = 'Full';
+    } else {
+      statusText = 'Open';
+    }
+    badge.classList.add('badge-' + statusText.toLowerCase());
+    badge.textContent = statusText;
+    card.appendChild(badge);
+    const title = document.createElement('h3');
+    title.textContent = t.name;
+    card.appendChild(title);
+    const teamsCount = document.createElement('p');
+    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    card.appendChild(teamsCount);
+    if (t.startDate) {
+      const sd = new Date(t.startDate);
+      const startP = document.createElement('p');
+      startP.textContent = 'Starts: ' + sd.toLocaleDateString();
+      card.appendChild(startP);
+    }
+    const link = document.createElement('a');
+    link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
+    link.className = 'button';
+    link.textContent = 'View';
+    card.appendChild(link);
+    listEl.appendChild(card);
+  });
+}
+
+/**
+ * Render past champions into the past tab. This includes both tournaments
+ * completed via this site (past winners) and the static champions list.
+ * Past winners show tournament name and champion team; static champions
+ * also include these details. Distinct styling for trophy cards is applied
+ * via CSS classes.
+ */
+function renderPastChampionsTab() {
+  const pastList = document.getElementById('past-champions-tab-list');
+  const staticList = document.getElementById('static-champions-tab-list');
+  if (!pastList || !staticList) return;
+  // Clear current contents
+  pastList.innerHTML = '';
+  staticList.innerHTML = '';
+  // Past winners from site tournaments
+  const tournaments = loadTournaments();
+  const past = tournaments.filter((t) => t.status === 'completed' && t.winner);
+  // Sort past tournaments by creation date descending
+  past.sort((a, b) => new Date(b.created) - new Date(a.created));
+  past.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card past-champion-card';
+    const title = document.createElement('h3');
+    title.textContent = t.name;
+    card.appendChild(title);
+    const champ = document.createElement('p');
+    champ.textContent = 'Champion: ' + t.winner;
+    card.appendChild(champ);
+    pastList.appendChild(card);
+  });
+  // Static champions defined before the site
+  if (Array.isArray(STATIC_CHAMPIONS)) {
+    STATIC_CHAMPIONS.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'tournament-card past-champion-card';
+      const title = document.createElement('h3');
+      title.textContent = item.tournament;
+      card.appendChild(title);
+      const champ = document.createElement('p');
+      champ.textContent = 'Champion: ' + item.champion;
+      card.appendChild(champ);
+      staticList.appendChild(card);
+    });
+  }
+}
+
+/**
  * Render the list of past tournament winners.
  *
  * This looks for tournaments marked as completed with a winner defined and

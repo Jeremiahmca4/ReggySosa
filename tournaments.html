@@ -28,22 +28,26 @@
   <main class="container">
     <h1>CHEL Tournaments</h1>
     <p>Browse upcoming and ongoing tournaments below.</p>
-      <!-- Team management section.  This area will be populated by script.js to allow
-           logged‑in users to create a team, view their team members and invites,
-           and invite others.  It remains empty for guests. -->
-      <div id="user-team-section" class="team-section"></div>
-    <div id="tournaments-list" class="tournament-list">
-      <!-- Tournament cards populated by script.js -->
-    </div>
-    <!-- Past winners section: initially hidden. Populated by script.js when tournaments are completed. -->
-    <section id="past-winners-section" style="display:none;">
-      <h2>Past Winners</h2>
-      <div id="past-winners-list" class="tournament-list"></div>
+    <!-- Team management section separated from tournament listings -->
+    <div id="user-team-section" class="team-section"></div>
+    <!-- Tournament navigation tabs -->
+    <nav class="tournament-nav">
+      <button type="button" class="tournament-nav-item" data-tab="active-tab">Active / Open</button>
+      <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">Upcoming</button>
+      <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
+    </nav>
+    <!-- Active/Open tournaments tab -->
+    <section id="active-tab" class="tournament-tab">
+      <div id="active-tournaments-list" class="tournament-list"></div>
     </section>
-    <!-- Static past champions section: always visible if champions are defined. Populated by script.js. -->
-    <section id="past-champions-section" style="display:none;">
-      <h2>Past Champions</h2>
-      <div id="past-champions-list" class="tournament-list"></div>
+    <!-- Upcoming tournaments tab -->
+    <section id="upcoming-tab" class="tournament-tab" style="display:none;">
+      <div id="upcoming-tournaments-list" class="tournament-list"></div>
+    </section>
+    <!-- Past champions tab: includes past winners and static champions -->
+    <section id="past-tab" class="tournament-tab" style="display:none;">
+      <div id="past-champions-tab-list" class="tournament-list"></div>
+      <div id="static-champions-tab-list" class="tournament-list"></div>
     </section>
   </main>
   <footer>
@@ -55,22 +59,63 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      // Sync Supabase session to local storage before rendering UI
+      // Synchronise session and populate navigation
       if (typeof syncSession === 'function') {
         await syncSession();
       }
       populateAuthLinks();
-      // Fetch latest tournaments and teams from the backend before rendering
+      // Sync tournaments and teams from the backend
       if (typeof syncTournamentsFromBackend === 'function') {
         await syncTournamentsFromBackend();
       }
       if (typeof syncTeamsFromBackend === 'function') {
         await syncTeamsFromBackend();
       }
-      renderTournaments();
+      // Render user team section
       renderUserTeam();
-      renderPastWinners();
-      renderStaticChampions();
+      // Render initial tab content
+      if (typeof renderActiveTournaments === 'function') {
+        renderActiveTournaments();
+      }
+      if (typeof renderUpcomingTournaments === 'function') {
+        renderUpcomingTournaments();
+      }
+      if (typeof renderPastChampionsTab === 'function') {
+        renderPastChampionsTab();
+      }
+      // Tab switching logic
+      const navItems = document.querySelectorAll('.tournament-nav-item');
+      const tabs = document.querySelectorAll('.tournament-tab');
+      function switchTab(tabId) {
+        tabs.forEach((sec) => {
+          sec.style.display = sec.id === tabId ? 'block' : 'none';
+        });
+        navItems.forEach((btn) => {
+          if (btn.dataset.tab === tabId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        // Render specific lists when switching tabs
+        if (tabId === 'active-tab' && typeof renderActiveTournaments === 'function') {
+          renderActiveTournaments();
+        }
+        if (tabId === 'upcoming-tab' && typeof renderUpcomingTournaments === 'function') {
+          renderUpcomingTournaments();
+        }
+        if (tabId === 'past-tab' && typeof renderPastChampionsTab === 'function') {
+          renderPastChampionsTab();
+        }
+      }
+      navItems.forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const tab = this.dataset.tab;
+          switchTab(tab);
+        });
+      });
+      // Default to active tab
+      switchTab('active-tab');
     });
   </script>
 </body>

@@ -247,6 +247,95 @@ h2 {
   background-color: #0a0f23;
 }
 
+/* Tournament page navigation */
+.tournament-nav {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #00fff0;
+  padding-bottom: 0.5rem;
+}
+
+.tournament-nav-item {
+  background: none;
+  border: none;
+  color: #00fff0;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.tournament-nav-item:hover {
+  color: #5df2ff;
+}
+
+.tournament-nav-item.active {
+  border-color: #7f5af0;
+  color: #7f5af0;
+}
+
+/* Tournament tabs */
+.tournament-tab {
+  display: none;
+}
+.tournament-tab.active {
+  display: block;
+}
+
+/* Team section separation on tournaments page */
+.team-section {
+  /* Provide margin and border to separate from tournaments */
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #111111;
+  border: 1px solid #00fff0;
+  border-radius: 4px;
+}
+
+/* Status badge for tournament cards */
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-open {
+  background-color: #004d40;
+  color: #00ffcc;
+}
+.badge-full {
+  background-color: #4e2709;
+  color: #ffb74d;
+}
+.badge-started {
+  background-color: #2e004d;
+  color: #b39ddb;
+}
+.badge-completed {
+  background-color: #333333;
+  color: #bdbdbd;
+}
+
+/* Past champion card styling to resemble trophies */
+.past-champion-card {
+  background-color: #15120b;
+  border: 1px solid #d4af37; /* golden border */
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+}
+.past-champion-card h3 {
+  color: #d4af37;
+}
+.past-champion-card p {
+  color: #f1e1a6;
+}
+
 /* Tournament list */
 .tournament-list {
   display: grid;
