@@ -328,7 +328,8 @@ h2 {
 
 /* Social links section separate styling */
 .social-links-section {
-  margin: 2rem 0;
+  /* Reduce vertical spacing for social links section */
+  margin: 1.25rem 0;
   text-align: center;
 }
 .social-links-section h2 {
@@ -362,8 +363,8 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  /* Increase gap between social link cards for better breathing room */
-  gap: 1.25rem;
+  /* Moderate gap between social link cards; not too spaced out */
+  gap: 1rem;
 }
 
 .social-links-section a {
@@ -382,6 +383,12 @@ h2 {
   /* Slightly lighten social cards on hover */
   background-color: #222222;
   filter: brightness(1.1);
+}
+
+/* When the social links section is placed at the top of the page,
+   reduce the top margin further to bring it closer to the header. */
+.social-links-section.top {
+  margin-top: 0.75rem;
 }
 
 /* Buttons */
