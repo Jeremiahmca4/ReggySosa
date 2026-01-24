@@ -23,9 +23,16 @@
       <div class="auth-links" id="auth-links"></div>
     </nav>
   </header>
-  <main class="container">
+  <main class="container admin-container">
     <h1>Admin Dashboard</h1>
-    <section id="create-section">
+    <!-- Admin navigation tabs -->
+    <nav class="admin-nav">
+      <button type="button" class="admin-nav-item" data-tab="tournaments-tab">Tournaments</button>
+      <button type="button" class="admin-nav-item" data-tab="teams-tab">Teams</button>
+      <button type="button" class="admin-nav-item" data-tab="users-tab">Users</button>
+    </nav>
+    <!-- Tournaments tab -->
+    <section id="tournaments-tab" class="admin-tab">
       <h2>Create New Tournament</h2>
       <form id="create-tournament-form">
         <label>
@@ -34,33 +41,51 @@
         </label>
         <label>
           Maximum number of teams:
-          <!-- Allow the admin to set how many teams can register for this tournament. -->
           <input type="number" id="tournament-max-teams" min="2" required />
         </label>
         <label>
           Start date:
-          <!-- Date the tournament is scheduled to start. -->
           <input type="date" id="tournament-start-date" required />
         </label>
-        <!-- Removed the initial teams text area. Teams will be registered by users later. -->
         <button type="submit" class="button">Create Tournament</button>
       </form>
-    </section>
-    <section id="manage-section">
-      <h2>Manage Tournaments</h2>
+      <h2 style="margin-top:2rem;">Manage Tournaments</h2>
       <div id="admin-tournament-list" class="tournament-list">
         <!-- Populated by script.js -->
       </div>
     </section>
-    <!-- Admin users listing. Displays all registered users with their Discord handles. -->
-    <section id="admin-users-section" style="margin-top: 2rem;">
-      <h2>Registered Users</h2>
-      <ul id="users-list" class="admin-users-list"></ul>
-    </section>
-    <!-- Admin teams listing. Displays all teams on the platform with captain Discord handles. -->
-    <section id="admin-teams-section" style="margin-top: 2rem;">
+    <!-- Teams tab -->
+    <section id="teams-tab" class="admin-tab" style="display:none;">
       <h2>Registered Teams</h2>
-      <ul id="admin-teams-list" class="admin-teams-list"></ul>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Team Name</th>
+            <th>Captain Email</th>
+            <th>Captain Discord</th>
+            <th># Members</th>
+          </tr>
+        </thead>
+        <tbody id="admin-teams-table-body">
+          <!-- Filled by script.js -->
+        </tbody>
+      </table>
+    </section>
+    <!-- Users tab -->
+    <section id="users-tab" class="admin-tab" style="display:none;">
+      <h2>Registered Users</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Discord</th>
+            <th>Signup Date</th>
+          </tr>
+        </thead>
+        <tbody id="admin-users-table-body">
+          <!-- Filled by script.js -->
+        </tbody>
+      </table>
     </section>
   </main>
   <footer>
@@ -82,22 +107,39 @@
       if (typeof syncTournamentsFromBackend === 'function') {
         await syncTournamentsFromBackend();
       }
-      renderAdminTournaments();
-      // Render lists of users and teams for the admin
-      if (typeof renderAdminUsers === 'function') {
-        try {
-          await renderAdminUsers();
-        } catch (err) {
-          console.error('Failed to render admin users list:', err);
+      // Default to tournaments tab active
+      const navItems = document.querySelectorAll('.admin-nav-item');
+      const tabs = document.querySelectorAll('.admin-tab');
+      // Helper to switch active tab
+      function switchTab(tabId) {
+        tabs.forEach((tab) => {
+          tab.style.display = tab.id === tabId ? 'block' : 'none';
+        });
+        navItems.forEach((btn) => {
+          if (btn.dataset.tab === tabId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        // Render data for the selected tab
+        if (tabId === 'tournaments-tab') {
+          renderAdminTournaments();
+        } else if (tabId === 'teams-tab') {
+          renderAdminTeams();
+        } else if (tabId === 'users-tab') {
+          renderAdminUsers();
         }
       }
-      if (typeof renderAdminTeams === 'function') {
-        try {
-          await renderAdminTeams();
-        } catch (err) {
-          console.error('Failed to render admin teams list:', err);
-        }
-      }
+      navItems.forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const tab = this.dataset.tab;
+          switchTab(tab);
+        });
+      });
+      // Show tournaments tab by default
+      switchTab('tournaments-tab');
+      // Attach create tournament form handler
       document.getElementById('create-tournament-form').addEventListener('submit', function (e) {
         e.preventDefault();
         createTournamentFromForm();

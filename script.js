@@ -842,39 +842,54 @@ function renderAdminTournaments() {
  * ID `users-list` on admin.html.
  */
 async function renderAdminUsers() {
-  const ul = document.getElementById('users-list');
-  if (!ul) return;
+  const tbody = document.getElementById('admin-users-table-body');
+  if (!tbody) return;
   let usersArray = [];
-  // Attempt to fetch profiles from Supabase if a client is available
+  // Always fetch from Supabase `profiles` table. We no longer use localStorage as fallback.
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from('profiles').select('email, discord');
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord, created_at');
       if (!error && Array.isArray(data) && data.length > 0) {
         usersArray = data.map((row) => ({
           email: (row.email || '').toLowerCase(),
           discord: row.discord || '',
+          created_at: row.created_at || null,
         }));
       }
     } catch (err) {
       console.error('Failed to fetch profiles from Supabase:', err);
     }
   }
-  // Fall back to local storage if no users were loaded
-  if (usersArray.length === 0) {
-    const localUsers = loadUsers();
-    usersArray = localUsers.map((u) => ({
-      email: (u.email || '').toLowerCase(),
-      discord: u.discord || '',
-    }));
-  }
-  // Sort users by email for consistent ordering
+  // Sort by email
   usersArray.sort((a, b) => (a.email < b.email ? -1 : a.email > b.email ? 1 : 0));
-  // Render list
-  ul.innerHTML = '';
+  // Render table rows
+  tbody.innerHTML = '';
+  if (usersArray.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3;
+    td.textContent = 'No users found.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
   usersArray.forEach((u) => {
-    const li = document.createElement('li');
-    li.textContent = u.email + ' — Discord: ' + (u.discord || '(none)');
-    ul.appendChild(li);
+    const tr = document.createElement('tr');
+    const emailTd = document.createElement('td');
+    emailTd.textContent = u.email;
+    const discordTd = document.createElement('td');
+    discordTd.textContent = u.discord || 'Not set';
+    const dateTd = document.createElement('td');
+    if (u.created_at) {
+      const d = new Date(u.created_at);
+      dateTd.textContent = d.toLocaleDateString();
+    } else {
+      dateTd.textContent = '-';
+    }
+    tr.appendChild(emailTd);
+    tr.appendChild(discordTd);
+    tr.appendChild(dateTd);
+    tbody.appendChild(tr);
   });
 }
 
@@ -887,54 +902,66 @@ async function renderAdminUsers() {
  * element with ID `admin-teams-list` on admin.html.
  */
 async function renderAdminTeams() {
-  const ul = document.getElementById('admin-teams-list');
-  if (!ul) return;
-  // Ensure local teams data is up to date by syncing from the back‑end
-  if (typeof syncTeamsFromBackend === 'function') {
+  const tbody = document.getElementById('admin-teams-table-body');
+  if (!tbody) return;
+  // Fetch teams directly from Supabase if available
+  let teamsArray = [];
+  if (supabaseClient) {
     try {
-      await syncTeamsFromBackend();
+      const { data, error } = await supabaseClient.from('teams').select('id, name, captain, members');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        teamsArray = data;
+      }
     } catch (err) {
-      console.error('Failed to sync teams from backend:', err);
+      console.error('Failed to fetch teams from Supabase:', err);
     }
   }
-  const teams = loadTeams();
-  // Fetch users (email + discord) using the same helper as renderAdminUsers
-  let usersArray = [];
+  // Fetch user discord map from Supabase
+  let discordMap = {};
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient.from('profiles').select('email, discord');
       if (!error && Array.isArray(data) && data.length > 0) {
-        usersArray = data.map((row) => ({
-          email: (row.email || '').toLowerCase(),
-          discord: row.discord || '',
-        }));
+        data.forEach((row) => {
+          const email = (row.email || '').toLowerCase();
+          discordMap[email] = row.discord || '';
+        });
       }
     } catch (err) {
       console.error('Failed to fetch profiles from Supabase:', err);
     }
   }
-  if (usersArray.length === 0) {
-    const localUsers = loadUsers();
-    usersArray = localUsers.map((u) => ({
-      email: (u.email || '').toLowerCase(),
-      discord: u.discord || '',
-    }));
+  // Render table rows
+  tbody.innerHTML = '';
+  if (teamsArray.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.textContent = 'No teams found.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
   }
-  // Build a lookup for discord by email
-  const discordMap = {};
-  usersArray.forEach((u) => {
-    discordMap[u.email] = u.discord || '';
-  });
-  // Sort teams by name for consistent ordering
-  teams.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  // Render list
-  ul.innerHTML = '';
-  teams.forEach((team) => {
-    const li = document.createElement('li');
-    const captainEmail = (team.captain || '').toLowerCase();
-    const captainDiscord = discordMap[captainEmail] || '';
-    li.textContent = `${team.name} — Captain: ${team.captain} (Discord: ${captainDiscord || '(none)'})`;
-    ul.appendChild(li);
+  // Sort by name
+  teamsArray.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  teamsArray.forEach((team) => {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.textContent = team.name;
+    const captainTd = document.createElement('td');
+    captainTd.textContent = team.captain || '';
+    const discordTd = document.createElement('td');
+    const emailKey = (team.captain || '').toLowerCase();
+    const discordVal = discordMap[emailKey] || '';
+    discordTd.textContent = discordVal || 'Not set';
+    const membersTd = document.createElement('td');
+    const members = Array.isArray(team.members) ? team.members : [];
+    membersTd.textContent = members.length.toString();
+    tr.appendChild(nameTd);
+    tr.appendChild(captainTd);
+    tr.appendChild(discordTd);
+    tr.appendChild(membersTd);
+    tbody.appendChild(tr);
   });
 }
 
