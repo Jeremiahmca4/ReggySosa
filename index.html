@@ -55,10 +55,20 @@
       <div id="next-tournament-block" class="next-tournament-card"></div>
     </section>
 
-    <!-- Live Twitch stream or offline message -->
-    <section id="twitch-section" class="next-tournament" style="display:none;">
+    <!-- Live Twitch stream embed -->
+    <section id="twitch-section" class="next-tournament">
       <h2>Live on Twitch</h2>
-      <div id="twitch-card" class="next-tournament-card"></div>
+      <div class="next-tournament-card">
+        <div class="twitch-embed">
+          <iframe
+            src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
+            allowfullscreen
+            scrolling="no"
+            frameborder="0"
+          ></iframe>
+        </div>
+        <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
+      </div>
     </section>
   </main>
   <footer>
@@ -86,10 +96,7 @@
       if (typeof renderNextTournament === 'function') {
         renderNextTournament();
       }
-      // Load Twitch live/offline status and embed player or message
-      if (typeof loadTwitchStatus === 'function') {
-        loadTwitchStatus();
-      }
+      // Twitch embed is rendered statically on the page; no status check needed
     });
   </script>
 </body>
