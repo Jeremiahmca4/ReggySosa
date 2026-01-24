@@ -282,13 +282,16 @@ h2 {
   border: 1px solid #00fff0;
   border-radius: 6px;
   padding: 1.5rem;
-  text-align: left;
+  /* Center the card content horizontally for a balanced look */
+  text-align: center;
   box-shadow: 0 0 6px rgba(0, 255, 240, 0.1);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   /* Ensure cards are consistently sized on desktop */
   min-height: 200px;
+  /* Center children elements horizontally */
+  align-items: center;
 }
 
 /* Responsive adjustments for feature cards on small screens */
