@@ -1771,3 +1771,55 @@ function generateBracket(teams) {
   }
   return rounds;
 }
+
+/**
+ * Render the next upcoming tournament onto the home page. This function
+ * locates the tournament with the nearest future start date and displays
+ * it in the "next-tournament-card" element. If no future tournament
+ * exists, the entire section is hidden.
+ */
+function renderNextTournament() {
+  const container = document.getElementById('next-tournament-block');
+  const section = document.getElementById('next-tournament-section');
+  if (!container || !section) return;
+  const tournaments = loadTournaments();
+  const now = new Date();
+  // Filter for tournaments that have a future start date and are not completed
+  const upcoming = tournaments.filter((t) => {
+    if (!t.startDate) return false;
+    const sd = new Date(t.startDate);
+    return sd >= now && t.status !== 'completed';
+  });
+  if (upcoming.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  // Sort by start date ascending
+  upcoming.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  const next = upcoming[0];
+  section.style.display = 'block';
+  // Clear existing content
+  container.innerHTML = '';
+  // Build card contents
+  const title = document.createElement('h3');
+  title.textContent = next.name;
+  container.appendChild(title);
+  if (next.startDate) {
+    const sd = new Date(next.startDate);
+    const dateEl = document.createElement('p');
+    dateEl.textContent = 'Starts: ' + sd.toLocaleDateString();
+    container.appendChild(dateEl);
+  }
+  // Show current vs max teams
+  const currentCount = next.teams ? next.teams.length : 0;
+  const maxCount = next.maxTeams ? next.maxTeams : null;
+  const teamEl = document.createElement('p');
+  teamEl.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+  container.appendChild(teamEl);
+  // CTA link to view/register
+  const link = document.createElement('a');
+  link.href = 'tournament.html?id=' + encodeURIComponent(next.id);
+  link.className = 'button';
+  link.textContent = 'View / Register';
+  container.appendChild(link);
+}

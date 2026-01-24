@@ -169,7 +169,119 @@ h2 {
 /* Hero */
 .hero {
   text-align: center;
+  margin: 2rem 0 3rem;
+}
+
+/* Hero content wrapper to constrain width */
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Hero subtitle styling */
+.hero-subtext {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: #b0b8d1;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Hero buttons layout */
+.hero-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* Secondary button for hero section */
+.secondary-button {
+  display: inline-block;
+  color: #00fff0;
+  border: 1px solid #00fff0;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  box-shadow: 0 0 6px rgba(0, 255, 240, 0.3);
+}
+.secondary-button:hover {
+  background-color: rgba(0, 255, 240, 0.1);
+  filter: brightness(1.1);
+}
+
+/* Next tournament section */
+.next-tournament {
   margin: 2rem 0;
+  text-align: center;
+}
+.next-tournament-card {
+  background-color: #111111;
+  border: 1px solid #7f5af0;
+  border-radius: 6px;
+  padding: 1.5rem;
+  max-width: 500px;
+  margin: 0.5rem auto 0;
+  box-shadow: 0 0 8px rgba(127, 90, 240, 0.3);
+}
+.next-tournament-card h3 {
+  margin-bottom: 0.5rem;
+  color: #00fff0;
+}
+.next-tournament-card p {
+  margin-bottom: 0.5rem;
+  color: #b0b8d1;
+}
+.next-tournament-card a {
+  margin-top: 0.5rem;
+}
+
+/* Features section */
+.features {
+  margin: 2rem 0;
+  text-align: center;
+}
+.features h2 {
+  margin-bottom: 1rem;
+  color: #00a7ff;
+}
+.feature-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+.feature-card {
+  background-color: #111111;
+  border: 1px solid #00fff0;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: left;
+  box-shadow: 0 0 6px rgba(0, 255, 240, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.feature-card h3 {
+  color: #00fff0;
+  margin-bottom: 0.5rem;
+}
+.feature-card p {
+  color: #b0b8d1;
+}
+
+/* Social links section separate styling */
+.social-links-section {
+  margin: 2rem 0;
+  text-align: center;
+}
+.social-links-section h2 {
+  margin-bottom: 1rem;
+  color: #00a7ff;
 }
 
 .hero h1 {
@@ -191,7 +303,7 @@ h2 {
 }
 
 /* Social links */
-.social-links ul {
+.social-links-section ul {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
@@ -199,7 +311,7 @@ h2 {
   gap: 1rem;
 }
 
-.social-links a {
+.social-links-section a {
   /* Dark cards with neon borders for social links */
   /* Adjust social card background to match the black theme */
   background-color: #111111;
@@ -210,7 +322,7 @@ h2 {
   text-decoration: none;
 }
 
-.social-links a:hover {
+.social-links-section a:hover {
   /* Slightly brighten on hover */
   /* Slightly lighten social cards on hover */
   background-color: #222222;

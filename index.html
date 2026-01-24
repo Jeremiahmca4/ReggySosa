@@ -25,19 +25,48 @@
       </div>
     </nav>
   </header>
-  <main class="container">
+  <main class="container home-page">
+    <!-- Hero section introduces the site with a headline, subtext and CTAs -->
     <section class="hero">
-      <!-- Display the Reggy Sosa logo prominently on the home page hero -->
-      <img src="logo.png" alt="Reggy Sosa logo" class="hero-logo" />
-      <h1>Welcome to Reggy Sosa's website</h1>
-      <p>
-        Stay connected with everything Reggy&nbsp;Sosa! Explore upcoming CHEL
-        tournaments, check out our latest merchandise, and connect through all
-        of our social channels.
-      </p>
+      <div class="hero-content">
+        <img src="logo.png" alt="Reggy Sosa logo" class="hero-logo" />
+        <h1>Compete. Connect. Conquer.</h1>
+        <p class="hero-subtext">
+          Join the premier CHEL tournament community. Battle it out on the ice,
+          build your dream team, and celebrate your victories.
+        </p>
+        <div class="hero-buttons">
+          <a class="button" href="tournaments.html">View Tournaments</a>
+          <a class="secondary-button" href="https://discord.gg/H4n8Wxc4ZD" target="_blank">Join Discord</a>
+        </div>
+      </div>
     </section>
-    <section class="social-links">
-      <h2>Find me online</h2>
+    <!-- Featured next tournament block (filled dynamically) -->
+    <section id="next-tournament-section" class="next-tournament" style="display:none;">
+      <h2>Next Tournament</h2>
+      <div id="next-tournament-block" class="next-tournament-card"></div>
+    </section>
+    <!-- What you can do section -->
+    <section class="features">
+      <h2>What You Can Do Here</h2>
+      <div class="feature-cards">
+        <div class="feature-card">
+          <h3>Compete in CHEL tournaments</h3>
+          <p>Sign up for electrifying single‑elimination events and climb to the top.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Create or join teams</h3>
+          <p>Form a squad with friends or find teammates to dominate the bracket.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Track champions & results</h3>
+          <p>See past winners, follow your tournament progress and celebrate champions.</p>
+        </div>
+      </div>
+    </section>
+    <!-- Social links separated into their own section -->
+    <section class="social-links-section">
+      <h2>Connect with Reggy Sosa</h2>
       <ul class="social-list">
         <li><a href="https://www.instagram.com/reggysosa_/" target="_blank">Instagram</a></li>
         <li><a href="https://www.tiktok.com/@reggysosa" target="_blank">TikTok</a></li>
@@ -48,9 +77,6 @@
         <li><a href="https://www.twitch.tv/reggysosa" target="_blank">Twitch</a></li>
         <li><a href="https://discord.gg/H4n8Wxc4ZD" target="_blank">Discord</a></li>
       </ul>
-    </section>
-    <section class="cta">
-      <a class="button" href="tournaments.html">See Upcoming Tournaments</a>
     </section>
   </main>
   <footer>
@@ -67,6 +93,17 @@
         await syncSession();
       }
       populateAuthLinks();
+      // Synchronise tournaments and teams from the backend before rendering the next tournament
+      if (typeof syncTournamentsFromBackend === 'function') {
+        await syncTournamentsFromBackend();
+      }
+      if (typeof syncTeamsFromBackend === 'function') {
+        await syncTeamsFromBackend();
+      }
+      // Render the next tournament block if available
+      if (typeof renderNextTournament === 'function') {
+        renderNextTournament();
+      }
     });
   </script>
 </body>
