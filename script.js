@@ -1510,29 +1510,16 @@ function renderTournamentDetails(id) {
         name = team.name;
         idVal = team.id;
       }
-      // Determine captain email and discord handle if possible
-      let captainEmail = '';
-      let captainDiscord = '';
-      if (idVal) {
-        const fullTeam = loadTeams().find((t) => t.id === idVal);
-        if (fullTeam) {
-          captainEmail = fullTeam.captain || '';
-          // Look up discord handle from local users list
-          const u = loadUsers().find((usr) => usr.email.toLowerCase() === (captainEmail || '').toLowerCase());
-          if (u && u.discord) {
-            captainDiscord = u.discord;
-          }
-        }
-      }
-      // If admin, allow removing teams before tournament starts
+      /*
+       * We only display team names in the list to protect user privacy.  
+       * Admins can still remove teams, but we avoid showing email or Discord
+       * information here.  When the admin dashboard needs detailed
+       * information, it fetches directly from Supabase.
+       */
       if (role === 'admin' && tournament.status !== 'started') {
+        // For admins, still display remove button but no captain info
         const nameSpan = document.createElement('span');
-        // Include captain and discord info if available
-        if (captainEmail) {
-          nameSpan.textContent = `${name} — Captain: ${captainEmail} (Discord: ${captainDiscord || '(none)'})`;
-        } else {
-          nameSpan.textContent = name;
-        }
+        nameSpan.textContent = name;
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove';
         removeBtn.className = 'delete';
@@ -1547,12 +1534,8 @@ function renderTournamentDetails(id) {
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);
       } else {
-        // Non-admin view: show name and captain info
-        if (captainEmail) {
-          li.textContent = `${name} — Captain: ${captainEmail} (Discord: ${captainDiscord || '(none)'})`;
-        } else {
-          li.textContent = name;
-        }
+        // Non-admin view: show only team name
+        li.textContent = name;
       }
       teamsList.appendChild(li);
     });
@@ -1825,51 +1808,50 @@ function renderNextTournament() {
 }
 
 /**
- * Load the live/offline status of the Twitch channel and render the
- * appropriate content into the twitch card. If the stream is live,
- * an embedded Twitch player is shown in a responsive 16:9 container.
- * If offline, a message and a button linking to the channel are shown.
- * This function will also reveal the Twitch section, which is hidden
- * by default until the status is loaded.
+ * Load the Twitch live status and render the Twitch card on the home page.
+ * This function queries the back‑end endpoint at /api/twitch/status to determine
+ * whether the channel is live. If the channel is live, it embeds the Twitch
+ * player inside a responsive container. Otherwise it displays an offline
+ * message and a button linking to the channel on Twitch.
  */
 async function loadTwitchStatus() {
-  const section = document.getElementById('twitch-section');
   const card = document.getElementById('twitch-card');
-  if (!section || !card) return;
+  if (!card) return;
   try {
     const res = await fetch(`${API_BASE_URL}/api/twitch/status`, {
       headers: { Accept: 'application/json' },
     });
     const data = await res.json();
-    // Always show the section once we've attempted to fetch
-    section.style.display = 'block';
+    // Clear existing content
     card.innerHTML = '';
     if (data && data.live) {
-      // Stream is live: embed the Twitch player
       const playerWrapper = document.createElement('div');
       playerWrapper.className = 'twitch-player';
-      const iframe = document.createElement('iframe');
-      // Set the Twitch player URL; include the site domain as allowed parents
-      iframe.src =
-        'https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com';
-      iframe.setAttribute('allowfullscreen', 'true');
-      playerWrapper.appendChild(iframe);
+      playerWrapper.innerHTML =
+        '<iframe src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com" frameborder="0" allowfullscreen="true" scrolling="no"></iframe>';
       card.appendChild(playerWrapper);
     } else {
-      // Stream is offline or unknown status
-      const msg = document.createElement('p');
-      msg.textContent = 'ReggySosa is offline';
-      msg.style.color = '#b0b8d1';
-      msg.style.marginBottom = '0.75rem';
-      card.appendChild(msg);
-      const link = document.createElement('a');
-      link.href = 'https://twitch.tv/reggysosa';
-      link.target = '_blank';
-      link.className = 'button';
-      link.textContent = 'Watch on Twitch';
-      card.appendChild(link);
+      const msgEl = document.createElement('p');
+      msgEl.textContent = 'ReggySosa is offline';
+      card.appendChild(msgEl);
+      const btnEl = document.createElement('a');
+      btnEl.href = 'https://www.twitch.tv/reggysosa';
+      btnEl.target = '_blank';
+      btnEl.className = 'button';
+      btnEl.textContent = 'Watch on Twitch';
+      card.appendChild(btnEl);
     }
   } catch (err) {
-    console.error('Failed to load Twitch status:', err);
+    console.error('Failed to load Twitch status', err);
+    card.innerHTML = '';
+    const p = document.createElement('p');
+    p.textContent = 'ReggySosa is offline';
+    card.appendChild(p);
+    const a = document.createElement('a');
+    a.href = 'https://www.twitch.tv/reggysosa';
+    a.target = '_blank';
+    a.className = 'button';
+    a.textContent = 'Watch on Twitch';
+    card.appendChild(a);
   }
 }

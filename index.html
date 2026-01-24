@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reggy Sosa | Home</title>
   <link rel="stylesheet" href="style.css" />
+    <!-- Social and link preview metadata -->
+    <meta property="og:title" content="Reggy Sosa" />
+    <meta property="og:description" content="Join the premier CHEL tournament community and compete with the best." />
+    <meta property="og:image" content="logo.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.reggysosa.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Reggy Sosa" />
+    <meta name="twitter:description" content="Join the premier CHEL tournament community and compete with the best." />
+    <meta name="twitter:image" content="logo.png" />
+    <!-- Apple touch icon for iOS link previews -->
+    <link rel="apple-touch-icon" sizes="180x180" href="logo.png" />
+    <link rel="icon" href="logo.png" type="image/png" />
 </head>
 <body>
   <header>
@@ -54,20 +67,10 @@
       <div id="next-tournament-block" class="next-tournament-card"></div>
     </section>
 
-    <!-- Live Twitch stream embed -->
+    <!-- Live Twitch section -->
     <section id="twitch-section" class="next-tournament">
       <h2>Live on Twitch</h2>
-      <div class="next-tournament-card">
-        <div class="twitch-embed">
-          <iframe
-            src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
-            allowfullscreen
-            scrolling="no"
-            frameborder="0"
-          ></iframe>
-        </div>
-        <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
-      </div>
+      <div id="twitch-card" class="next-tournament-card"></div>
     </section>
   </main>
   <footer>
@@ -95,7 +98,10 @@
       if (typeof renderNextTournament === 'function') {
         renderNextTournament();
       }
-      // Twitch embed is rendered statically on the page; no status check needed
+      // Load the Twitch live status card
+      if (typeof loadTwitchStatus === 'function') {
+        loadTwitchStatus();
+      }
     });
   </script>
 </body>
