@@ -35,6 +35,7 @@
       <button type="button" class="tournament-nav-item" data-tab="active-tab">Active / Open</button>
       <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">Upcoming</button>
       <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
+      <button type="button" class="tournament-nav-item" data-tab="rules-tab">Rules</button>
     </nav>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
@@ -48,6 +49,78 @@
     <section id="past-tab" class="tournament-tab" style="display:none;">
       <div id="past-champions-tab-list" class="tournament-list"></div>
       <div id="static-champions-tab-list" class="tournament-list"></div>
+    </section>
+
+    <!-- Rules tab: display tournament rules from the rules page within the tournaments UI -->
+    <section id="rules-tab" class="tournament-tab" style="display:none;">
+      <div class="rules-page">
+        <h1>Official Tournament Rules</h1>
+        <!-- Important notice at the top -->
+        <p class="rules-notice"><strong>Notice:</strong> Failure to follow these rules may result in disqualification.</p>
+        <!-- Format Section Card -->
+        <div class="rule-card">
+          <h2>Format</h2>
+          <ul class="rules-list">
+            <li>Single Elimination</li>
+            <li>1 Game per round</li>
+            <li>Crossplay ON (PS5 + Xbox)</li>
+            <li>NA‑East servers</li>
+          </ul>
+        </div>
+        <!-- Match Setup Section Card -->
+        <div class="rule-card">
+          <h2>Match Setup (World of CHEL)</h2>
+          <ol class="rules-list">
+            <li>
+              Both teams navigate to <strong>World of CHEL → Clubs → Play → Private Match</strong>.
+            </li>
+            <li>
+              Apply the following match settings:
+              <ul>
+                <li>Game Type: <strong>Private Game</strong></li>
+                <li>Password: <strong>(Generated for each match)</strong></li>
+                <li>Server Selection: <strong>North America East</strong></li>
+                <li>Replay Skipping: <strong>Yes</strong></li>
+                <li>Period Length: <strong>3 Minutes</strong></li>
+                <li>Grudge Match Game: <strong>Off</strong></li>
+                <li>Use Best Game Location: <strong>Relaxed</strong></li>
+                <li>Side Selection: <strong>(Highest seed is Home)</strong></li>
+              </ul>
+            </li>
+            <li>
+              Highest seed chooses the Home side.
+              <ul>
+                <li><em>Example:</em> Seed 2 vs Seed 5 → Seed 2 selects Home; Seed 5 selects Away.</li>
+                <li>Both players must pick the correct side or the game won’t match.</li>
+              </ul>
+            </li>
+            <li>
+              After entering settings, both teams press <strong>Search</strong> simultaneously. The game will auto‑match you based on password and side selection.
+            </li>
+          </ol>
+          <p class="critical">Lag‑outs = DQ (no exceptions)</p>
+        </div>
+        <!-- Gameplay Rules Section Card -->
+        <div class="rule-card">
+          <h2>Gameplay Rules</h2>
+          <ul class="rules-list">
+            <li>Grudge Match setting = <strong>OFF</strong></li>
+            <li><span class="critical">Lag‑outs = DQ (no replays)</span></li>
+            <li>No pause abuse or toxic behavior</li>
+            <li>If your opponent no‑shows after 10 minutes, ping a mod in ⁠❓・tourney‑questions</li>
+          </ul>
+        </div>
+        <!-- Score Reporting Section Card -->
+        <div class="rule-card">
+          <h2>Reporting Scores</h2>
+          <ul class="rules-list">
+            <li>
+              Winner must post a screenshot of the final score in <strong>🧊・score‑submissions</strong> on Reggy Sosa’s Discord.
+            </li>
+            <li><span class="critical">No screenshot = no win</span></li>
+          </ul>
+        </div>
+      </div>
     </section>
   </main>
   <footer>
