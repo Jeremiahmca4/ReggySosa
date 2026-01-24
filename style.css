@@ -359,7 +359,8 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1rem;
+  /* Increase gap between social link cards for better breathing room */
+  gap: 1.25rem;
 }
 
 .social-links-section a {
