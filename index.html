@@ -67,11 +67,23 @@
       <div id="next-tournament-block" class="next-tournament-card"></div>
     </section>
 
-    <!-- Live Twitch section -->
-    <section id="twitch-section" class="next-tournament">
-      <h2>Live on Twitch</h2>
-      <div id="twitch-card" class="next-tournament-card"></div>
-    </section>
+    
+<!-- Live Twitch stream embed -->
+<section id="twitch-section" class="next-tournament">
+  <h2>Live on Twitch</h2>
+  <div class="next-tournament-card">
+    <!-- The Twitch player is embedded directly so users can watch the stream without leaving the site. -->
+    <div class="twitch-player">
+      <iframe
+        src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
+        allowfullscreen
+        scrolling="no"
+        frameborder="0">
+      </iframe>
+    </div>
+    <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
+  </div>
+</section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -97,10 +109,6 @@
       // Render the next tournament block if available
       if (typeof renderNextTournament === 'function') {
         renderNextTournament();
-      }
-      // Load the Twitch live status card
-      if (typeof loadTwitchStatus === 'function') {
-        loadTwitchStatus();
       }
     });
   </script>
