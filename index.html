@@ -54,6 +54,12 @@
       <h2>Next Tournament</h2>
       <div id="next-tournament-block" class="next-tournament-card"></div>
     </section>
+
+    <!-- Live Twitch stream or offline message -->
+    <section id="twitch-section" class="next-tournament" style="display:none;">
+      <h2>Live on Twitch</h2>
+      <div id="twitch-card" class="next-tournament-card"></div>
+    </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -79,6 +85,10 @@
       // Render the next tournament block if available
       if (typeof renderNextTournament === 'function') {
         renderNextTournament();
+      }
+      // Load Twitch live/offline status and embed player or message
+      if (typeof loadTwitchStatus === 'function') {
+        loadTwitchStatus();
       }
     });
   </script>

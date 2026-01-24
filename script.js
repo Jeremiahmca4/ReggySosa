@@ -1823,3 +1823,53 @@ function renderNextTournament() {
   link.textContent = 'View / Register';
   container.appendChild(link);
 }
+
+/**
+ * Load the live/offline status of the Twitch channel and render the
+ * appropriate content into the twitch card. If the stream is live,
+ * an embedded Twitch player is shown in a responsive 16:9 container.
+ * If offline, a message and a button linking to the channel are shown.
+ * This function will also reveal the Twitch section, which is hidden
+ * by default until the status is loaded.
+ */
+async function loadTwitchStatus() {
+  const section = document.getElementById('twitch-section');
+  const card = document.getElementById('twitch-card');
+  if (!section || !card) return;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/twitch/status`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json();
+    // Always show the section once we've attempted to fetch
+    section.style.display = 'block';
+    card.innerHTML = '';
+    if (data && data.live) {
+      // Stream is live: embed the Twitch player
+      const playerWrapper = document.createElement('div');
+      playerWrapper.className = 'twitch-player';
+      const iframe = document.createElement('iframe');
+      // Set the Twitch player URL; include the site domain as allowed parents
+      iframe.src =
+        'https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com';
+      iframe.setAttribute('allowfullscreen', 'true');
+      playerWrapper.appendChild(iframe);
+      card.appendChild(playerWrapper);
+    } else {
+      // Stream is offline or unknown status
+      const msg = document.createElement('p');
+      msg.textContent = 'ReggySosa is offline';
+      msg.style.color = '#b0b8d1';
+      msg.style.marginBottom = '0.75rem';
+      card.appendChild(msg);
+      const link = document.createElement('a');
+      link.href = 'https://twitch.tv/reggysosa';
+      link.target = '_blank';
+      link.className = 'button';
+      link.textContent = 'Watch on Twitch';
+      card.appendChild(link);
+    }
+  } catch (err) {
+    console.error('Failed to load Twitch status:', err);
+  }
+}
