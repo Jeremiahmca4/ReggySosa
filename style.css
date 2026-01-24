@@ -276,6 +276,9 @@ h2 {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  /* Center items horizontally so that when there are fewer cards per row (e.g., 3),
+     the last card appears centered rather than left aligned. */
+  justify-content: center;
 }
 .feature-card {
   background-color: #111111;
