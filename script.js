@@ -490,6 +490,12 @@ async function handleRegister() {
   // Capture the optional Discord handle
   const discordInput = document.getElementById('register-discord');
   const discord = discordInput ? discordInput.value.trim() : '';
+  // Require a Discord handle to be provided. If the field is empty, prompt the user
+  // and halt registration. This ensures that Discord usernames are mandatory.
+  if (!discord) {
+    alert('Please enter your Discord handle.');
+    return;
+  }
   // If a Supabase client is configured, register the user via Supabase Auth.
   if (supabaseClient) {
     try {
