@@ -287,8 +287,27 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  /* Ensure cards are consistently sized */
+  /* Ensure cards are consistently sized on desktop */
   min-height: 200px;
+}
+
+/* Responsive adjustments for feature cards on small screens */
+@media (max-width: 600px) {
+  .feature-card {
+    /* Remove fixed minimum height on mobile so cards shrink to content */
+    min-height: auto;
+    /* Reduce padding for better fit on small screens */
+    padding: 1rem;
+  }
+  .feature-cards {
+    gap: 0.75rem;
+  }
+  .feature-card h3 {
+    font-size: 1rem;
+  }
+  .feature-card p {
+    font-size: 0.85rem;
+  }
 }
 .feature-card h3 {
   color: #00fff0;
