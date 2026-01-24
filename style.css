@@ -110,6 +110,62 @@ h2 {
   color: #00a7ff;
 }
 
+/* === Rules page styling === */
+/* Wrapper for rules page to constrain width and spacing */
+.rules-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Notice at the top of the rules page */
+.rules-notice {
+  background-color: #1a0a0a;
+  border-left: 4px solid #ff4d4d;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  color: #ff4d4d;
+  font-weight: bold;
+  border-radius: 4px;
+  box-shadow: 0 0 4px rgba(255, 77, 77, 0.4);
+}
+
+/* Card for each rules section */
+.rule-card {
+  background-color: #111111;
+  border: 1px solid #00fff0;
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 0 8px rgba(0, 255, 240, 0.15);
+}
+
+.rule-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #00a7ff;
+}
+
+/* Lists inside rules cards */
+.rules-list {
+  list-style-position: inside;
+  margin-left: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Nested lists maintain indentation */
+.rules-list ul {
+  margin-left: 1.25rem;
+  list-style-type: disc;
+}
+
+/* Critical text highlighting */
+.critical {
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
 /* Hero */
 .hero {
   text-align: center;
