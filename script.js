@@ -163,8 +163,10 @@ async function handleProfileSave() {
       alert('Not logged in.');
       return;
     }
+    // Include the email as well because the email column is non‑null in the profiles table.
     const updates = {
       id: user.id,
+      email: user.email,
       display_name: displayName,
       discord_handle: discord,
       gamertag: gamertag,
