@@ -40,9 +40,6 @@
     <p>
       Don't have an account? <a href="register.html">Register here</a>.
     </p>
-    <p>
-      <a href="#" id="reset-data">Reset local data</a>
-    </p>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -62,19 +59,6 @@
         e.preventDefault();
         await handleLogin();
       });
-      // Add handler to reset local data (users and current session)
-      const resetLink = document.getElementById('reset-data');
-      if (resetLink) {
-        resetLink.addEventListener('click', function (e) {
-          e.preventDefault();
-          if (confirm('This will clear all local accounts and current session. Continue?')) {
-            localStorage.removeItem('users');
-            localStorage.removeItem('currentUser');
-            alert('Local data cleared. Please register or log in.');
-            window.location.href = 'login.html';
-          }
-        });
-      }
     });
   </script>
 </body>
