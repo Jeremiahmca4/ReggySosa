@@ -13,6 +13,33 @@
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
+// === Seeded random helpers ===
+// Simple deterministic random number generator. Given a seed (integer), returns
+// a function that yields pseudo‑random numbers between 0 and 1. This allows
+// bracket shuffling and code generation to be reproducible across devices.
+function seededRng(seed) {
+  let value = seed;
+  return function () {
+    // Linear congruential generator constants
+    value = (value * 9301 + 49297) % 233280;
+    return value / 233280;
+  };
+}
+
+// Convert a string seed into a numeric seed by summing char codes. If the
+// input is already a number or can be parsed as one, use it directly.
+function hashSeed(seed) {
+  if (typeof seed === 'number') return seed;
+  if (!seed) return 1;
+  let num = parseInt(seed, 10);
+  if (!isNaN(num)) return num;
+  let total = 0;
+  for (let i = 0; i < seed.length; i++) {
+    total += seed.charCodeAt(i);
+  }
+  return total;
+}
+
 // === Supabase initialisation ===
 // Attempt to read Supabase credentials from global variables injected at deploy time.
 // These should be provided via NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
@@ -1360,11 +1387,25 @@ function startTournament(id) {
     return;
   }
   t.status = 'started';
-  // Pass array of team names to bracket generator
-  const teamNames = (t.teams || []).map((team) => (typeof team === 'string' ? team : team.name));
-  t.bracket = generateBracket(teamNames);
+  // Pass array of team names to the bracket generator with a seed equal to the tournament id.
+  let teamNames = (t.teams || []).map((team) => (typeof team === 'string' ? team : team.name));
+  // Sort team names to ensure deterministic bracket seed across devices
+  teamNames = teamNames.slice().sort((a, b) => a.localeCompare(b));
+  t.bracket = generateBracket(teamNames, id);
   tournaments[index] = t;
   saveTournaments(tournaments);
+  // Persist the tournament start state to the back‑end by setting its status to 'started'.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'started' }),
+    }).catch(() => {
+      /* ignore errors */
+    });
+  } catch (err) {
+    console.error('Failed to update tournament status on backend:', err);
+  }
   renderAdminTournaments();
   alert('Tournament started! The bracket has been generated.');
 }
@@ -1517,6 +1558,30 @@ function renderTournamentDetails(id) {
     return;
   }
   const role = getCurrentUserRole();
+
+  // If the tournament has started but no bracket is present (for this user),
+  // generate the bracket deterministically using the tournament id. This
+  // ensures users who did not start the tournament still see the same
+  // bracket and match codes. Save back to local storage so it persists.
+  if (
+    tournament.status === 'started' &&
+    (!tournament.bracket || tournament.bracket.length === 0) &&
+    Array.isArray(tournament.teams) &&
+    tournament.teams.length >= 2
+  ) {
+    let teamNames = tournament.teams.map((team) =>
+      typeof team === 'string' ? team : team.name
+    );
+    // Sort team names to ensure deterministic bracket across devices
+    teamNames = teamNames.slice().sort((a, b) => a.localeCompare(b));
+    tournament.bracket = generateBracket(teamNames, tournament.id);
+    // Persist the bracket to local storage
+    const idx = tournaments.findIndex((t) => t.id === id);
+    if (idx !== -1) {
+      tournaments[idx] = tournament;
+      saveTournaments(tournaments);
+    }
+  }
   container.innerHTML = '';
   const detail = document.createElement('div');
   detail.className = 'tournament-detail';
@@ -1532,7 +1597,8 @@ function renderTournamentDetails(id) {
   detail.appendChild(created);
   // Display start date if defined
   if (tournament.startDate) {
-    const sd = new Date(tournament.startDate);
+    // Parse start date as local date for correct display
+    const sd = new Date(tournament.startDate + 'T00:00:00');
     const startP = document.createElement('p');
     startP.textContent = 'Start date: ' + sd.toLocaleDateString();
     detail.appendChild(startP);
@@ -1764,22 +1830,34 @@ function renderTournamentDetails(id) {
 }
 
 // === Bracket generation ===
-function generateCode() {
-  // Generate a random 5‑digit code (digits only)
-  return Math.floor(10000 + Math.random() * 90000).toString();
+function generateCode(rng) {
+  // Generate a deterministic or random 5‑digit numeric code. If a RNG
+  // function is provided, use it to draw digits; otherwise fall back
+  // to Math.random().
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    const rand = rng ? rng() : Math.random();
+    code += Math.floor(rand * 10);
+  }
+  return code;
 }
 
-function generateBracket(teams) {
+function generateBracket(teams, seed) {
   /*
    * Generate a knockout bracket for the provided teams. If the number of
    * teams is not a power of two we pad the first round with BYE slots
    * and propagate TBD placeholders into subsequent rounds. Each match
-   * receives a 5‑digit code.
+   * receives a 5‑digit code. If a seed is provided, the bracket
+   * shuffling and code generation will be deterministic across devices.
    */
+  // Create a seeded random generator if a seed is supplied
+  const rng = seed !== undefined ? seededRng(hashSeed(seed)) : null;
   // Clone and shuffle the team list
   const shuffled = teams.slice();
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    // Use seeded RNG for deterministic shuffle if available
+    const rand = rng ? rng() : Math.random();
+    const j = Math.floor(rand * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   // Determine bracket size (next power of two)
@@ -1803,7 +1881,7 @@ function generateBracket(teams) {
       if (!team2) {
         team2 = team1 === 'BYE' ? 'TBD' : 'BYE';
       }
-      round.push({ team1, team2, code: generateCode(), winner: null });
+      round.push({ team1, team2, code: generateCode(rng), winner: null });
     }
     rounds.push(round);
     // Prepare array for next round winners (unknown winners become null)
