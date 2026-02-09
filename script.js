@@ -671,7 +671,10 @@ function renderTournaments() {
     // Prepare start date element if available; we'll append after teams count
     let startP = null;
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Convert YYYY-MM-DD to a local date by appending a time portion. Without
+      // this, Date() treats the string as UTC and may shift the date one day
+      // earlier in some timezones. Using T00:00:00 ensures correct local display.
+      const sd = new Date(t.startDate + 'T00:00:00');
       startP = document.createElement('p');
       startP.textContent = 'Starts: ' + sd.toLocaleDateString();
     }
@@ -707,7 +710,8 @@ function renderActiveTournaments() {
     if (t.status === 'completed') return false;
     // Upcoming if a future start date exists
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Parse the start date as a local date to avoid timezone offsets.
+      const sd = new Date(t.startDate + 'T00:00:00');
       if (sd > now) return false;
     }
     return true;
@@ -754,7 +758,9 @@ function renderActiveTournaments() {
     card.appendChild(teamsCount);
     // Start date
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Parse the start date as a local date to avoid timezone offsets.
+      // Append a time portion so the browser interprets it in the local timezone.
+      const sd = new Date(t.startDate + 'T00:00:00');
       const startP = document.createElement('p');
       startP.textContent = 'Starts: ' + sd.toLocaleDateString();
       card.appendChild(startP);
@@ -781,11 +787,12 @@ function renderUpcomingTournaments() {
   const filtered = tournaments.filter((t) => {
     if (t.status === 'completed' || t.status === 'started') return false;
     if (!t.startDate) return false;
-    const sd = new Date(t.startDate);
+    const sd = new Date(t.startDate + 'T00:00:00');
     return sd > now;
   });
   // Sort by start date ascending
-  filtered.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  // Sort by local start date ascending
+  filtered.sort((a, b) => new Date(a.startDate + 'T00:00:00') - new Date(b.startDate + 'T00:00:00'));
   listEl.innerHTML = '';
   if (filtered.length === 0) {
     const emptyMsg = document.createElement('p');
@@ -817,7 +824,8 @@ function renderUpcomingTournaments() {
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
     card.appendChild(teamsCount);
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Use local parsing for the date.
+      const sd = new Date(t.startDate + 'T00:00:00');
       const startP = document.createElement('p');
       startP.textContent = 'Starts: ' + sd.toLocaleDateString();
       card.appendChild(startP);
@@ -914,7 +922,8 @@ function renderPastWinners() {
     card.appendChild(winnerEl);
     // Show start date if available
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Parse start date as local date to avoid timezone issues
+      const sd = new Date(t.startDate + 'T00:00:00');
       const startEl = document.createElement('p');
       startEl.textContent = 'Started: ' + sd.toLocaleDateString();
       card.appendChild(startEl);
@@ -978,7 +987,8 @@ function renderAdminTournaments() {
     // Prepare start date element if available; we'll append after team count for consistent ordering
     let startEl = null;
     if (t.startDate) {
-      const sd = new Date(t.startDate);
+      // Use local parsing for the date to avoid UTC offset issues
+      const sd = new Date(t.startDate + 'T00:00:00');
       startEl = document.createElement('p');
       startEl.textContent = 'Starts: ' + sd.toLocaleDateString();
     }
@@ -1232,9 +1242,27 @@ function createTournamentFromForm() {
 
 function deleteTournament(id) {
   if (!confirm('Are you sure you want to delete this tournament?')) return;
+  // Remove from local storage first.
   let tournaments = loadTournaments();
   tournaments = tournaments.filter((t) => t.id !== id);
   saveTournaments(tournaments);
+  // Attempt to delete from the back‑end. This ensures the tournament is removed globally.
+  try {
+    fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+      .then(() => {
+        // After deletion, re‑sync tournaments to update local state from server.
+        if (typeof syncTournamentsFromBackend === 'function') {
+          syncTournamentsFromBackend().catch(() => {});
+        }
+      })
+      .catch(() => {
+        /* ignore errors */
+      });
+  } catch (err) {
+    console.error('Failed to delete tournament on backend:', err);
+  }
   renderAdminTournaments();
 }
 
@@ -1415,9 +1443,32 @@ function removeTeamFromTournament(tournamentId, teamId) {
     return;
   }
   if (tournament.teams) {
+    // Remove from local state
     tournament.teams = tournament.teams.filter((team) => team.id !== teamId);
     tournaments[idx] = tournament;
     saveTournaments(tournaments);
+    // Attempt to remove the registration on the back‑end so the change persists.
+    try {
+      fetch(
+        `${API_BASE_URL}/api/tournaments/${encodeURIComponent(
+          tournamentId
+        )}/register/${encodeURIComponent(teamId)}`,
+        {
+          method: 'DELETE',
+        }
+      )
+        .then(() => {
+          // After deletion, re‑sync tournaments from the server to ensure local state matches.
+          if (typeof syncTournamentsFromBackend === 'function') {
+            syncTournamentsFromBackend().catch(() => {});
+          }
+        })
+        .catch(() => {
+          /* ignore errors */
+        });
+    } catch (err) {
+      console.error('Failed to remove team registration on backend:', err);
+    }
     alert('Team removed from tournament.');
   }
 }
@@ -1776,15 +1827,19 @@ function renderNextTournament() {
   // Filter for tournaments that have a future start date and are not completed
   const upcoming = tournaments.filter((t) => {
     if (!t.startDate) return false;
-    const sd = new Date(t.startDate);
+    // Parse start date as a local date (add time to prevent timezone shift)
+    const sd = new Date(t.startDate + 'T00:00:00');
     return sd >= now && t.status !== 'completed';
   });
   if (upcoming.length === 0) {
     section.style.display = 'none';
     return;
   }
-  // Sort by start date ascending
-  upcoming.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  // Sort by start date ascending. Use local parsing to avoid timezone shift.
+  upcoming.sort(
+    (a, b) =>
+      new Date(a.startDate + 'T00:00:00') - new Date(b.startDate + 'T00:00:00')
+  );
   const next = upcoming[0];
   section.style.display = 'block';
   // Clear existing content
@@ -1794,7 +1849,8 @@ function renderNextTournament() {
   title.textContent = next.name;
   container.appendChild(title);
   if (next.startDate) {
-    const sd = new Date(next.startDate);
+    // Display the start date using local timezone by appending a time string
+    const sd = new Date(next.startDate + 'T00:00:00');
     const dateEl = document.createElement('p');
     dateEl.textContent = 'Starts: ' + sd.toLocaleDateString();
     container.appendChild(dateEl);
