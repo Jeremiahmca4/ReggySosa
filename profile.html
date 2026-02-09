@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reggy Sosa | Tournament Details</title>
+  <title>Reggy Sosa | Account Details</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -17,17 +17,31 @@
         <li><a href="index.html">Home</a></li>
         <li><a href="tournaments.html">Tournaments</a></li>
         <li><a href="merch.html">Merch</a></li>
-        <!-- Profile link is hidden by default and shown when a user is logged in -->
+        <!-- Profile link is shown when logged in; this page highlights itself -->
         <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
         <li><a href="admin.html" id="admin-nav">Admin</a></li>
       </ul>
-      <div class="auth-links" id="auth-links">
-        <!-- Populated by script.js -->
-      </div>
+      <div class="auth-links" id="auth-links"></div>
     </nav>
   </header>
-  <main class="container" id="tournament-container">
-    <!-- Tournament details will be injected here -->
+  <main class="container profile-page">
+    <h1>Account Details</h1>
+    <p>Please complete your profile to access tournaments.</p>
+    <form id="profile-form" class="auth-form">
+      <label>
+        Display name:
+        <input type="text" id="profile-display-name" placeholder="Your display name" required />
+      </label>
+      <label>
+        Discord handle:
+        <input type="text" id="profile-discord" placeholder="Discord#1234" required />
+      </label>
+      <label>
+        Gamertag:
+        <input type="text" id="profile-gamertag" placeholder="Your Gamertag" required />
+      </label>
+      <button type="submit" class="button">Save</button>
+    </form>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -38,25 +52,23 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
+      // Sync session and populate nav
       if (typeof syncSession === 'function') {
         await syncSession();
       }
       populateAuthLinks();
-      // Enforce profile completion for logged‑in users
-      if (typeof checkProfileCompletion === 'function') {
-        const complete = await checkProfileCompletion();
-        if (!complete) return;
+      // Load existing profile values
+      if (typeof loadProfile === 'function') {
+        await loadProfile();
       }
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('id');
-      // Synchronise latest tournaments and teams first
-      if (typeof syncTournamentsFromBackend === 'function') {
-        await syncTournamentsFromBackend();
-      }
-      if (typeof syncTeamsFromBackend === 'function') {
-        await syncTeamsFromBackend();
-      }
-      renderTournamentDetails(id);
+      // Form submission
+      const form = document.getElementById('profile-form');
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (typeof handleProfileSave === 'function') {
+          await handleProfileSave();
+        }
+      });
     });
   </script>
 </body>

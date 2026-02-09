@@ -17,6 +17,8 @@
         <li><a href="index.html">Home</a></li>
         <li><a href="tournaments.html">Tournaments</a></li>
         <li><a href="merch.html">Merch</a></li>
+        <!-- Profile link is hidden by default and shown when a user is logged in -->
+        <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
         <li><a href="admin.html" id="admin-nav">Admin</a></li>
       </ul>
       <div class="auth-links" id="auth-links"></div>
@@ -34,17 +36,14 @@
         <input type="password" id="register-password" required />
       </label>
       <label>
-        Discord handle:
-        <!-- Require a Discord handle; it will be stored with the user's account. -->
-        <input type="text" id="register-discord" placeholder="Discord#1234" required />
+        Display name:
+        <!-- Collect a display name during registration. -->
+        <input type="text" id="register-display-name" placeholder="Your display name" required />
       </label>
       <button type="submit" class="button">Register</button>
     </form>
     <p>
       Already have an account? <a href="login.html">Login here</a>.
-    </p>
-    <p>
-      <a href="#" id="reset-data">Reset local data</a>
     </p>
   </main>
   <footer>
@@ -65,19 +64,6 @@
         e.preventDefault();
         await handleRegister();
       });
-      // Add handler to reset local data (users and current session)
-      const resetLink = document.getElementById('reset-data');
-      if (resetLink) {
-        resetLink.addEventListener('click', function (e) {
-          e.preventDefault();
-          if (confirm('This will clear all local accounts and current session. Continue?')) {
-            localStorage.removeItem('users');
-            localStorage.removeItem('currentUser');
-            alert('Local data cleared. Please register again.');
-            window.location.href = 'register.html';
-          }
-        });
-      }
     });
   </script>
 </body>

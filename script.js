@@ -58,6 +58,143 @@ if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+/**
+ * Check whether the current user's profile record is complete. A profile is
+ * considered complete when display_name, discord_handle and gamertag are all
+ * non‑empty. If any of these fields are missing, the user will be redirected
+ * to the profile page for completion. This function returns true if the
+ * profile is complete or no Supabase client is available, and false if
+ * redirection occurs.
+ */
+async function checkProfileCompletion() {
+  // Only enforce profile completion when a Supabase client is configured
+  if (!supabaseClient) {
+    return true;
+  }
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+    if (!user) {
+      // Not logged in; nothing to check
+      return true;
+    }
+    // Query the profiles table for the current user
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('display_name, discord_handle, gamertag')
+      .eq('id', user.id)
+      .single();
+    if (error) {
+      console.warn('Error checking profile completion:', error.message || error);
+      // Fail open; allow access rather than blocking due to query failure
+      return true;
+    }
+    const displayName = data && data.display_name;
+    const discord = data && data.discord_handle;
+    const gamertag = data && data.gamertag;
+    if (!displayName || !discord || !gamertag) {
+      // Redirect to profile page. Avoid infinite redirect loops by checking current page.
+      const currentPage = window.location.pathname.split('/').pop();
+      if (currentPage !== 'profile.html') {
+        window.location.href = 'profile.html';
+      }
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to check profile completion:', err);
+    // Fail open
+    return true;
+  }
+}
+
+/**
+ * Load the current user's profile values into the profile form. If the user is
+ * not logged in or no Supabase client is configured, the fields remain empty.
+ */
+async function loadProfile() {
+  if (!supabaseClient) return;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+    if (!user) return;
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('display_name, discord_handle, gamertag')
+      .eq('id', user.id)
+      .single();
+    if (!error && data) {
+      const displayInput = document.getElementById('profile-display-name');
+      const discordInput = document.getElementById('profile-discord');
+      const gamertagInput = document.getElementById('profile-gamertag');
+      if (displayInput) displayInput.value = data.display_name || '';
+      if (discordInput) discordInput.value = data.discord_handle || '';
+      if (gamertagInput) gamertagInput.value = data.gamertag || '';
+    }
+  } catch (err) {
+    console.error('Error loading profile:', err);
+  }
+}
+
+/**
+ * Save the profile form values to the Supabase profiles table. Requires the
+ * user to be authenticated. After successful update, the user is redirected
+ * to the tournaments page.
+ */
+async function handleProfileSave() {
+  if (!supabaseClient) {
+    alert('Profile updates require Supabase.');
+    return;
+  }
+  const displayInput = document.getElementById('profile-display-name');
+  const discordInput = document.getElementById('profile-discord');
+  const gamertagInput = document.getElementById('profile-gamertag');
+  const displayName = displayInput ? displayInput.value.trim() : '';
+  const discord = discordInput ? discordInput.value.trim() : '';
+  const gamertag = gamertagInput ? gamertagInput.value.trim() : '';
+  if (!displayName || !discord || !gamertag) {
+    alert('Please fill out all fields.');
+    return;
+  }
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+    if (!user) {
+      alert('Not logged in.');
+      return;
+    }
+    const updates = {
+      id: user.id,
+      display_name: displayName,
+      discord_handle: discord,
+      gamertag: gamertag,
+    };
+    const { error } = await supabaseClient.from('profiles').upsert(updates);
+    if (error) {
+      alert(error.message || 'Failed to save profile.');
+      return;
+    }
+    // Save the display name and discord in local storage user object (if exists) for team management UI
+    const email = user.email ? user.email.toLowerCase() : null;
+    if (email) {
+      const users = loadUsers();
+      const idx = users.findIndex((u) => u.email === email);
+      if (idx !== -1) {
+        users[idx].displayName = displayName;
+        users[idx].discord = discord;
+        users[idx].gamertag = gamertag;
+        saveUsers(users);
+      }
+    }
+    alert('Profile updated successfully.');
+    // Redirect to tournaments page after profile completion
+    window.location.href = 'tournaments.html';
+  } catch (err) {
+    console.error('Error saving profile:', err);
+    alert('Failed to save profile.');
+  }
+}
+
 // === Static champions ===
 // A list of past tournaments and their champions prior to this website's launch.
 // These are displayed in the Past Champions section on the tournaments page.
@@ -514,22 +651,34 @@ async function handleRegister() {
   ensureDefaultAdmin();
   const email = document.getElementById('register-email').value.trim().toLowerCase();
   const password = document.getElementById('register-password').value;
-  // Capture the optional Discord handle
-  const discordInput = document.getElementById('register-discord');
-  const discord = discordInput ? discordInput.value.trim() : '';
-  // Require a Discord handle to be provided. If the field is empty, prompt the user
-  // and halt registration. This ensures that Discord usernames are mandatory.
-  if (!discord) {
-    alert('Please enter your Discord handle.');
+  const displayInput = document.getElementById('register-display-name');
+  const displayName = displayInput ? displayInput.value.trim() : '';
+  if (!displayName) {
+    alert('Please enter a display name.');
     return;
   }
   // If a Supabase client is configured, register the user via Supabase Auth.
   if (supabaseClient) {
     try {
-      const { error } = await supabaseClient.auth.signUp({ email, password });
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
       if (error) {
         alert(error.message || 'Registration failed.');
         return;
+      }
+      // After successful sign up, insert or update the profile with display name
+      // Use the returned user ID if available; otherwise fetch via getSession
+      let userId = null;
+      if (data && data.user && data.user.id) {
+        userId = data.user.id;
+      }
+      if (!userId) {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        if (sessionData && sessionData.session && sessionData.session.user) {
+          userId = sessionData.session.user.id;
+        }
+      }
+      if (userId) {
+        await supabaseClient.from('profiles').upsert({ id: userId, email: email, display_name: displayName });
       }
     } catch (err) {
       alert('Registration failed.');
@@ -551,16 +700,17 @@ async function handleRegister() {
   const role = email === ADMIN_EMAIL ? 'admin' : 'user';
   if (existing) {
     existing.role = role;
-    existing.discord = discord;
+    existing.displayName = displayName;
     // Do not update password for security reasons
   } else {
-    usersList.push({ email, password: '', role, discord, teamId: null });
+    usersList.push({ email, password: '', role, displayName: displayName, discord: '', gamertag: '', teamId: null });
   }
   saveUsers(usersList);
   setCurrentUser(email);
   acceptInvitesForUser(email);
-  alert('Registration successful! You are now logged in.');
-  window.location.href = 'tournaments.html';
+  alert('Registration successful! Please complete your profile.');
+  // Always redirect new users to the profile page to finish filling details
+  window.location.href = 'profile.html';
 }
 
 async function handleLogin() {
@@ -599,6 +749,14 @@ async function handleLogin() {
   setCurrentUser(email);
   acceptInvitesForUser(email);
   alert('Login successful!');
+  // After login, enforce profile completion if using Supabase
+  if (supabaseClient) {
+    const ok = await checkProfileCompletion();
+    if (!ok) {
+      // Redirect triggered inside checkProfileCompletion
+      return;
+    }
+  }
   const params = new URLSearchParams(window.location.search);
   const redirect = params.get('redirect');
   window.location.href = redirect || 'tournaments.html';
@@ -656,6 +814,18 @@ function populateAuthLinks() {
   if (adminNav) {
     const role = getCurrentUserRole();
     adminNav.style.display = role === 'admin' ? 'inline' : 'none';
+  }
+  // Show the profile nav item only when a user is logged in
+  const profileNav = document.getElementById('profile-nav');
+  if (profileNav) {
+    profileNav.style.display = userEmail ? 'inline' : 'none';
+    // Highlight active state if on profile page
+    const currentPage = window.location.pathname.split('/').pop();
+    if (userEmail && currentPage === 'profile.html') {
+      profileNav.classList.add('active');
+    } else if (profileNav.classList) {
+      profileNav.classList.remove('active');
+    }
   }
 }
 
