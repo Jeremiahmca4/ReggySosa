@@ -248,7 +248,7 @@ async function syncTournamentsFromBackend() {
           startDate: row.start_date ?? row.startDate ?? null,
           status: row.status || 'open',
           created: row.created_at ?? row.created ?? new Date().toISOString(),
-          bracket: [],
+          bracket: Array.isArray(row.bracket) ? row.bracket : (row.bracket && typeof row.bracket === 'object' ? Object.values(row.bracket) : []),
           winner: row.winner || null,
         };
         // If we have a Supabase client, fetch registered teams for this tournament.
@@ -1066,6 +1066,19 @@ function renderPastChampionsTab() {
     const champ = document.createElement('p');
     champ.textContent = 'Champion: ' + t.winner;
     card.appendChild(champ);
+    // Admin delete button on past champion cards
+    const role = getCurrentUserRole();
+    if (role === 'admin') {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.className = 'delete';
+      deleteBtn.style.marginTop = '0.5rem';
+      deleteBtn.addEventListener('click', function() {
+        deleteTournament(t.id);
+        renderPastChampionsTab();
+      });
+      card.appendChild(deleteBtn);
+    }
     pastList.appendChild(card);
   });
   // Static champions defined before the site
@@ -1197,14 +1210,20 @@ function renderAdminTournaments() {
     // Actions
     const actions = document.createElement('div');
     actions.className = 'admin-actions';
-    // Start button
+    // Start button - hide on completed, disable on started
     const startBtn = document.createElement('button');
     startBtn.className = 'start';
-    startBtn.textContent = t.status === 'started' ? 'Started' : 'Start';
-    startBtn.disabled = t.status === 'started';
-    startBtn.addEventListener('click', () => {
-      startTournament(t.id);
-    });
+    if (t.status === 'completed') {
+      startBtn.textContent = 'Completed';
+      startBtn.disabled = true;
+      startBtn.style.opacity = '0.4';
+    } else if (t.status === 'started') {
+      startBtn.textContent = 'Started';
+      startBtn.disabled = true;
+    } else {
+      startBtn.textContent = 'Start';
+      startBtn.addEventListener('click', () => { startTournament(t.id); });
+    }
     // Edit button
     const editBtn = document.createElement('button');
     editBtn.className = 'edit';
@@ -1249,11 +1268,13 @@ async function renderAdminUsers() {
   // Always fetch from Supabase `profiles` table. We no longer use localStorage as fallback.
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from('profiles').select('email, discord, created_at');
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord_handle, display_name, gamertag, created_at');
       if (!error && Array.isArray(data) && data.length > 0) {
         usersArray = data.map((row) => ({
           email: (row.email || '').toLowerCase(),
-          discord: row.discord || '',
+          discord: row.discord_handle || '',
+          display_name: row.display_name || '',
+          gamertag: row.gamertag || '',
           created_at: row.created_at || null,
         }));
       }
@@ -1280,6 +1301,10 @@ async function renderAdminUsers() {
     emailTd.textContent = u.email;
     const discordTd = document.createElement('td');
     discordTd.textContent = u.discord || 'Not set';
+    const nameTd = document.createElement('td');
+    nameTd.textContent = u.display_name || '-';
+    const gamertagTd = document.createElement('td');
+    gamertagTd.textContent = u.gamertag || '-';
     const dateTd = document.createElement('td');
     if (u.created_at) {
       const d = new Date(u.created_at);
@@ -1287,9 +1312,26 @@ async function renderAdminUsers() {
     } else {
       dateTd.textContent = '-';
     }
+    // Delete user button
+    const deleteTd = document.createElement('td');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'delete';
+    deleteBtn.style.fontSize = '0.75rem';
+    deleteBtn.addEventListener('click', async function() {
+      if (!confirm('Delete user ' + u.email + '? This cannot be undone.')) return;
+      if (supabaseClient) {
+        await supabaseClient.from('profiles').delete().eq('email', u.email);
+      }
+      renderAdminUsers();
+    });
+    deleteTd.appendChild(deleteBtn);
     tr.appendChild(emailTd);
     tr.appendChild(discordTd);
+    tr.appendChild(nameTd);
+    tr.appendChild(gamertagTd);
     tr.appendChild(dateTd);
+    tr.appendChild(deleteTd);
     tbody.appendChild(tr);
   });
 }
@@ -1358,10 +1400,32 @@ async function renderAdminTeams() {
     const membersTd = document.createElement('td');
     const members = Array.isArray(team.members) ? team.members : [];
     membersTd.textContent = members.length.toString();
+    // Delete team button
+    const deleteTd = document.createElement('td');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'delete';
+    deleteBtn.style.fontSize = '0.75rem';
+    deleteBtn.addEventListener('click', async function() {
+      if (!confirm('Delete team "' + team.name + '"? This cannot be undone.')) return;
+      try {
+        await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' })
+          .catch(() => {});
+        if (supabaseClient) {
+          await supabaseClient.from('teams').delete().eq('id', team.id);
+        }
+        // Also remove from local teams list
+        const localTeams = loadTeams().filter(t => t.id !== team.id);
+        saveTeams(localTeams);
+      } catch(e) { console.error(e); }
+      renderAdminTeams();
+    });
+    deleteTd.appendChild(deleteBtn);
     tr.appendChild(nameTd);
     tr.appendChild(captainTd);
     tr.appendChild(discordTd);
     tr.appendChild(membersTd);
+    tr.appendChild(deleteTd);
     tbody.appendChild(tr);
   });
 }
@@ -1688,7 +1752,7 @@ function removeTeamFromTournament(tournamentId, teamId) {
 
 // Report a match result for a given tournament. Updates the winner and propagates
 // the winner to the next round. Only called by admins.
-function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
+async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => t.id === tournamentId);
   if (idx === -1) return;
@@ -1718,6 +1782,30 @@ function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
   }
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
+  // Persist the updated bracket, status and winner to the backend so
+  // changes survive page reloads and are visible to all users globally.
+  const patchBody = {
+    bracket: tournament.bracket,
+    status: tournament.status,
+  };
+  if (tournament.winner) {
+    patchBody.winner = tournament.winner;
+  }
+  try {
+    const patchRes = await fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchBody),
+    });
+    const patchData = await patchRes.json();
+    if (!patchData.ok) {
+      console.error('Backend failed to save match result:', patchData);
+      alert('Warning: match result may not have saved. Please try again.');
+    }
+  } catch (err) {
+    console.error('Failed to persist match result to backend:', err);
+    alert('Warning: could not reach backend. Match result may not have saved.');
+  }
 }
 
 function renderTournamentDetails(id) {
@@ -1735,9 +1823,10 @@ function renderTournamentDetails(id) {
   // generate the bracket deterministically using the tournament id. This
   // ensures users who did not start the tournament still see the same
   // bracket and match codes. Save back to local storage so it persists.
+  // Only regenerate bracket if tournament is started (not completed) AND bracket is truly missing
   if (
-    tournament.status === 'started' &&
-    (!tournament.bracket || tournament.bracket.length === 0) &&
+    (tournament.status === 'started') &&
+    (!tournament.bracket || !Array.isArray(tournament.bracket) || tournament.bracket.length === 0) &&
     Array.isArray(tournament.teams) &&
     tournament.teams.length >= 2
   ) {
@@ -1747,12 +1836,17 @@ function renderTournamentDetails(id) {
     // Sort team names to ensure deterministic bracket across devices
     teamNames = teamNames.slice().sort((a, b) => a.localeCompare(b));
     tournament.bracket = generateBracket(teamNames, tournament.id);
-    // Persist the bracket to local storage
+    // Save back to local storage AND backend
     const idx = tournaments.findIndex((t) => t.id === id);
     if (idx !== -1) {
       tournaments[idx] = tournament;
       saveTournaments(tournaments);
     }
+    fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bracket: tournament.bracket, status: tournament.status }),
+    }).catch(() => {});
   }
   container.innerHTML = '';
   const detail = document.createElement('div');
