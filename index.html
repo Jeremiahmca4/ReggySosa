@@ -50,25 +50,47 @@
 
         <!-- Ice rink face-off circle -->
         <svg class="rink-circle" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="200" cy="200" r="160" fill="none" stroke="rgba(0,210,255,0.12)" stroke-width="2"/>
-          <circle cx="200" cy="200" r="10" fill="none" stroke="rgba(0,210,255,0.2)" stroke-width="2"/>
-          <line x1="200" y1="40" x2="200" y2="360" stroke="rgba(0,210,255,0.06)" stroke-width="1"/>
-          <line x1="40" y1="200" x2="360" y2="200" stroke="rgba(0,210,255,0.06)" stroke-width="1"/>
-          <!-- Corner tick marks -->
-          <line x1="180" y1="40" x2="180" y2="60" stroke="rgba(0,210,255,0.15)" stroke-width="2"/>
-          <line x1="220" y1="40" x2="220" y2="60" stroke="rgba(0,210,255,0.15)" stroke-width="2"/>
-          <line x1="180" y1="340" x2="180" y2="360" stroke="rgba(0,210,255,0.15)" stroke-width="2"/>
-          <line x1="220" y1="340" x2="220" y2="360" stroke="rgba(0,210,255,0.15)" stroke-width="2"/>
+          <!-- Outer circle -->
+          <circle cx="200" cy="200" r="160" fill="none" stroke="rgba(255,199,44,0.14)" stroke-width="2"/>
+          <!-- Inner ring -->
+          <circle cx="200" cy="200" r="130" fill="none" stroke="rgba(255,199,44,0.05)" stroke-width="1" stroke-dasharray="8 6"/>
+          <!-- Center dot -->
+          <circle cx="200" cy="200" r="12" fill="none" stroke="rgba(255,199,44,0.25)" stroke-width="2"/>
+          <circle cx="200" cy="200" r="4" fill="rgba(255,199,44,0.3)"/>
+          <!-- Center cross lines -->
+          <line x1="200" y1="40" x2="200" y2="175" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="200" y1="225" x2="200" y2="360" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="40" y1="200" x2="175" y2="200" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="225" y1="200" x2="360" y2="200" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <!-- Face-off hash marks -->
+          <line x1="180" y1="40" x2="180" y2="65" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="220" y1="40" x2="220" y2="65" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="180" y1="335" x2="180" y2="360" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="220" y1="335" x2="220" y2="360" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="40" y1="180" x2="65" y2="180" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="40" y1="220" x2="65" y2="220" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="335" y1="180" x2="360" y2="180" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="335" y1="220" x2="360" y2="220" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
         </svg>
 
-        <!-- Hockey stick 1 (left) -->
-        <svg class="hockey-stick stick-left" viewBox="0 0 80 300" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 40 0 L 40 240 Q 40 270 10 275 L 5 275" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Hockey stick 1 (left) — proper ice hockey stick shape -->
+        <svg class="hockey-stick stick-left" viewBox="0 0 120 380" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shaft: long and straight -->
+          <line x1="60" y1="0" x2="60" y2="290" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round"/>
+          <!-- Heel: sharp angle joint -->
+          <path d="M 60 290 Q 60 318 38 322" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Blade: long, flat, slightly curved at toe -->
+          <path d="M 38 322 L 8 326 Q 4 327 5 330" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="5" stroke-linecap="round"/>
+          <!-- Blade bottom edge -->
+          <path d="M 60 318 L 10 334 Q 4 336 5 330" fill="none" stroke="rgba(255,199,44,0.1)" stroke-width="3" stroke-linecap="round"/>
         </svg>
 
         <!-- Hockey stick 2 (right, mirrored) -->
-        <svg class="hockey-stick stick-right" viewBox="0 0 80 300" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 40 0 L 40 240 Q 40 270 70 275 L 75 275" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg class="hockey-stick stick-right" viewBox="0 0 120 380" xmlns="http://www.w3.org/2000/svg">
+          <line x1="60" y1="0" x2="60" y2="290" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round"/>
+          <path d="M 60 290 Q 60 318 82 322" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 82 322 L 112 326 Q 116 327 115 330" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="5" stroke-linecap="round"/>
+          <path d="M 60 318 L 110 334 Q 116 336 115 330" fill="none" stroke="rgba(255,199,44,0.1)" stroke-width="3" stroke-linecap="round"/>
         </svg>
 
         <!-- Skating trail lines -->
@@ -82,16 +104,16 @@
 
         <!-- Sliding pucks -->
         <svg class="puck puck-1" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(0,210,255,0.18)" stroke="rgba(0,210,255,0.35)" stroke-width="1"/>
-          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(0,210,255,0.2)" stroke-width="0.75"/>
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,199,44,0.15)" stroke="rgba(255,199,44,0.4)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,199,44,0.22)" stroke-width="0.75"/>
         </svg>
         <svg class="puck puck-2" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(139,92,246,0.15)" stroke="rgba(139,92,246,0.3)" stroke-width="1"/>
-          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(139,92,246,0.18)" stroke-width="0.75"/>
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,149,0,0.12)" stroke="rgba(255,149,0,0.35)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,149,0,0.2)" stroke-width="0.75"/>
         </svg>
         <svg class="puck puck-3" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(0,210,255,0.12)" stroke="rgba(0,210,255,0.25)" stroke-width="1"/>
-          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(0,210,255,0.15)" stroke-width="0.75"/>
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,230,102,0.1)" stroke="rgba(255,230,102,0.3)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,230,102,0.18)" stroke-width="0.75"/>
         </svg>
 
       </div>
