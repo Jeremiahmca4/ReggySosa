@@ -304,6 +304,127 @@ h3 {
   from { opacity: 0; transform: translateY(40px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* ── Hockey Background Elements ── */
+.hockey-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Face-off circle - centered, slowly rotating */
+.rink-circle {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: rinkSpin 30s linear infinite;
+  opacity: 0.9;
+}
+@keyframes rinkSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Hockey sticks */
+.hockey-stick {
+  position: absolute;
+  opacity: 0;
+  animation: stickFade 12s ease-in-out infinite;
+}
+.stick-left {
+  width: 60px;
+  height: 220px;
+  left: 8%;
+  top: 10%;
+  animation-delay: 0s;
+  transform: rotate(-15deg);
+}
+.stick-right {
+  width: 60px;
+  height: 220px;
+  right: 8%;
+  top: 15%;
+  animation-delay: 4s;
+  transform: rotate(15deg);
+}
+@keyframes stickFade {
+  0%   { opacity: 0; transform: rotate(-15deg) translateY(10px); }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(-15deg) translateY(-10px); }
+}
+.stick-right { animation-name: stickFadeRight; }
+@keyframes stickFadeRight {
+  0%   { opacity: 0; transform: rotate(15deg) translateY(10px); }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(15deg) translateY(-10px); }
+}
+
+/* Skating trail streaks */
+.skate-trails {
+  position: absolute;
+  inset: 0;
+}
+.trail {
+  position: absolute;
+  height: 1px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,210,255,0.4), transparent);
+  animation: trailSlide 4s ease-in-out infinite;
+  opacity: 0;
+}
+.trail-1 { width: 180px; top: 30%; left: -200px; animation-delay: 0s; }
+.trail-2 { width: 120px; top: 55%; left: -140px; animation-delay: 1.2s; background: linear-gradient(90deg, transparent, rgba(139,92,246,0.35), transparent); }
+.trail-3 { width: 220px; top: 70%; left: -240px; animation-delay: 2.4s; }
+.trail-4 { width: 90px;  top: 20%; left: -110px; animation-delay: 0.8s; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); }
+.trail-5 { width: 150px; top: 82%; left: -170px; animation-delay: 3.2s; background: linear-gradient(90deg, transparent, rgba(0,210,255,0.3), transparent); }
+
+@keyframes trailSlide {
+  0%   { transform: translateX(0);      opacity: 0; }
+  10%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateX(110vw);  opacity: 0; }
+}
+
+/* Sliding pucks */
+.puck {
+  position: absolute;
+  animation: puckSlide linear infinite;
+  opacity: 0;
+}
+.puck-1 {
+  width: 50px; height: 20px;
+  top: 38%;
+  left: -60px;
+  animation-duration: 7s;
+  animation-delay: 0.5s;
+}
+.puck-2 {
+  width: 40px; height: 16px;
+  top: 62%;
+  left: -50px;
+  animation-duration: 9s;
+  animation-delay: 3s;
+}
+.puck-3 {
+  width: 44px; height: 18px;
+  top: 22%;
+  left: -55px;
+  animation-duration: 11s;
+  animation-delay: 6s;
+}
+@keyframes puckSlide {
+  0%   { transform: translateX(0) rotate(-5deg);        opacity: 0; }
+  5%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateX(110vw) rotate(5deg);     opacity: 0; }
+}
+
 
 .hero-title {
   display: flex;
