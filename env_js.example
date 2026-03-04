@@ -1,0 +1,14 @@
+// Environment configuration for the Reggy Sosa tournament platform.
+//
+// Rename this file to `env.js` and replace the placeholder values with
+// your actual Supabase project URL and anon key. Do NOT commit your
+// secret keys to version control.
+
+// Supabase project URL (e.g. https://your-project-ref.supabase.co)
+window.NEXT_PUBLIC_SUPABASE_URL = "https://YOUR-SUPABASE-PROJECT.supabase.co";
+
+// Supabase anon/public API key
+window.NEXT_PUBLIC_SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+// Base URL of your deployed backend API. Leave as-is if using the provided backend.
+window.NEXT_PUBLIC_API_BASE_URL = "https://reggysosa-backend.vercel.app";

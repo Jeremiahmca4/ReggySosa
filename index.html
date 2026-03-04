@@ -3,21 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reggy Sosa | Home</title>
+  <title>Reggy Sosa | CHEL Tournaments</title>
   <link rel="stylesheet" href="style.css" />
-    <!-- Social and link preview metadata -->
-    <meta property="og:title" content="Reggy Sosa" />
-    <meta property="og:description" content="Join the premier CHEL tournament community and compete with the best." />
-    <meta property="og:image" content="logo.png" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.reggysosa.com/" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Reggy Sosa" />
-    <meta name="twitter:description" content="Join the premier CHEL tournament community and compete with the best." />
-    <meta name="twitter:image" content="logo.png" />
-    <!-- Apple touch icon for iOS link previews -->
-    <link rel="apple-touch-icon" sizes="180x180" href="logo.png" />
-    <link rel="icon" href="logo.png" type="image/png" />
+  <meta property="og:title" content="Reggy Sosa" />
+  <meta property="og:description" content="Join the premier CHEL tournament community and compete with the best." />
+  <meta property="og:image" content="logo.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.reggysosa.com/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Reggy Sosa" />
+  <meta name="twitter:description" content="Join the premier CHEL tournament community and compete with the best." />
+  <meta name="twitter:image" content="logo.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="logo.png" />
+  <link rel="icon" href="logo.png" type="image/png" />
 </head>
 <body>
   <header>
@@ -30,19 +28,31 @@
         <li><a href="index.html">Home</a></li>
         <li><a href="tournaments.html">Tournaments</a></li>
         <li><a href="merch.html">Merch</a></li>
-        <!-- Profile link is hidden by default and shown when a user is logged in -->
         <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
         <li><a href="admin.html" id="admin-nav">Admin</a></li>
       </ul>
-      <div class="auth-links" id="auth-links">
-        <!-- Populated by script.js -->
-      </div>
+      <div class="auth-links" id="auth-links"></div>
     </nav>
   </header>
+
   <main class="container home-page">
-    <!-- Social links section placed at the top of the page for better visibility -->
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-content">
+        <p class="hero-eyebrow">Premier CHEL Tournament Community</p>
+        <h1>Reggy Sosa</h1>
+        <p class="hero-sub">Compete in World of CHEL tournaments, climb the bracket, and prove your game.</p>
+        <div class="hero-buttons">
+          <a class="button" href="tournaments.html">View Tournaments</a>
+          <a class="secondary-button" href="https://discord.gg/H4n8Wxc4ZD" target="_blank">Join Discord</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Social links -->
     <section class="social-links-section top">
-      <h2>Connect with Reggy Sosa</h2>
+      <h2>Connect</h2>
       <ul class="social-list">
         <li><a href="https://www.instagram.com/reggysosa_/" target="_blank">Instagram</a></li>
         <li><a href="https://www.tiktok.com/@reggysosa" target="_blank">TikTok</a></li>
@@ -53,65 +63,46 @@
         <li><a href="https://www.twitch.tv/reggysosa" target="_blank">Twitch</a></li>
       </ul>
     </section>
-    <!-- Hero section introduces the site with a headline, subtext and CTAs -->
-    <section class="hero">
-      <div class="hero-content">
-        <!-- Removed cringey headline and marketing copy to keep the hero minimal -->
-        <div class="hero-buttons">
-          <a class="button" href="tournaments.html">View Tournaments</a>
-          <a class="secondary-button" href="https://discord.gg/H4n8Wxc4ZD" target="_blank">Join Discord</a>
-        </div>
-      </div>
-    </section>
-    <!-- Featured next tournament block (filled dynamically) -->
+
+    <!-- Next tournament -->
     <section id="next-tournament-section" class="next-tournament" style="display:none;">
       <h2>Next Tournament</h2>
       <div id="next-tournament-block" class="next-tournament-card"></div>
     </section>
 
-    
-<!-- Live Twitch stream embed -->
-<section id="twitch-section" class="next-tournament">
-  <h2>Live on Twitch</h2>
-  <div class="next-tournament-card">
-    <!-- The Twitch player is embedded directly so users can watch the stream without leaving the site. -->
-    <div class="twitch-player">
-      <iframe
-        src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
-        allowfullscreen
-        scrolling="no"
-        frameborder="0">
-      </iframe>
-    </div>
-    <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
-  </div>
-</section>
+    <!-- Twitch -->
+    <section id="twitch-section" class="next-tournament">
+      <h2>Live on Twitch</h2>
+      <div class="next-tournament-card">
+        <div class="twitch-player">
+          <iframe
+            src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
+            allowfullscreen
+            scrolling="no"
+            frameborder="0">
+          </iframe>
+        </div>
+        <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
+      </div>
+    </section>
+
   </main>
+
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
-  <!-- Supabase client library -->
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
+  <script src="env.js"></script>
   <script src="script.js"></script>
   <script>
-    // Display current year and setup auth links
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      if (typeof syncSession === 'function') {
-        await syncSession();
-      }
+      if (typeof syncSession === 'function') await syncSession();
       populateAuthLinks();
-      // Synchronise tournaments and teams from the backend before rendering the next tournament
-      if (typeof syncTournamentsFromBackend === 'function') {
-        await syncTournamentsFromBackend();
-      }
-      if (typeof syncTeamsFromBackend === 'function') {
-        await syncTeamsFromBackend();
-      }
-      // Render the next tournament block if available
-      if (typeof renderNextTournament === 'function') {
-        renderNextTournament();
-      }
+      if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
+      if (typeof renderNextTournament === 'function') renderNextTournament();
     });
   </script>
 </body>
