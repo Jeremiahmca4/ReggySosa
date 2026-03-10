@@ -108,12 +108,6 @@ async function checkProfileCompletion() {
   }
 }
 
-  } catch (err) {
-    console.error('Error loading profile:', err);
-  }
-}
-
-
 // === Static champions ===
 // A list of past tournaments and their champions prior to this website's launch.
 // These are displayed in the Past Champions section on the tournaments page.
