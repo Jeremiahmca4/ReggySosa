@@ -161,6 +161,7 @@ async function syncTournamentsFromBackend() {
           created: row.created_at ?? row.created ?? new Date().toISOString(),
           bracket: Array.isArray(row.bracket) ? row.bracket : (row.bracket && typeof row.bracket === 'object' ? Object.values(row.bracket) : []),
           winner: row.winner || null,
+          password: row.password || null,
         };
         // If we have a Supabase client, fetch registered teams for this tournament.
         if (supabaseClient) {
@@ -1388,6 +1389,7 @@ function createTournamentFromForm() {
         name: name,
         maxTeams: maxVal,
         startDate: newTournament.startDate,
+        password: newTournament.password || null,
       }),
     }).catch(() => {
       /* ignore errors */
