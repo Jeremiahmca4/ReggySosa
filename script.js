@@ -2500,28 +2500,44 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
   let screenshotUrl = null;
   if (screenshotFile) {
     try {
-      const ext = screenshotFile.name.split('.').pop();
-      const path = `scores/${tournamentId}_r${roundIndex}_m${matchIndex}_${Date.now()}.${ext}`;
-      const { data, error } = await supabaseClient.storage.from('score-screenshots').upload(path, screenshotFile, { upsert: true });
-      if (!error && data) {
+      const ext = screenshotFile.name.split('.').pop().toLowerCase();
+      const safeName = Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      const path = `scores/${safeName}.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+        .from('score-screenshots')
+        .upload(path, screenshotFile, { upsert: true, contentType: screenshotFile.type });
+      if (uploadError) {
+        console.error('Screenshot storage upload error:', uploadError);
+        // Show error to user — storage bucket may not be set up
+        const bucketMsg = uploadError.message || JSON.stringify(uploadError);
+        alert('Screenshot upload failed: ' + bucketMsg + '\n\nMake sure the \'score-screenshots\' bucket exists in Supabase Storage and has public access enabled.');
+        return false;
+      }
+      if (uploadData) {
         const { data: urlData } = supabaseClient.storage.from('score-screenshots').getPublicUrl(path);
         screenshotUrl = urlData?.publicUrl || null;
+        console.log('Screenshot uploaded:', screenshotUrl);
       }
-    } catch(e) { console.warn('Screenshot upload failed', e); }
+    } catch(e) {
+      console.error('Screenshot upload exception:', e);
+      alert('Screenshot upload failed: ' + e.message);
+      return false;
+    }
   }
 
   try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const submitterEmail = user?.email || email || 'unknown';
     const { error } = await supabaseClient.from('score_submissions').insert({
       tournament_id: tournamentId,
       round_index: roundIndex,
       match_index: matchIndex,
-      submitter_email: email,
-      my_score: myScore,
-      opp_score: oppScore,
+      submitter_email: submitterEmail,
+      reported_winner: reportedWinner,
       screenshot_url: screenshotUrl,
       status: 'pending',
     });
-    if (error) { console.error('Score submission error', error); return false; }
+    if (error) { console.error('Score submission DB error', error); return false; }
     return true;
   } catch(e) { console.error('Score submission error', e); return false; }
 }
