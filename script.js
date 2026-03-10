@@ -1762,7 +1762,6 @@ const AVATARS = [
   { id: 'bull',      label: 'Bull',      emoji: '🐂' },
   { id: 'gorilla',   label: 'Gorilla',   emoji: '🦍' },
   { id: 'panther',   label: 'Panther',   emoji: '🐆' },
-  { id: 'hawk',      label: 'Hawk',      emoji: '🦆' },
   { id: 'cobra',     label: 'Cobra',     emoji: '🐍' },
   { id: 'croc',      label: 'Croc',      emoji: '🐊' },
   { id: 'boar',      label: 'Boar',      emoji: '🐗' },
@@ -1771,10 +1770,11 @@ const AVATARS = [
   { id: 'octopus',   label: 'Octopus',   emoji: '🐙' },
   { id: 'scorpion',  label: 'Scorpion',  emoji: '🦂' },
   { id: 'wolverine', label: 'Wolverine', emoji: '🦡' },
-  { id: 'falcon',    label: 'Falcon',    emoji: '🦅' },
-  { id: 'viper',     label: 'Viper',     emoji: '🐍' },
   { id: 'mammoth',   label: 'Mammoth',   emoji: '🦣' },
   { id: 'bison',     label: 'Bison',     emoji: '🦬' },
+  { id: 'moose',     label: 'Moose',     emoji: '🫎' },
+  { id: 'penguin',   label: 'Penguin',   emoji: '🐧' },
+  { id: 'polar',     label: 'Polar Bear',emoji: '🐻‍❄️' },
   // Hockey & Sports
   { id: 'stick',     label: 'Stick',     emoji: '🏒' },
   { id: 'net',       label: 'Net',       emoji: '🥅' },
@@ -1795,7 +1795,11 @@ const AVATARS = [
   { id: 'alien',     label: 'Alien',     emoji: '👾' },
   { id: 'robot',     label: 'Robot',     emoji: '🤖' },
   { id: 'demon',     label: 'Demon',     emoji: '😈' },
-  { id: 'puck',      label: 'Puck',      emoji: '🏒' },
+  { id: 'medalmilitary', label: 'Medal', emoji: '🎖️' },
+  { id: 'comet',     label: 'Comet',     emoji: '☄️' },
+  { id: 'trident',   label: 'Trident',   emoji: '🔱' },
+  { id: 'tornado',   label: 'Tornado',   emoji: '🌪️' },
+  { id: 'lightning', label: 'Lightning', emoji: '🌩️' },
 ];
 
 
