@@ -1729,78 +1729,47 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
 
 
 
-// ── PIXEL ART AVATARS ────────────────────────────────────────────────────────
-// 20 8x8 pixel art icons encoded as SVG rects. Each avatar is a 8x8 grid.
-// Colors use gold theme. Format: id, label, pixel grid (1=gold, 2=dark gold, 0=transparent)
+// ── EMOJI AVATARS ─────────────────────────────────────────────────────────────
 const AVATARS = [
-  { id: 'wolf', label: 'Wolf' },
-  { id: 'bear', label: 'Bear' },
-  { id: 'eagle', label: 'Eagle' },
-  { id: 'shark', label: 'Shark' },
-  { id: 'lion', label: 'Lion' },
-  { id: 'fox', label: 'Fox' },
-  { id: 'bull', label: 'Bull' },
-  { id: 'snake', label: 'Snake' },
-  { id: 'puck', label: 'Puck' },
-  { id: 'skull', label: 'Skull' },
-  { id: 'crown', label: 'Crown' },
-  { id: 'flame', label: 'Flame' },
-  { id: 'thunder', label: 'Thunder' },
-  { id: 'dragon', label: 'Dragon' },
-  { id: 'hawk', label: 'Hawk' },
-  { id: 'tiger', label: 'Tiger' },
-  { id: 'goat', label: 'Goat' },
-  { id: 'raven', label: 'Raven' },
-  { id: 'viper', label: 'Viper' },
-  { id: 'rhino', label: 'Rhino' },
+  { id: 'wolf',    label: 'Wolf',    emoji: '🐺' },
+  { id: 'bear',    label: 'Bear',    emoji: '🐻' },
+  { id: 'eagle',   label: 'Eagle',   emoji: '🦅' },
+  { id: 'shark',   label: 'Shark',   emoji: '🦈' },
+  { id: 'lion',    label: 'Lion',    emoji: '🦁' },
+  { id: 'fox',     label: 'Fox',     emoji: '🦊' },
+  { id: 'tiger',   label: 'Tiger',   emoji: '🐯' },
+  { id: 'dragon',  label: 'Dragon',  emoji: '🐉' },
+  { id: 'rhino',   label: 'Rhino',   emoji: '🦏' },
+  { id: 'bull',    label: 'Bull',    emoji: '🐂' },
+  { id: 'stick',   label: 'Stick',   emoji: '🏒' },
+  { id: 'net',     label: 'Net',     emoji: '🥅' },
+  { id: 'trophy',  label: 'Trophy',  emoji: '🏆' },
+  { id: 'thunder', label: 'Thunder', emoji: '⚡' },
+  { id: 'skull',   label: 'Skull',   emoji: '💀' },
+  { id: 'flame',   label: 'Flame',   emoji: '🔥' },
+  { id: 'ice',     label: 'Ice',     emoji: '❄️' },
+  { id: 'target',  label: 'Target',  emoji: '🎯' },
+  { id: 'crown',   label: 'Crown',   emoji: '👑' },
+  { id: 'shield',  label: 'Shield',  emoji: '🛡️' },
 ];
 
-// Pixel grids — 8 rows x 8 cols. 1=primary, 2=secondary, 3=dark, 0=bg
-const AVATAR_PIXELS = {
-  wolf:    [[0,0,1,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
-  bear:    [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[1,1,1,2,2,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
-  eagle:   [[0,0,0,1,1,0,0,0],[0,1,1,1,1,1,1,0],[1,1,1,2,2,1,1,1],[1,1,2,1,1,2,1,1],[0,1,1,1,1,1,1,0],[0,0,1,2,2,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
-  shark:   [[0,0,0,0,1,0,0,0],[0,0,0,1,1,0,0,0],[1,1,1,1,1,1,1,0],[1,1,2,1,1,1,1,1],[1,1,1,1,1,1,1,0],[0,0,0,1,1,0,0,0],[0,0,1,0,0,1,0,0],[0,1,0,0,0,0,1,0]],
-  lion:    [[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,2,1,1,1,1,2,1],[1,1,1,2,2,1,1,1],[1,1,1,1,1,1,1,1],[0,1,2,1,1,2,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0]],
-  fox:     [[0,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1],[1,1,1,1,1,1,1,1],[1,2,1,1,1,1,2,1],[0,1,1,1,1,1,1,0],[0,0,1,2,2,1,0,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0]],
-  bull:    [[1,0,0,0,0,0,0,1],[1,1,0,1,1,0,1,1],[0,1,1,1,1,1,1,0],[0,1,2,1,1,2,1,0],[0,1,1,1,1,1,1,0],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
-  snake:   [[0,0,1,1,1,1,0,0],[0,1,1,2,2,1,1,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,1,1,0],[0,1,1,1,1,1,1,0],[1,1,1,0,0,1,1,1],[0,1,0,0,0,0,1,0]],
-  puck:    [[0,0,1,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
-  skull:   [[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[1,1,3,1,1,3,1,1],[1,1,3,1,1,3,1,1],[1,1,1,1,1,1,1,1],[0,1,1,3,3,1,1,0],[0,1,3,1,1,3,1,0],[0,0,1,1,1,1,0,0]],
-  crown:   [[0,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1],[1,1,1,1,1,1,1,1],[1,2,1,2,2,1,2,1],[1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
-  flame:   [[0,0,0,1,0,0,0,0],[0,0,1,1,1,0,0,0],[0,1,1,2,1,1,0,0],[1,1,2,1,2,1,1,0],[1,1,1,2,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,0,0,0],[0,0,0,1,0,0,0,0]],
-  thunder: [[0,0,0,1,1,0,0,0],[0,0,1,1,1,0,0,0],[0,1,1,1,0,0,0,0],[1,1,1,1,1,1,0,0],[0,0,1,1,1,1,1,0],[0,0,0,0,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,0,1,0]],
-  dragon:  [[0,1,0,1,1,0,1,0],[1,1,1,1,1,1,1,1],[1,2,1,1,1,1,2,1],[1,1,1,2,2,1,1,1],[0,1,1,1,1,1,1,0],[0,1,2,1,1,2,1,0],[1,1,1,1,1,1,1,1],[0,1,0,1,1,0,1,0]],
-  hawk:    [[0,0,1,0,0,1,0,0],[0,1,1,1,1,1,1,0],[1,1,1,2,2,1,1,1],[1,2,1,1,1,1,2,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
-  tiger:   [[0,1,0,1,1,0,1,0],[0,1,1,1,1,1,1,0],[1,2,1,1,1,1,2,1],[1,1,1,1,1,1,1,1],[1,1,2,1,1,2,1,1],[0,1,1,1,1,1,1,0],[0,1,0,1,1,0,1,0],[0,0,1,0,0,1,0,0]],
-  goat:    [[0,1,1,0,0,1,1,0],[0,0,1,0,0,1,0,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
-  raven:   [[0,0,0,1,1,0,0,0],[0,0,1,1,1,1,0,0],[0,1,1,2,1,1,1,0],[1,1,2,1,1,1,1,1],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,0,0,0],[0,1,1,0,1,1,0,0]],
-  viper:   [[0,0,1,1,0,0,0,0],[0,1,1,1,1,0,0,0],[1,1,2,1,1,1,0,0],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,0],[0,0,0,1,1,2,1,0],[0,0,0,0,1,1,1,0],[0,0,0,0,0,1,1,0]],
-  rhino:   [[0,0,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[1,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,0],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
-};
 
-const AVATAR_COLORS = {
-  1: '#ffc72c',   // gold
-  2: '#ff9500',   // dark gold / amber
-  3: '#1a1a2e',   // dark (for puck face, skull eyes)
-};
-
-function renderAvatarSVG(id, size = 48) {
-  const pixels = AVATAR_PIXELS[id] || AVATAR_PIXELS['wolf'];
-  const cell = size / 8;
-  let rects = '';
-  pixels.forEach((row, r) => {
-    row.forEach((val, c) => {
-      if (val === 0) return;
-      const color = AVATAR_COLORS[val] || '#ffc72c';
-      rects += `<rect x="${c * cell}" y="${r * cell}" width="${cell}" height="${cell}" fill="${color}" rx="0.5"/>`;
-    });
-  });
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated">${rects}</svg>`;
+function getAvatarEmoji(id) {
+  const av = AVATARS.find(a => a.id === id) || AVATARS[0];
+  return av.emoji;
 }
 
-function getAvatarSVGString(id, size = 48) {
-  return renderAvatarSVG(id, size);
+// Renders an emoji avatar badge with a background color
+// color defaults to dark if not provided
+function renderAvatarSVG(id, size = 48, color) {
+  const emoji = getAvatarEmoji(id);
+  const bg = color || '#1a1a2e';
+  const fontSize = Math.round(size * 0.55);
+  return `<div class="avatar-emoji-badge" style="width:${size}px;height:${size}px;font-size:${fontSize}px;background:${bg};">${emoji}</div>`;
+}
+
+function getAvatarSVGString(id, size, color) {
+  return renderAvatarSVG(id, size, color);
 }
 
 // ── ACHIEVEMENTS SYSTEM ──────────────────────────────────────────────────────
@@ -1925,6 +1894,7 @@ async function renderTeamPage(teamId) {
       if (data) {
         avatarId = data.avatar || avatarId;
         bannerColor = data.banner_color || bannerColor;
+        const avatarColor = data.avatar_color || '#1a1a2e';
         captainGamertag = data.gamertag || '';
         captainPlatform = data.platform || 'ps5';
         captainDiscord = data.discord_handle || '';
@@ -1983,7 +1953,7 @@ async function renderTeamPage(teamId) {
 
   const avatarEl = document.createElement('div');
   avatarEl.className = 'team-avatar-large';
-  avatarEl.innerHTML = renderAvatarSVG(avatarId, 96);
+  avatarEl.innerHTML = renderAvatarSVG(avatarId, 96, typeof avatarColor !== 'undefined' ? avatarColor : '#1a1a2e');
 
   const teamInfo = document.createElement('div');
   teamInfo.className = 'team-banner-info';
@@ -2102,7 +2072,7 @@ async function loadProfile() {
   try {
     const { data } = await supabaseClient
       .from('profiles')
-      .select('display_name, discord_handle, gamertag, avatar, banner_color, platform')
+      .select('display_name, discord_handle, gamertag, avatar, avatar_color, banner_color, platform')
       .eq('email', email)
       .single();
     if (!data) return;
@@ -2112,17 +2082,30 @@ async function loadProfile() {
     if (dn) dn.value = data.display_name || '';
     if (dc) dc.value = data.discord_handle || '';
     if (gt) gt.value = data.gamertag || '';
+    // Set avatar color
+    const avColor = data.avatar_color || '#1a1a2e';
+    const avColorInput = document.getElementById('profile-avatar-color');
+    if (avColorInput) avColorInput.value = avColor;
+    document.querySelectorAll('.avatar-color-swatch').forEach(el => {
+      el.classList.toggle('active', el.dataset.color === avColor);
+    });
     // Set avatar picker
     if (data.avatar) {
       document.querySelectorAll('.avatar-option').forEach(el => {
         el.classList.toggle('selected', el.dataset.avatar === data.avatar);
+        el.innerHTML = renderAvatarSVG(el.dataset.avatar, 44, avColor);
       });
+      const previewAv = document.getElementById('preview-avatar');
+      if (previewAv) previewAv.innerHTML = renderAvatarSVG(data.avatar, 64, avColor);
     }
     // Set banner color
     if (data.banner_color) {
       const bc = document.getElementById('profile-banner-color');
       if (bc) bc.value = data.banner_color;
       updateBannerPreview(data.banner_color);
+      document.querySelectorAll('.color-swatch:not(.avatar-color-swatch)').forEach(el => {
+        el.classList.toggle('active', el.dataset.color === data.banner_color);
+      });
     }
     // Set platform
     if (data.platform) {
@@ -2141,6 +2124,7 @@ async function handleProfileSave() {
   if (!displayName || !discord || !gamertag) { alert('Please fill out all fields.'); return; }
 
   const selectedAvatar = document.querySelector('.avatar-option.selected')?.dataset.avatar || 'wolf';
+  const avatarColor = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
   const bannerColor = document.getElementById('profile-banner-color')?.value || '#1a1a2e';
   const platform = document.querySelector('.platform-btn.active')?.dataset.platform || 'ps5';
 
@@ -2155,6 +2139,7 @@ async function handleProfileSave() {
       discord_handle: discord,
       gamertag: gamertag,
       avatar: selectedAvatar,
+      avatar_color: avatarColor,
       banner_color: bannerColor,
       platform: platform,
     });
@@ -2293,6 +2278,38 @@ function buildProfileEditor() {
   bannerSection.appendChild(colorRow);
   form.appendChild(bannerSection);
 
+  // Avatar color picker
+  const avatarColorSection = document.createElement('div');
+  avatarColorSection.className = 'profile-section';
+  avatarColorSection.innerHTML = '<h3 class="profile-section-title">Avatar Color</h3>';
+  const avatarColorRow = document.createElement('div');
+  avatarColorRow.className = 'color-row';
+  const AVATAR_COLOR_OPTIONS = ['#1a1a2e','#0d2b1a','#2b0d0d','#1a0d2b','#2b1a0d','#0d1a2b','#1a2b0d','#2b2b0d','#0d2b2b','#1c1c1c'];
+  AVATAR_COLOR_OPTIONS.forEach((color, i) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'color-swatch avatar-color-swatch' + (i === 0 ? ' active' : '');
+    swatch.style.background = color;
+    swatch.dataset.color = color;
+    swatch.addEventListener('click', () => {
+      document.querySelectorAll('.avatar-color-swatch').forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+      document.getElementById('profile-avatar-color').value = color;
+      // Update preview
+      const sel = document.querySelector('.avatar-option.selected');
+      const previewAv = document.getElementById('preview-avatar');
+      if (previewAv && sel) previewAv.innerHTML = renderAvatarSVG(sel.dataset.avatar, 64, color);
+    });
+    avatarColorRow.appendChild(swatch);
+  });
+  const avatarColorInput = document.createElement('input');
+  avatarColorInput.type = 'hidden';
+  avatarColorInput.id = 'profile-avatar-color';
+  avatarColorInput.value = '#1a1a2e';
+  avatarColorRow.appendChild(avatarColorInput);
+  avatarColorSection.appendChild(avatarColorRow);
+  form.appendChild(avatarColorSection);
+
   // Avatar picker
   const avatarSection = document.createElement('div');
   avatarSection.className = 'profile-section';
@@ -2304,12 +2321,19 @@ function buildProfileEditor() {
     opt.className = 'avatar-option' + (i === 0 ? ' selected' : '');
     opt.dataset.avatar = av.id;
     opt.title = av.label;
-    opt.innerHTML = renderAvatarSVG(av.id, 40);
+    const avColor = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
+    opt.innerHTML = renderAvatarSVG(av.id, 44, avColor);
     opt.addEventListener('click', () => {
       document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
+      const currentColor = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
       const previewAv = document.getElementById('preview-avatar');
-      if (previewAv) previewAv.innerHTML = renderAvatarSVG(av.id, 64);
+      if (previewAv) previewAv.innerHTML = renderAvatarSVG(av.id, 64, currentColor);
+      // Refresh all option backgrounds to current color
+      document.querySelectorAll('.avatar-option').forEach(o => {
+        const c = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
+        o.innerHTML = renderAvatarSVG(o.dataset.avatar, 44, c);
+      });
     });
     avatarGrid.appendChild(opt);
   });
@@ -2361,8 +2385,8 @@ function renderTeamSearch() {
     let gamertagMap = {};
     if (supabaseClient) {
       try {
-        const { data } = await supabaseClient.from('profiles').select('email, gamertag, avatar');
-        if (data) data.forEach(p => { gamertagMap[p.email] = { gamertag: p.gamertag, avatar: p.avatar }; });
+        const { data } = await supabaseClient.from('profiles').select('email, gamertag, avatar, avatar_color');
+        if (data) data.forEach(p => { gamertagMap[p.email] = { gamertag: p.gamertag, avatar: p.avatar, avatar_color: p.avatar_color }; });
       } catch(e) {}
     }
 
@@ -2381,11 +2405,12 @@ function renderTeamSearch() {
     matched.slice(0, 8).forEach(t => {
       const capData = gamertagMap[t.captain] || {};
       const avatarId = capData.avatar || t.avatar || 'wolf';
+      const avColor = capData.avatar_color || '#1a1a2e';
       const row = document.createElement('a');
       row.href = 'team.html?id=' + t.id;
       row.className = 'team-search-result-row';
       row.innerHTML = `
-        <span class="tsr-avatar">${renderAvatarSVG(avatarId, 32)}</span>
+        <span class="tsr-avatar">${renderAvatarSVG(avatarId, 32, avColor)}</span>
         <span class="tsr-name">${t.name}</span>
         <span class="tsr-captain">${capData.gamertag || t.captain}</span>
       `;

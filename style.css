@@ -1753,11 +1753,8 @@ a {
 }
 .team-avatar-large {
   flex-shrink: 0;
-  padding: 8px;
-  background: rgba(0,0,0,0.4);
-  border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  image-rendering: pixelated;
+  overflow: hidden;
 }
 .team-banner-info { flex: 1; min-width: 200px; }
 .team-banner-name {
@@ -1946,25 +1943,33 @@ a {
   border-color: var(--gold);
 }
 
+.avatar-emoji-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .avatar-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
   gap: 0.5rem;
 }
 .avatar-option {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
-  background: var(--surface);
+  padding: 4px;
+  background: transparent;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: border-color var(--transition), transform var(--transition);
-  image-rendering: pixelated;
 }
 .avatar-option:hover { border-color: rgba(255,199,44,0.5); transform: scale(1.05); }
-.avatar-option.selected { border-color: var(--gold); background: rgba(255,199,44,0.1); }
+.avatar-option.selected { border-color: var(--gold); }
 
 /* ── Team Search ─────────────────────────────────────────────────────────── */
 .team-search-wrap { padding: 1.5rem 0; max-width: 520px; }
@@ -1995,10 +2000,9 @@ a {
   text-decoration: none;
   color: var(--text);
   transition: border-color var(--transition), transform var(--transition);
-  image-rendering: pixelated;
 }
 .team-search-result-row:hover { border-color: var(--gold); transform: translateX(3px); }
-.tsr-avatar { flex-shrink: 0; }
+.tsr-avatar { flex-shrink: 0; border-radius: 6px; overflow: hidden; }
 .tsr-name {
   flex: 1;
   font-family: 'Barlow Condensed', sans-serif;
