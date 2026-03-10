@@ -74,23 +74,42 @@
         </svg>
 
         <!-- Hockey stick 1 (left) — proper ice hockey stick shape -->
-        <svg class="hockey-stick stick-left" viewBox="0 0 120 380" xmlns="http://www.w3.org/2000/svg">
-          <!-- Shaft: long and straight -->
-          <line x1="60" y1="0" x2="60" y2="290" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round"/>
-          <!-- Heel: sharp angle joint -->
-          <path d="M 60 290 Q 60 318 38 322" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-          <!-- Blade: long, flat, slightly curved at toe -->
-          <path d="M 38 322 L 8 326 Q 4 327 5 330" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="5" stroke-linecap="round"/>
-          <!-- Blade bottom edge -->
-          <path d="M 60 318 L 10 334 Q 4 336 5 330" fill="none" stroke="rgba(255,199,44,0.1)" stroke-width="3" stroke-linecap="round"/>
+        <svg class="hockey-stick stick-left" viewBox="0 0 100 420" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shaft: thick tapered stick body going diagonally -->
+          <path d="M 58 4 L 62 4 L 68 300 L 64 300 Z" fill="rgba(255,199,44,0.22)"/>
+          <!-- Shaft center line for depth -->
+          <line x1="60" y1="4" x2="66" y2="300" stroke="rgba(255,199,44,0.35)" stroke-width="2"/>
+          <!-- Heel: the curved knuckle where shaft meets blade -->
+          <path d="M 64 300 Q 66 330 52 338" fill="none" stroke="rgba(255,199,44,0.32)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Blade top edge: long flat extending left -->
+          <path d="M 52 338 L 6 348" fill="none" stroke="rgba(255,199,44,0.30)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Blade bottom edge: slight curve at toe -->
+          <path d="M 66 344 L 12 356 Q 4 358 5 352 Q 5 348 6 348" fill="none" stroke="rgba(255,199,44,0.20)" stroke-width="4" stroke-linecap="round"/>
+          <!-- Blade face fill -->
+          <path d="M 52 338 L 6 348 Q 4 350 5 352 Q 5 358 12 356 L 66 344 Q 65 340 64 336 Z" fill="rgba(255,199,44,0.06)"/>
+          <!-- Tape on shaft (grip area near top) -->
+          <rect x="56" y="20" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="56" y="28" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="56" y="36" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
         </svg>
 
         <!-- Hockey stick 2 (right, mirrored) -->
-        <svg class="hockey-stick stick-right" viewBox="0 0 120 380" xmlns="http://www.w3.org/2000/svg">
-          <line x1="60" y1="0" x2="60" y2="290" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round"/>
-          <path d="M 60 290 Q 60 318 82 322" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M 82 322 L 112 326 Q 116 327 115 330" fill="none" stroke="rgba(255,199,44,0.18)" stroke-width="5" stroke-linecap="round"/>
-          <path d="M 60 318 L 110 334 Q 116 336 115 330" fill="none" stroke="rgba(255,199,44,0.1)" stroke-width="3" stroke-linecap="round"/>
+        <svg class="hockey-stick stick-right" viewBox="0 0 100 420" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shaft -->
+          <path d="M 38 4 L 42 4 L 36 300 L 32 300 Z" fill="rgba(255,199,44,0.22)"/>
+          <line x1="40" y1="4" x2="34" y2="300" stroke="rgba(255,199,44,0.35)" stroke-width="2"/>
+          <!-- Heel -->
+          <path d="M 36 300 Q 34 330 48 338" fill="none" stroke="rgba(255,199,44,0.32)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Blade top edge -->
+          <path d="M 48 338 L 94 348" fill="none" stroke="rgba(255,199,44,0.30)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Blade bottom edge -->
+          <path d="M 34 344 L 88 356 Q 96 358 95 352 Q 95 348 94 348" fill="none" stroke="rgba(255,199,44,0.20)" stroke-width="4" stroke-linecap="round"/>
+          <!-- Blade face fill -->
+          <path d="M 48 338 L 94 348 Q 96 350 95 352 Q 95 358 88 356 L 34 344 Q 35 340 36 336 Z" fill="rgba(255,199,44,0.06)"/>
+          <!-- Tape grip -->
+          <rect x="35" y="20" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="35" y="28" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="35" y="36" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
         </svg>
 
         <!-- Skating trail lines -->

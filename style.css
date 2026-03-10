@@ -338,20 +338,20 @@ h3 {
   animation: stickFade 12s ease-in-out infinite;
 }
 .stick-left {
-  width: 60px;
-  height: 220px;
-  left: 8%;
-  top: 10%;
+  width: 70px;
+  height: 260px;
+  left: 7%;
+  top: 8%;
   animation-delay: 0s;
-  transform: rotate(-15deg);
+  transform: rotate(-12deg);
 }
 .stick-right {
-  width: 60px;
-  height: 220px;
-  right: 8%;
-  top: 15%;
+  width: 70px;
+  height: 260px;
+  right: 7%;
+  top: 12%;
   animation-delay: 4s;
-  transform: rotate(15deg);
+  transform: rotate(12deg);
 }
 @keyframes stickFade {
   0%   { opacity: 0; transform: rotate(-15deg) translateY(10px); }
