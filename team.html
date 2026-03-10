@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reggy Sosa | Team Profile</title>
+  <title>Reggy Sosa | Team</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="logo.png" type="image/png" />
 </head>
@@ -24,9 +24,8 @@
       <div class="auth-links" id="auth-links"></div>
     </nav>
   </header>
-  <main class="container profile-page">
-    <!-- Built dynamically by buildProfileEditor() in script.js -->
-    <div id="profile-loading" style="color:var(--text-muted);padding:3rem 0">Loading profile...</div>
+  <main>
+    <div id="team-page-container"></div>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -39,12 +38,12 @@
       if (typeof syncSession === 'function') await syncSession();
       populateAuthLinks();
       if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
-      // Build the editor UI
-      const loading = document.getElementById('profile-loading');
-      if (loading) loading.remove();
-      if (typeof buildProfileEditor === 'function') buildProfileEditor();
-      // Load existing values into the editor
-      if (typeof loadProfile === 'function') await loadProfile();
+      if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+      const params = new URLSearchParams(window.location.search);
+      const teamId = params.get('id');
+      if (typeof renderTeamPage === 'function') {
+        renderTeamPage(teamId);
+      }
     });
   </script>
 </body>

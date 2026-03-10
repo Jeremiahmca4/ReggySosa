@@ -108,94 +108,11 @@ async function checkProfileCompletion() {
   }
 }
 
-/**
- * Load the current user's profile values into the profile form. If the user is
- * not logged in or no Supabase client is configured, the fields remain empty.
- */
-async function loadProfile() {
-  if (!supabaseClient) return;
-  try {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const user = session && session.user;
-    if (!user) return;
-    const { data, error } = await supabaseClient
-      .from('profiles')
-      .select('display_name, discord_handle, gamertag')
-      .eq('id', user.id)
-      .single();
-    if (!error && data) {
-      const displayInput = document.getElementById('profile-display-name');
-      const discordInput = document.getElementById('profile-discord');
-      const gamertagInput = document.getElementById('profile-gamertag');
-      if (displayInput) displayInput.value = data.display_name || '';
-      if (discordInput) discordInput.value = data.discord_handle || '';
-      if (gamertagInput) gamertagInput.value = data.gamertag || '';
-    }
   } catch (err) {
     console.error('Error loading profile:', err);
   }
 }
 
-/**
- * Save the profile form values to the Supabase profiles table. Requires the
- * user to be authenticated. After successful update, the user is redirected
- * to the tournaments page.
- */
-async function handleProfileSave() {
-  if (!supabaseClient) {
-    alert('Profile updates require Supabase.');
-    return;
-  }
-  const displayInput = document.getElementById('profile-display-name');
-  const discordInput = document.getElementById('profile-discord');
-  const gamertagInput = document.getElementById('profile-gamertag');
-  const displayName = displayInput ? displayInput.value.trim() : '';
-  const discord = discordInput ? discordInput.value.trim() : '';
-  const gamertag = gamertagInput ? gamertagInput.value.trim() : '';
-  if (!displayName || !discord || !gamertag) {
-    alert('Please fill out all fields.');
-    return;
-  }
-  try {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const user = session && session.user;
-    if (!user) {
-      alert('Not logged in.');
-      return;
-    }
-    // Include the email as well because the email column is non‑null in the profiles table.
-    const updates = {
-      id: user.id,
-      email: user.email,
-      display_name: displayName,
-      discord_handle: discord,
-      gamertag: gamertag,
-    };
-    const { error } = await supabaseClient.from('profiles').upsert(updates);
-    if (error) {
-      alert(error.message || 'Failed to save profile.');
-      return;
-    }
-    // Save the display name and discord in local storage user object (if exists) for team management UI
-    const email = user.email ? user.email.toLowerCase() : null;
-    if (email) {
-      const users = loadUsers();
-      const idx = users.findIndex((u) => u.email === email);
-      if (idx !== -1) {
-        users[idx].displayName = displayName;
-        users[idx].discord = discord;
-        users[idx].gamertag = gamertag;
-        saveUsers(users);
-      }
-    }
-    alert('Profile updated successfully.');
-    // Redirect to tournaments page after profile completion
-    window.location.href = 'tournaments.html';
-  } catch (err) {
-    console.error('Error saving profile:', err);
-    alert('Failed to save profile.');
-  }
-}
 
 // === Static champions ===
 // A list of past tournaments and their champions prior to this website's launch.
@@ -1818,6 +1735,870 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
 
 
 
+// ── PIXEL ART AVATARS ────────────────────────────────────────────────────────
+// 20 8x8 pixel art icons encoded as SVG rects. Each avatar is a 8x8 grid.
+// Colors use gold theme. Format: id, label, pixel grid (1=gold, 2=dark gold, 0=transparent)
+const AVATARS = [
+  { id: 'wolf', label: 'Wolf' },
+  { id: 'bear', label: 'Bear' },
+  { id: 'eagle', label: 'Eagle' },
+  { id: 'shark', label: 'Shark' },
+  { id: 'lion', label: 'Lion' },
+  { id: 'fox', label: 'Fox' },
+  { id: 'bull', label: 'Bull' },
+  { id: 'snake', label: 'Snake' },
+  { id: 'puck', label: 'Puck' },
+  { id: 'skull', label: 'Skull' },
+  { id: 'crown', label: 'Crown' },
+  { id: 'flame', label: 'Flame' },
+  { id: 'thunder', label: 'Thunder' },
+  { id: 'dragon', label: 'Dragon' },
+  { id: 'hawk', label: 'Hawk' },
+  { id: 'tiger', label: 'Tiger' },
+  { id: 'goat', label: 'Goat' },
+  { id: 'raven', label: 'Raven' },
+  { id: 'viper', label: 'Viper' },
+  { id: 'rhino', label: 'Rhino' },
+];
+
+// Pixel grids — 8 rows x 8 cols. 1=primary, 2=secondary, 3=dark, 0=bg
+const AVATAR_PIXELS = {
+  wolf:    [[0,0,1,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
+  bear:    [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[1,1,1,2,2,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
+  eagle:   [[0,0,0,1,1,0,0,0],[0,1,1,1,1,1,1,0],[1,1,1,2,2,1,1,1],[1,1,2,1,1,2,1,1],[0,1,1,1,1,1,1,0],[0,0,1,2,2,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
+  shark:   [[0,0,0,0,1,0,0,0],[0,0,0,1,1,0,0,0],[1,1,1,1,1,1,1,0],[1,1,2,1,1,1,1,1],[1,1,1,1,1,1,1,0],[0,0,0,1,1,0,0,0],[0,0,1,0,0,1,0,0],[0,1,0,0,0,0,1,0]],
+  lion:    [[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,2,1,1,1,1,2,1],[1,1,1,2,2,1,1,1],[1,1,1,1,1,1,1,1],[0,1,2,1,1,2,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0]],
+  fox:     [[0,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1],[1,1,1,1,1,1,1,1],[1,2,1,1,1,1,2,1],[0,1,1,1,1,1,1,0],[0,0,1,2,2,1,0,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0]],
+  bull:    [[1,0,0,0,0,0,0,1],[1,1,0,1,1,0,1,1],[0,1,1,1,1,1,1,0],[0,1,2,1,1,2,1,0],[0,1,1,1,1,1,1,0],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
+  snake:   [[0,0,1,1,1,1,0,0],[0,1,1,2,2,1,1,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,1,1,0],[0,1,1,1,1,1,1,0],[1,1,1,0,0,1,1,1],[0,1,0,0,0,0,1,0]],
+  puck:    [[0,0,1,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[1,1,3,3,3,3,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
+  skull:   [[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[1,1,3,1,1,3,1,1],[1,1,3,1,1,3,1,1],[1,1,1,1,1,1,1,1],[0,1,1,3,3,1,1,0],[0,1,3,1,1,3,1,0],[0,0,1,1,1,1,0,0]],
+  crown:   [[0,1,0,0,0,0,1,0],[1,1,1,0,0,1,1,1],[1,1,1,1,1,1,1,1],[1,2,1,2,2,1,2,1],[1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0]],
+  flame:   [[0,0,0,1,0,0,0,0],[0,0,1,1,1,0,0,0],[0,1,1,2,1,1,0,0],[1,1,2,1,2,1,1,0],[1,1,1,2,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,0,0,0],[0,0,0,1,0,0,0,0]],
+  thunder: [[0,0,0,1,1,0,0,0],[0,0,1,1,1,0,0,0],[0,1,1,1,0,0,0,0],[1,1,1,1,1,1,0,0],[0,0,1,1,1,1,1,0],[0,0,0,0,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,0,1,0]],
+  dragon:  [[0,1,0,1,1,0,1,0],[1,1,1,1,1,1,1,1],[1,2,1,1,1,1,2,1],[1,1,1,2,2,1,1,1],[0,1,1,1,1,1,1,0],[0,1,2,1,1,2,1,0],[1,1,1,1,1,1,1,1],[0,1,0,1,1,0,1,0]],
+  hawk:    [[0,0,1,0,0,1,0,0],[0,1,1,1,1,1,1,0],[1,1,1,2,2,1,1,1],[1,2,1,1,1,1,2,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[1,1,0,0,0,0,1,1]],
+  tiger:   [[0,1,0,1,1,0,1,0],[0,1,1,1,1,1,1,0],[1,2,1,1,1,1,2,1],[1,1,1,1,1,1,1,1],[1,1,2,1,1,2,1,1],[0,1,1,1,1,1,1,0],[0,1,0,1,1,0,1,0],[0,0,1,0,0,1,0,0]],
+  goat:    [[0,1,1,0,0,1,1,0],[0,0,1,0,0,1,0,0],[0,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1],[0,1,1,2,2,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
+  raven:   [[0,0,0,1,1,0,0,0],[0,0,1,1,1,1,0,0],[0,1,1,2,1,1,1,0],[1,1,2,1,1,1,1,1],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,0,0,0],[0,1,1,0,1,1,0,0]],
+  viper:   [[0,0,1,1,0,0,0,0],[0,1,1,1,1,0,0,0],[1,1,2,1,1,1,0,0],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,0],[0,0,0,1,1,2,1,0],[0,0,0,0,1,1,1,0],[0,0,0,0,0,1,1,0]],
+  rhino:   [[0,0,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[1,1,1,1,1,1,1,0],[1,1,2,1,1,2,1,0],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,0],[0,1,0,0,0,0,1,0]],
+};
+
+const AVATAR_COLORS = {
+  1: '#ffc72c',   // gold
+  2: '#ff9500',   // dark gold / amber
+  3: '#1a1a2e',   // dark (for puck face, skull eyes)
+};
+
+function renderAvatarSVG(id, size = 48) {
+  const pixels = AVATAR_PIXELS[id] || AVATAR_PIXELS['wolf'];
+  const cell = size / 8;
+  let rects = '';
+  pixels.forEach((row, r) => {
+    row.forEach((val, c) => {
+      if (val === 0) return;
+      const color = AVATAR_COLORS[val] || '#ffc72c';
+      rects += `<rect x="${c * cell}" y="${r * cell}" width="${cell}" height="${cell}" fill="${color}" rx="0.5"/>`;
+    });
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated">${rects}</svg>`;
+}
+
+function getAvatarSVGString(id, size = 48) {
+  return renderAvatarSVG(id, size);
+}
+
+// ── ACHIEVEMENTS SYSTEM ──────────────────────────────────────────────────────
+const ACHIEVEMENT_DEFS = [
+  { id: 'first_tournament', icon: '🎯', label: 'First Tournament', desc: 'Entered your first tournament' },
+  { id: 'first_win',        icon: '🥇', label: 'First Win',        desc: 'Won your first match' },
+  { id: 'champion',         icon: '🏆', label: 'Champion',         desc: 'Won a tournament' },
+  { id: 'back_to_back',     icon: '🔁', label: 'Back to Back',     desc: 'Won 2 tournaments in a row' },
+  { id: 'dynasty',          icon: '👑', label: 'Dynasty',          desc: 'Won 3 or more tournaments' },
+  { id: 'undefeated',       icon: '⚡', label: 'Undefeated Run',   desc: 'Won a tournament without dropping a match' },
+  { id: 'shutout_king',     icon: '💀', label: 'Shutout King',     desc: 'Won a match with 0 goals against' },
+  { id: 'on_a_streak',      icon: '📈', label: 'On a Streak',      desc: 'Won 3 matches in a row' },
+  { id: 'ice_cold',         icon: '🧊', label: 'Ice Cold',         desc: 'Reached a tournament final' },
+  { id: 'giant_killer',     icon: '🔨', label: 'Giant Killer',     desc: 'Beat the #1 ranked team' },
+];
+
+function computeAchievements(teamName) {
+  const tournaments = loadTournaments();
+  const earned = new Set();
+
+  let totalWins = 0;
+  let consecutiveTournamentWins = 0;
+  let lastTournamentWon = false;
+  let streak = 0;
+  let champCount = 0;
+
+  const entered = tournaments.filter(t =>
+    t.bracket && t.bracket.some(round =>
+      round.some(m => m.team1 === teamName || m.team2 === teamName)
+    )
+  );
+
+  if (entered.length > 0) earned.add('first_tournament');
+
+  entered.forEach(t => {
+    if (!t.bracket) return;
+
+    let teamWinsThisTournament = 0;
+    let teamLossesThisTournament = 0;
+    let reachedFinal = false;
+
+    t.bracket.forEach((round, rIdx) => {
+      round.forEach(m => {
+        if (!m.winner) return;
+        const inMatch = m.team1 === teamName || m.team2 === teamName;
+        if (!inMatch) return;
+        if (m.winner === teamName) {
+          teamWinsThisTournament++;
+          totalWins++;
+          streak++;
+          if (streak === 1) earned.add('first_win');
+          if (streak >= 3) earned.add('on_a_streak');
+          // Check shutout (score tracking - if goals_against stored later)
+        } else {
+          teamLossesThisTournament++;
+          streak = 0;
+          // Reached final = lost in last round
+          if (rIdx === t.bracket.length - 1) reachedFinal = true;
+        }
+      });
+    });
+
+    if (reachedFinal) earned.add('ice_cold');
+
+    if (t.status === 'completed' && t.winner === teamName) {
+      champCount++;
+      earned.add('champion');
+      if (teamLossesThisTournament === 0) earned.add('undefeated');
+      if (lastTournamentWon) {
+        consecutiveTournamentWins++;
+        if (consecutiveTournamentWins >= 1) earned.add('back_to_back');
+      } else {
+        consecutiveTournamentWins = 0;
+      }
+      lastTournamentWon = true;
+    } else {
+      lastTournamentWon = false;
+    }
+  });
+
+  if (champCount >= 3) earned.add('dynasty');
+
+  // Giant killer: beat a team that leads the leaderboard
+  // Simple check: beat any team that has more championships
+  // (full implementation would need leaderboard data)
+
+  return ACHIEVEMENT_DEFS.filter(a => earned.has(a.id));
+}
+
+// ── TEAM PAGE ────────────────────────────────────────────────────────────────
+async function renderTeamPage(teamId) {
+  const container = document.getElementById('team-page-container');
+  if (!container) return;
+
+  if (!teamId) {
+    container.innerHTML = '<div class="container"><p style="color:var(--text-muted);padding:3rem 0">No team specified.</p></div>';
+    return;
+  }
+
+  const teams = loadTeams();
+  const team = teams.find(t => t.id === teamId);
+
+  if (!team) {
+    container.innerHTML = '<div class="container"><p style="color:var(--text-muted);padding:3rem 0">Team not found.</p></div>';
+    return;
+  }
+
+  // Load avatar/banner from Supabase profiles if captain exists
+  let avatarId = team.avatar || 'wolf';
+  let bannerColor = team.banner_color || '#1a1a2e';
+  let captainGamertag = '';
+  let captainPlatform = 'ps5';
+  let captainDiscord = '';
+
+  if (supabaseClient && team.captain) {
+    try {
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select('avatar, banner_color, platform, gamertag, discord_handle')
+        .eq('email', team.captain)
+        .single();
+      if (data) {
+        avatarId = data.avatar || avatarId;
+        bannerColor = data.banner_color || bannerColor;
+        captainGamertag = data.gamertag || '';
+        captainPlatform = data.platform || 'ps5';
+        captainDiscord = data.discord_handle || '';
+      }
+    } catch(e) {}
+  }
+
+  const achievements = computeAchievements(team.name);
+  const tournaments = loadTournaments();
+
+  // Stats from leaderboard data
+  let wins = 0, losses = 0, championships = 0, entered = 0;
+  tournaments.forEach(t => {
+    if (!t.bracket) return;
+    let inThisTournament = false;
+    t.bracket.forEach(round => round.forEach(m => {
+      if (m.team1 === team.name || m.team2 === team.name) inThisTournament = true;
+      if (!m.winner) return;
+      if (m.team1 === team.name || m.team2 === team.name) {
+        if (m.winner === team.name) wins++;
+        else losses++;
+      }
+    }));
+    if (inThisTournament) entered++;
+    if (t.status === 'completed' && t.winner === team.name) championships++;
+  });
+  const winPct = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
+
+  // Match history
+  const matchHistory = [];
+  tournaments.forEach(t => {
+    if (!t.bracket) return;
+    t.bracket.forEach(round => round.forEach(m => {
+      if (!m.winner) return;
+      if (m.team1 === team.name || m.team2 === team.name) {
+        const won = m.winner === team.name;
+        const opponent = m.team1 === team.name ? m.team2 : m.team1;
+        matchHistory.push({ tournamentName: t.name, opponent, won, code: m.code });
+      }
+    }));
+  });
+
+  const platformIcon = captainPlatform === 'xbox'
+    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm3.5 4.5c.83.9 1.33 2.1 1.33 3.5 0 .54-.08 1.06-.22 1.55L10 7.5l2.5-3zm-7 0L7 7.5 4.89 9.55A5.48 5.48 0 014.67 8c0-1.4.5-2.6 1.33-3.5zM8 3c.74 0 1.85.9 2.76 2.24L8 7.5 5.24 5.24C6.15 3.9 7.26 3 8 3zm0 10c-1.54 0-2.93-.62-3.95-1.63L8 8.5l3.95 2.87A5.5 5.5 0 018 13z"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm-1 11.5H5.5v-5H7v5zm3 0H8.5v-5H10v5zM8 5.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/></svg>`;
+
+  container.innerHTML = '';
+
+  // Banner
+  const banner = document.createElement('div');
+  banner.className = 'team-banner';
+  banner.style.background = `linear-gradient(135deg, ${bannerColor} 0%, #0a0a0a 100%)`;
+
+  const bannerInner = document.createElement('div');
+  bannerInner.className = 'team-banner-inner container';
+
+  const avatarEl = document.createElement('div');
+  avatarEl.className = 'team-avatar-large';
+  avatarEl.innerHTML = renderAvatarSVG(avatarId, 96);
+
+  const teamInfo = document.createElement('div');
+  teamInfo.className = 'team-banner-info';
+
+  const nameEl = document.createElement('h1');
+  nameEl.className = 'team-banner-name';
+  nameEl.textContent = team.name;
+
+  const captainEl = document.createElement('p');
+  captainEl.className = 'team-banner-captain';
+  captainEl.innerHTML = `${platformIcon} <span>${captainGamertag || team.captain}</span>`;
+  if (captainDiscord) {
+    const disc = document.createElement('span');
+    disc.className = 'team-banner-discord';
+    disc.textContent = ' · ' + captainDiscord;
+    captainEl.appendChild(disc);
+  }
+
+  teamInfo.appendChild(nameEl);
+  teamInfo.appendChild(captainEl);
+  bannerInner.appendChild(avatarEl);
+  bannerInner.appendChild(teamInfo);
+  banner.appendChild(bannerInner);
+  container.appendChild(banner);
+
+  // Stats bar
+  const statsBar = document.createElement('div');
+  statsBar.className = 'team-stats-bar container';
+  [
+    { label: '🏆 Championships', val: championships },
+    { label: 'Wins', val: wins },
+    { label: 'Losses', val: losses },
+    { label: 'Win %', val: winPct + '%' },
+    { label: 'Tournaments', val: entered },
+  ].forEach(s => {
+    const stat = document.createElement('div');
+    stat.className = 'team-stat-item';
+    stat.innerHTML = `<span class="team-stat-val">${s.val}</span><span class="team-stat-label">${s.label}</span>`;
+    statsBar.appendChild(stat);
+  });
+  container.appendChild(statsBar);
+
+  const content = document.createElement('div');
+  content.className = 'container team-page-content';
+
+  // Achievements
+  if (achievements.length > 0) {
+    const achSection = document.createElement('div');
+    achSection.className = 'team-section-block';
+    const achTitle = document.createElement('h2');
+    achTitle.className = 'team-section-title';
+    achTitle.textContent = 'Achievements';
+    achSection.appendChild(achTitle);
+    const achGrid = document.createElement('div');
+    achGrid.className = 'achievements-grid';
+    achievements.forEach(a => {
+      const badge = document.createElement('div');
+      badge.className = 'achievement-badge';
+      badge.innerHTML = `<span class="ach-icon">${a.icon}</span><span class="ach-label">${a.label}</span><span class="ach-desc">${a.desc}</span>`;
+      achGrid.appendChild(badge);
+    });
+    achSection.appendChild(achGrid);
+    content.appendChild(achSection);
+  }
+
+  // Match History
+  if (matchHistory.length > 0) {
+    const histSection = document.createElement('div');
+    histSection.className = 'team-section-block';
+    const histTitle = document.createElement('h2');
+    histTitle.className = 'team-section-title';
+    histTitle.textContent = 'Match History';
+    histSection.appendChild(histTitle);
+    const histList = document.createElement('div');
+    histList.className = 'match-history-list';
+    matchHistory.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'match-history-row ' + (m.won ? 'won' : 'lost');
+      row.innerHTML = `
+        <span class="mh-result">${m.won ? 'W' : 'L'}</span>
+        <span class="mh-opponent">vs <strong>${m.opponent}</strong></span>
+        <span class="mh-tournament">${m.tournamentName}</span>
+      `;
+      histList.appendChild(row);
+    });
+    histSection.appendChild(histList);
+    content.appendChild(histSection);
+  }
+
+  if (achievements.length === 0 && matchHistory.length === 0) {
+    const empty = document.createElement('p');
+    empty.style.color = 'var(--text-muted)';
+    empty.style.padding = '2rem 0';
+    empty.textContent = 'No match history yet. Enter a tournament to get started!';
+    content.appendChild(empty);
+  }
+
+  container.appendChild(content);
+
+  // Edit button — only visible to captain
+  const currentEmail = getCurrentUser();
+  if (currentEmail && currentEmail === team.captain) {
+    const editBtn = document.createElement('a');
+    editBtn.href = 'profile.html';
+    editBtn.className = 'button team-edit-btn';
+    editBtn.textContent = 'Edit Team Profile';
+    banner.appendChild(editBtn);
+  }
+}
+
+// ── PROFILE PAGE (Phase 1 editor) ────────────────────────────────────────────
+async function loadProfile() {
+  if (!supabaseClient) return;
+  const email = getCurrentUser();
+  if (!email) return;
+  try {
+    const { data } = await supabaseClient
+      .from('profiles')
+      .select('display_name, discord_handle, gamertag, avatar, banner_color, platform')
+      .eq('email', email)
+      .single();
+    if (!data) return;
+    const dn = document.getElementById('profile-display-name');
+    const dc = document.getElementById('profile-discord');
+    const gt = document.getElementById('profile-gamertag');
+    if (dn) dn.value = data.display_name || '';
+    if (dc) dc.value = data.discord_handle || '';
+    if (gt) gt.value = data.gamertag || '';
+    // Set avatar picker
+    if (data.avatar) {
+      document.querySelectorAll('.avatar-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.avatar === data.avatar);
+      });
+    }
+    // Set banner color
+    if (data.banner_color) {
+      const bc = document.getElementById('profile-banner-color');
+      if (bc) bc.value = data.banner_color;
+      updateBannerPreview(data.banner_color);
+    }
+    // Set platform
+    if (data.platform) {
+      document.querySelectorAll('.platform-btn').forEach(el => {
+        el.classList.toggle('active', el.dataset.platform === data.platform);
+      });
+    }
+  } catch(e) { console.error('loadProfile error', e); }
+}
+
+async function handleProfileSave() {
+  if (!supabaseClient) { alert('Profile updates require Supabase.'); return; }
+  const displayName = document.getElementById('profile-display-name')?.value.trim();
+  const discord = document.getElementById('profile-discord')?.value.trim();
+  const gamertag = document.getElementById('profile-gamertag')?.value.trim();
+  if (!displayName || !discord || !gamertag) { alert('Please fill out all fields.'); return; }
+
+  const selectedAvatar = document.querySelector('.avatar-option.selected')?.dataset.avatar || 'wolf';
+  const bannerColor = document.getElementById('profile-banner-color')?.value || '#1a1a2e';
+  const platform = document.querySelector('.platform-btn.active')?.dataset.platform || 'ps5';
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+    if (!user) { alert('Not logged in.'); return; }
+    const { error } = await supabaseClient.from('profiles').upsert({
+      id: user.id,
+      email: user.email,
+      display_name: displayName,
+      discord_handle: discord,
+      gamertag: gamertag,
+      avatar: selectedAvatar,
+      banner_color: bannerColor,
+      platform: platform,
+    });
+    if (error) { alert(error.message || 'Failed to save profile.'); return; }
+    // Also update team avatar/banner in Supabase if user is captain
+    if (supabaseClient) {
+      const team = getUserTeam();
+      if (team) {
+        await supabaseClient.from('teams').update({
+          avatar: selectedAvatar,
+          banner_color: bannerColor,
+        }).eq('id', team.id);
+      }
+    }
+    // Update localStorage
+    const users = loadUsers();
+    const idx = users.findIndex(u => u.email === user.email.toLowerCase());
+    if (idx !== -1) {
+      users[idx].displayName = displayName;
+      users[idx].discord = discord;
+      users[idx].gamertag = gamertag;
+      saveUsers(users);
+    }
+    alert('Profile saved!');
+    // Redirect to team page if they have a team
+    const myTeam = getUserTeam();
+    if (myTeam) {
+      window.location.href = 'team.html?id=' + myTeam.id;
+    } else {
+      window.location.href = 'tournaments.html';
+    }
+  } catch(err) { console.error('Error saving profile:', err); alert('Failed to save profile.'); }
+}
+
+function updateBannerPreview(color) {
+  const preview = document.getElementById('banner-preview');
+  if (preview) preview.style.background = `linear-gradient(135deg, ${color} 0%, #0a0a0a 100%)`;
+}
+
+function buildProfileEditor() {
+  const main = document.querySelector('main.container.profile-page');
+  if (!main) return;
+  main.innerHTML = '';
+
+  const heading = document.createElement('h1');
+  heading.textContent = 'Team Profile';
+  main.appendChild(heading);
+
+  const sub = document.createElement('p');
+  sub.style.color = 'var(--text-muted)';
+  sub.style.marginBottom = '1.5rem';
+  sub.textContent = 'Your profile is your team page. Set up your avatar, banner, and gamertag.';
+  main.appendChild(sub);
+
+  // Banner preview
+  const preview = document.createElement('div');
+  preview.id = 'banner-preview';
+  preview.className = 'banner-preview';
+  preview.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%)';
+  const previewAvatar = document.createElement('div');
+  previewAvatar.id = 'preview-avatar';
+  previewAvatar.innerHTML = renderAvatarSVG('wolf', 64);
+  preview.appendChild(previewAvatar);
+  main.appendChild(preview);
+
+  const form = document.createElement('form');
+  form.id = 'profile-form';
+  form.className = 'auth-form profile-editor-form';
+
+  // Basic info section
+  const infoSection = document.createElement('div');
+  infoSection.className = 'profile-section';
+  infoSection.innerHTML = '<h3 class="profile-section-title">Basic Info</h3>';
+
+  ['Display Name:display-name:Your display name', 'Discord Handle:discord:Discord#1234', 'Gamertag:gamertag:Your Gamertag'].forEach(field => {
+    const [label, id, placeholder] = field.split(':');
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `${label}<input type="text" id="profile-${id}" placeholder="${placeholder}" required />`;
+    infoSection.appendChild(lbl);
+  });
+  form.appendChild(infoSection);
+
+  // Platform
+  const platformSection = document.createElement('div');
+  platformSection.className = 'profile-section';
+  platformSection.innerHTML = '<h3 class="profile-section-title">Platform</h3>';
+  const platformRow = document.createElement('div');
+  platformRow.className = 'platform-row';
+  ['ps5', 'xbox'].forEach(p => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'platform-btn' + (p === 'ps5' ? ' active' : '');
+    btn.dataset.platform = p;
+    btn.textContent = p === 'ps5' ? '🎮 PS5' : '🎮 Xbox';
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    platformRow.appendChild(btn);
+  });
+  platformSection.appendChild(platformRow);
+  form.appendChild(platformSection);
+
+  // Banner color
+  const bannerSection = document.createElement('div');
+  bannerSection.className = 'profile-section';
+  bannerSection.innerHTML = '<h3 class="profile-section-title">Banner Color</h3>';
+  const colorRow = document.createElement('div');
+  colorRow.className = 'color-row';
+  const BANNER_COLORS = ['#1a1a2e','#0d1b2a','#1a0a2e','#0a1a0a','#2e0a0a','#0a1e2e','#1e1a0a','#0a0a0a','#1a1a1a','#2e1a0a'];
+  BANNER_COLORS.forEach(color => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'color-swatch';
+    swatch.style.background = color;
+    swatch.dataset.color = color;
+    swatch.addEventListener('click', () => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+      document.getElementById('profile-banner-color').value = color;
+      updateBannerPreview(color);
+      const previewAv = document.getElementById('preview-avatar');
+      if (previewAv) {
+        const sel = document.querySelector('.avatar-option.selected');
+        if (sel) previewAv.innerHTML = renderAvatarSVG(sel.dataset.avatar, 64);
+      }
+    });
+    colorRow.appendChild(swatch);
+  });
+  // Also a hidden color input for the actual value
+  const colorInput = document.createElement('input');
+  colorInput.type = 'hidden';
+  colorInput.id = 'profile-banner-color';
+  colorInput.value = '#1a1a2e';
+  colorRow.appendChild(colorInput);
+  bannerSection.appendChild(colorRow);
+  form.appendChild(bannerSection);
+
+  // Avatar picker
+  const avatarSection = document.createElement('div');
+  avatarSection.className = 'profile-section';
+  avatarSection.innerHTML = '<h3 class="profile-section-title">Avatar</h3>';
+  const avatarGrid = document.createElement('div');
+  avatarGrid.className = 'avatar-picker-grid';
+  AVATARS.forEach((av, i) => {
+    const opt = document.createElement('div');
+    opt.className = 'avatar-option' + (i === 0 ? ' selected' : '');
+    opt.dataset.avatar = av.id;
+    opt.title = av.label;
+    opt.innerHTML = renderAvatarSVG(av.id, 40);
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const previewAv = document.getElementById('preview-avatar');
+      if (previewAv) previewAv.innerHTML = renderAvatarSVG(av.id, 64);
+    });
+    avatarGrid.appendChild(opt);
+  });
+  avatarSection.appendChild(avatarGrid);
+  form.appendChild(avatarSection);
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.className = 'button';
+  submitBtn.textContent = 'Save Profile';
+  form.appendChild(submitBtn);
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    await handleProfileSave();
+  });
+
+  main.appendChild(form);
+}
+
+// ── TEAM SEARCH ──────────────────────────────────────────────────────────────
+function renderTeamSearch() {
+  const container = document.getElementById('team-search-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'team-search-wrap';
+
+  const searchRow = document.createElement('div');
+  searchRow.className = 'team-search-row';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'team-search-input';
+  input.placeholder = 'Search teams by name or gamertag...';
+
+  const resultsEl = document.createElement('div');
+  resultsEl.className = 'team-search-results';
+
+  async function doSearch(q) {
+    resultsEl.innerHTML = '';
+    if (!q || q.length < 2) return;
+    q = q.toLowerCase();
+    await syncTeamsFromBackend();
+    const teams = loadTeams();
+
+    // Build gamertag map from profiles if supabase available
+    let gamertagMap = {};
+    if (supabaseClient) {
+      try {
+        const { data } = await supabaseClient.from('profiles').select('email, gamertag, avatar');
+        if (data) data.forEach(p => { gamertagMap[p.email] = { gamertag: p.gamertag, avatar: p.avatar }; });
+      } catch(e) {}
+    }
+
+    const matched = teams.filter(t => {
+      if (t.name.toLowerCase().includes(q)) return true;
+      const cap = gamertagMap[t.captain];
+      if (cap && cap.gamertag && cap.gamertag.toLowerCase().includes(q)) return true;
+      return false;
+    });
+
+    if (matched.length === 0) {
+      resultsEl.innerHTML = '<p style="color:var(--text-muted);padding:0.5rem">No teams found.</p>';
+      return;
+    }
+
+    matched.slice(0, 8).forEach(t => {
+      const capData = gamertagMap[t.captain] || {};
+      const avatarId = capData.avatar || t.avatar || 'wolf';
+      const row = document.createElement('a');
+      row.href = 'team.html?id=' + t.id;
+      row.className = 'team-search-result-row';
+      row.innerHTML = `
+        <span class="tsr-avatar">${renderAvatarSVG(avatarId, 32)}</span>
+        <span class="tsr-name">${t.name}</span>
+        <span class="tsr-captain">${capData.gamertag || t.captain}</span>
+      `;
+      resultsEl.appendChild(row);
+    });
+  }
+
+  let debounce;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => doSearch(input.value.trim()), 300);
+  });
+
+  searchRow.appendChild(input);
+  wrap.appendChild(searchRow);
+  wrap.appendChild(resultsEl);
+  container.appendChild(wrap);
+}
+
+// ── SCORE SUBMISSION (Phase 2) ────────────────────────────────────────────────
+async function submitScoreRequest(tournamentId, roundIndex, matchIndex, myScore, oppScore, screenshotFile) {
+  if (!supabaseClient) return false;
+  const email = getCurrentUser();
+  if (!email) return false;
+
+  let screenshotUrl = null;
+  if (screenshotFile) {
+    try {
+      const ext = screenshotFile.name.split('.').pop();
+      const path = `scores/${tournamentId}_r${roundIndex}_m${matchIndex}_${Date.now()}.${ext}`;
+      const { data, error } = await supabaseClient.storage.from('score-screenshots').upload(path, screenshotFile, { upsert: true });
+      if (!error && data) {
+        const { data: urlData } = supabaseClient.storage.from('score-screenshots').getPublicUrl(path);
+        screenshotUrl = urlData?.publicUrl || null;
+      }
+    } catch(e) { console.warn('Screenshot upload failed', e); }
+  }
+
+  try {
+    const { error } = await supabaseClient.from('score_submissions').insert({
+      tournament_id: tournamentId,
+      round_index: roundIndex,
+      match_index: matchIndex,
+      submitter_email: email,
+      my_score: myScore,
+      opp_score: oppScore,
+      screenshot_url: screenshotUrl,
+      status: 'pending',
+    });
+    if (error) { console.error('Score submission error', error); return false; }
+    return true;
+  } catch(e) { console.error('Score submission error', e); return false; }
+}
+
+function renderScoreSubmitForm(tournamentId, roundIndex, matchIndex, match, containerEl) {
+  const form = document.createElement('div');
+  form.className = 'score-submit-form';
+
+  const title = document.createElement('p');
+  title.className = 'score-submit-title';
+  title.textContent = '📸 Submit Score';
+  form.appendChild(title);
+
+  const scoreRow = document.createElement('div');
+  scoreRow.className = 'score-row';
+
+  const myScoreInput = document.createElement('input');
+  myScoreInput.type = 'number';
+  myScoreInput.min = '0'; myScoreInput.max = '99';
+  myScoreInput.placeholder = 'Your goals';
+  myScoreInput.className = 'score-input';
+
+  const dash = document.createElement('span');
+  dash.textContent = '–';
+  dash.style.color = 'var(--text-muted)';
+
+  const oppScoreInput = document.createElement('input');
+  oppScoreInput.type = 'number';
+  oppScoreInput.min = '0'; oppScoreInput.max = '99';
+  oppScoreInput.placeholder = 'Opp goals';
+  oppScoreInput.className = 'score-input';
+
+  scoreRow.appendChild(myScoreInput);
+  scoreRow.appendChild(dash);
+  scoreRow.appendChild(oppScoreInput);
+  form.appendChild(scoreRow);
+
+  const fileLabel = document.createElement('label');
+  fileLabel.className = 'score-file-label';
+  fileLabel.textContent = '📎 Attach screenshot';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  fileLabel.appendChild(fileInput);
+  fileInput.addEventListener('change', () => {
+    fileLabel.textContent = fileInput.files[0] ? '✅ ' + fileInput.files[0].name : '📎 Attach screenshot';
+  });
+  form.appendChild(fileLabel);
+
+  const submitBtn = document.createElement('button');
+  submitBtn.className = 'button score-submit-btn';
+  submitBtn.textContent = 'Submit Score';
+  submitBtn.addEventListener('click', async () => {
+    const myScore = parseInt(myScoreInput.value);
+    const oppScore = parseInt(oppScoreInput.value);
+    if (isNaN(myScore) || isNaN(oppScore)) { alert('Please enter both scores.'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    const ok = await submitScoreRequest(tournamentId, roundIndex, matchIndex, myScore, oppScore, fileInput.files[0] || null);
+    if (ok) {
+      form.innerHTML = '<p style="color:var(--gold);font-size:0.9rem">✅ Score submitted — waiting for admin confirmation.</p>';
+    } else {
+      alert('Failed to submit score. Try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Score';
+    }
+  });
+  form.appendChild(submitBtn);
+  containerEl.appendChild(form);
+}
+
+// Admin: render pending score submissions
+async function renderPendingScores() {
+  const container = document.getElementById('admin-scores-container');
+  if (!container || !supabaseClient) return;
+  container.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('score_submissions')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">No pending score submissions.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    data.forEach(sub => {
+      const card = document.createElement('div');
+      card.className = 'score-sub-card';
+      card.innerHTML = `
+        <p><strong>Tournament:</strong> ${sub.tournament_id}</p>
+        <p><strong>Match:</strong> Round ${sub.round_index + 1}, Match ${sub.match_index + 1}</p>
+        <p><strong>Submitter:</strong> ${sub.submitter_email}</p>
+        <p><strong>Score:</strong> ${sub.my_score} – ${sub.opp_score}</p>
+        ${sub.screenshot_url ? `<a href="${sub.screenshot_url}" target="_blank" class="score-screenshot-link">View Screenshot</a>` : ''}
+      `;
+
+      const btnRow = document.createElement('div');
+      btnRow.className = 'score-sub-btn-row';
+
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'button';
+      approveBtn.textContent = '✅ Approve';
+      approveBtn.addEventListener('click', async () => {
+        await approveScoreSubmission(sub);
+        renderPendingScores();
+      });
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.className = 'button delete';
+      rejectBtn.textContent = '❌ Reject';
+      rejectBtn.addEventListener('click', async () => {
+        await supabaseClient.from('score_submissions').update({ status: 'rejected' }).eq('id', sub.id);
+        renderPendingScores();
+      });
+
+      btnRow.appendChild(approveBtn);
+      btnRow.appendChild(rejectBtn);
+      card.appendChild(btnRow);
+      container.appendChild(card);
+    });
+  } catch(e) {
+    container.innerHTML = '<p style="color:var(--text-muted)">Failed to load submissions.</p>';
+  }
+}
+
+async function approveScoreSubmission(sub) {
+  if (!supabaseClient) return;
+  // Determine winner from score
+  const tournaments = loadTournaments();
+  const t = tournaments.find(t => t.id === sub.tournament_id);
+  if (!t || !t.bracket) return;
+
+  const match = t.bracket[sub.round_index]?.[sub.match_index];
+  if (!match) return;
+
+  // Figure out which team submitted and who their opponent is
+  const teams = loadTeams();
+  const submitterTeam = teams.find(t2 => t2.captain === sub.submitter_email);
+  if (!submitterTeam) return;
+
+  const winnerName = sub.my_score > sub.opp_score ? submitterTeam.name :
+    (match.team1 === submitterTeam.name ? match.team2 : match.team1);
+
+  // Report the match result
+  await reportMatchResult(sub.tournament_id, sub.round_index, sub.match_index, winnerName);
+
+  // Mark submission as approved
+  await supabaseClient.from('score_submissions').update({ status: 'approved' }).eq('id', sub.id);
+}
+
+
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 
 async function buildLeaderboardData() {
@@ -2493,6 +3274,18 @@ function renderTournamentDetails(id) {
           reportDiv.appendChild(select);
           reportDiv.appendChild(reportBtn);
           matchDiv.appendChild(reportDiv);
+        }
+        // Score submission — show for captains in this match (not admin, no winner yet)
+        if (
+          tournament.status === 'started' &&
+          match.team1 && match.team2 &&
+          match.team2 !== 'BYE' &&
+          !match.winner
+        ) {
+          const currentRole = getCurrentUserRole();
+          if (currentRole !== 'admin' && isUserInMatch(match, tournament)) {
+            renderScoreSubmitForm(tournament.id, rIndex, mIndex, match, matchDiv);
+          }
         }
         // Match chat — show for admin (read-only) and the two captains in this match
         if (

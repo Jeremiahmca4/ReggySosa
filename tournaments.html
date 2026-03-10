@@ -39,6 +39,7 @@
       <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
       <button type="button" class="tournament-nav-item" data-tab="rules-tab">Rules</button>
       <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">Leaderboard</button>
+      <button type="button" class="tournament-nav-item" data-tab="search-tab">Team Search</button>
     </nav>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
@@ -57,6 +58,11 @@
     <!-- Leaderboard tab -->
     <section id="leaderboard-tab" class="tournament-tab" style="display:none;">
       <div id="leaderboard-container"></div>
+    </section>
+
+    <!-- Team Search tab -->
+    <section id="search-tab" class="tournament-tab" style="display:none;">
+      <div id="team-search-container"></div>
     </section>
 
     <!-- Rules tab: copy of the official tournament rules from rules.html -->
@@ -191,6 +197,9 @@
         }
         if (tabId === 'leaderboard-tab' && typeof renderLeaderboard === 'function') {
           renderLeaderboard();
+        }
+        if (tabId === 'search-tab' && typeof renderTeamSearch === 'function') {
+          renderTeamSearch();
         }
       }
       navItems.forEach((btn) => {
