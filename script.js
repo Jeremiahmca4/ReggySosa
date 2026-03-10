@@ -1361,6 +1361,8 @@ function createTournamentFromForm() {
   const id = Date.now().toString();
   // Create a new tournament object with an empty teams array and maxTeams limit
   // Create a new tournament object. Start date is optional; winner is initially null.
+  const passwordInput = document.getElementById('tournament-password');
+  const tournamentPassword = passwordInput && passwordInput.value.trim() ? passwordInput.value.trim() : null;
   const newTournament = {
     id,
     name,
@@ -1371,6 +1373,7 @@ function createTournamentFromForm() {
     status: 'open',
     bracket: [],
     winner: null,
+    password: tournamentPassword,
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
@@ -1397,6 +1400,9 @@ function createTournamentFromForm() {
   maxTeamsInput.value = '';
   if (dateInput) {
     dateInput.value = '';
+  }
+  if (passwordInput) {
+    passwordInput.value = '';
   }
   // Optionally refresh from the back‑end so the local list uses the
   // canonical data and avoids duplicates. This call is fire‑and‑forget;
@@ -1567,6 +1573,14 @@ function registerTeamToTournament(tournamentId, teamId) {
     alert('This tournament has already started and cannot accept new teams.');
     return;
   }
+  // Password check
+  if (tournament.password) {
+    const entered = prompt('This tournament is password protected. Enter the password to register:');
+    if (!checkTournamentPassword(tournament, entered)) {
+      alert('Incorrect password.');
+      return;
+    }
+  }
   if (!tournament.teams) tournament.teams = [];
   const max = tournament.maxTeams || Infinity;
   if (tournament.teams.length >= max) {
@@ -1681,6 +1695,9 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   }
   // Set the winner on the match
   match.winner = winnerName;
+  // Save to match history and send Discord announcement
+  saveMatchToHistory(tournamentId, tournament.name, roundIndex, match, winnerName);
+  announceMatchResult(tournament.name, match.team1, match.team2, winnerName);
   // Propagate the winner to the next round, if there is one
   const nextRound = bracket[roundIndex + 1];
   if (nextRound) {
@@ -1698,6 +1715,7 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   if (!nextRound) {
     tournament.winner = winnerName;
     tournament.status = 'completed';
+    announceTournamentComplete(tournament.name, winnerName);
   }
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
@@ -1731,26 +1749,53 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
 
 // ── EMOJI AVATARS ─────────────────────────────────────────────────────────────
 const AVATARS = [
-  { id: 'wolf',    label: 'Wolf',    emoji: '🐺' },
-  { id: 'bear',    label: 'Bear',    emoji: '🐻' },
-  { id: 'eagle',   label: 'Eagle',   emoji: '🦅' },
-  { id: 'shark',   label: 'Shark',   emoji: '🦈' },
-  { id: 'lion',    label: 'Lion',    emoji: '🦁' },
-  { id: 'fox',     label: 'Fox',     emoji: '🦊' },
-  { id: 'tiger',   label: 'Tiger',   emoji: '🐯' },
-  { id: 'dragon',  label: 'Dragon',  emoji: '🐉' },
-  { id: 'rhino',   label: 'Rhino',   emoji: '🦏' },
-  { id: 'bull',    label: 'Bull',    emoji: '🐂' },
-  { id: 'stick',   label: 'Stick',   emoji: '🏒' },
-  { id: 'net',     label: 'Net',     emoji: '🥅' },
-  { id: 'trophy',  label: 'Trophy',  emoji: '🏆' },
-  { id: 'thunder', label: 'Thunder', emoji: '⚡' },
-  { id: 'skull',   label: 'Skull',   emoji: '💀' },
-  { id: 'flame',   label: 'Flame',   emoji: '🔥' },
-  { id: 'ice',     label: 'Ice',     emoji: '❄️' },
-  { id: 'target',  label: 'Target',  emoji: '🎯' },
-  { id: 'crown',   label: 'Crown',   emoji: '👑' },
-  { id: 'shield',  label: 'Shield',  emoji: '🛡️' },
+  // Animals
+  { id: 'wolf',      label: 'Wolf',      emoji: '🐺' },
+  { id: 'bear',      label: 'Bear',      emoji: '🐻' },
+  { id: 'eagle',     label: 'Eagle',     emoji: '🦅' },
+  { id: 'shark',     label: 'Shark',     emoji: '🦈' },
+  { id: 'lion',      label: 'Lion',      emoji: '🦁' },
+  { id: 'fox',       label: 'Fox',       emoji: '🦊' },
+  { id: 'tiger',     label: 'Tiger',     emoji: '🐯' },
+  { id: 'dragon',    label: 'Dragon',    emoji: '🐉' },
+  { id: 'rhino',     label: 'Rhino',     emoji: '🦏' },
+  { id: 'bull',      label: 'Bull',      emoji: '🐂' },
+  { id: 'gorilla',   label: 'Gorilla',   emoji: '🦍' },
+  { id: 'panther',   label: 'Panther',   emoji: '🐆' },
+  { id: 'hawk',      label: 'Hawk',      emoji: '🦆' },
+  { id: 'cobra',     label: 'Cobra',     emoji: '🐍' },
+  { id: 'croc',      label: 'Croc',      emoji: '🐊' },
+  { id: 'boar',      label: 'Boar',      emoji: '🐗' },
+  { id: 'ram',       label: 'Ram',       emoji: '🐏' },
+  { id: 'bat',       label: 'Bat',       emoji: '🦇' },
+  { id: 'octopus',   label: 'Octopus',   emoji: '🐙' },
+  { id: 'scorpion',  label: 'Scorpion',  emoji: '🦂' },
+  { id: 'wolverine', label: 'Wolverine', emoji: '🦡' },
+  { id: 'falcon',    label: 'Falcon',    emoji: '🦅' },
+  { id: 'viper',     label: 'Viper',     emoji: '🐍' },
+  { id: 'mammoth',   label: 'Mammoth',   emoji: '🦣' },
+  { id: 'bison',     label: 'Bison',     emoji: '🦬' },
+  // Hockey & Sports
+  { id: 'stick',     label: 'Stick',     emoji: '🏒' },
+  { id: 'net',       label: 'Net',       emoji: '🥅' },
+  { id: 'trophy',    label: 'Trophy',    emoji: '🏆' },
+  { id: 'thunder',   label: 'Thunder',   emoji: '⚡' },
+  { id: 'skull',     label: 'Skull',     emoji: '💀' },
+  { id: 'flame',     label: 'Flame',     emoji: '🔥' },
+  { id: 'ice',       label: 'Ice',       emoji: '❄️' },
+  { id: 'target',    label: 'Target',    emoji: '🎯' },
+  { id: 'crown',     label: 'Crown',     emoji: '👑' },
+  { id: 'shield',    label: 'Shield',    emoji: '🛡️' },
+  { id: 'sword',     label: 'Sword',     emoji: '⚔️' },
+  { id: 'bomb',      label: 'Bomb',      emoji: '💣' },
+  { id: 'rocket',    label: 'Rocket',    emoji: '🚀' },
+  { id: 'diamond',   label: 'Diamond',   emoji: '💎' },
+  { id: 'fist',      label: 'Fist',      emoji: '👊' },
+  { id: 'ghost',     label: 'Ghost',     emoji: '👻' },
+  { id: 'alien',     label: 'Alien',     emoji: '👾' },
+  { id: 'robot',     label: 'Robot',     emoji: '🤖' },
+  { id: 'demon',     label: 'Demon',     emoji: '😈' },
+  { id: 'puck',      label: 'Puck',      emoji: '🏒' },
 ];
 
 
@@ -1923,19 +1968,29 @@ async function renderTeamPage(teamId) {
   });
   const winPct = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
 
-  // Match history
-  const matchHistory = [];
-  tournaments.forEach(t => {
-    if (!t.bracket) return;
-    t.bracket.forEach(round => round.forEach(m => {
-      if (!m.winner) return;
-      if (m.team1 === team.name || m.team2 === team.name) {
-        const won = m.winner === team.name;
-        const opponent = m.team1 === team.name ? m.team2 : m.team1;
-        matchHistory.push({ tournamentName: t.name, opponent, won, code: m.code });
-      }
+  // Match history — load from Supabase if available, fall back to local brackets
+  let matchHistory = [];
+  if (supabaseClient) {
+    matchHistory = await loadTeamMatchHistory(team.name);
+    matchHistory = matchHistory.map(m => ({
+      tournamentName: m.tournament_name,
+      opponent: m.team1 === team.name ? m.team2 : m.team1,
+      won: m.winner === team.name,
+      code: m.match_code,
     }));
-  });
+  } else {
+    tournaments.forEach(t => {
+      if (!t.bracket) return;
+      t.bracket.forEach(round => round.forEach(m => {
+        if (!m.winner) return;
+        if (m.team1 === team.name || m.team2 === team.name) {
+          const won = m.winner === team.name;
+          const opponent = m.team1 === team.name ? m.team2 : m.team1;
+          matchHistory.push({ tournamentName: t.name, opponent, won, code: m.code });
+        }
+      }));
+    });
+  }
 
   const platformIcon = captainPlatform === 'xbox'
     ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm3.5 4.5c.83.9 1.33 2.1 1.33 3.5 0 .54-.08 1.06-.22 1.55L10 7.5l2.5-3zm-7 0L7 7.5 4.89 9.55A5.48 5.48 0 014.67 8c0-1.4.5-2.6 1.33-3.5zM8 3c.74 0 1.85.9 2.76 2.24L8 7.5 5.24 5.24C6.15 3.9 7.26 3 8 3zm0 10c-1.54 0-2.93-.62-3.95-1.63L8 8.5l3.95 2.87A5.5 5.5 0 018 13z"/></svg>`
@@ -2249,7 +2304,7 @@ function buildProfileEditor() {
   bannerSection.innerHTML = '<h3 class="profile-section-title">Banner Color</h3>';
   const colorRow = document.createElement('div');
   colorRow.className = 'color-row';
-  const BANNER_COLORS = ['#1a1a2e','#0d1b2a','#1a0a2e','#0a1a0a','#2e0a0a','#0a1e2e','#1e1a0a','#0a0a0a','#1a1a1a','#2e1a0a'];
+  const BANNER_COLORS = ['#1a1a2e','#0d1b2a','#1a0a2e','#0a1a0a','#2e0a0a','#0a1e2e','#1e1a0a','#0a0a0a','#1a1a1a','#2e1a0a','#0a2e1a','#2e2e0a','#0a0a2e','#2e0a2e','#1a2e2e','#2e1a1a','#0d0d1e','#1e0d0d','#0d1e0d','#1e1e0a'];
   BANNER_COLORS.forEach(color => {
     const swatch = document.createElement('button');
     swatch.type = 'button';
@@ -2284,7 +2339,7 @@ function buildProfileEditor() {
   avatarColorSection.innerHTML = '<h3 class="profile-section-title">Avatar Color</h3>';
   const avatarColorRow = document.createElement('div');
   avatarColorRow.className = 'color-row';
-  const AVATAR_COLOR_OPTIONS = ['#1a1a2e','#0d2b1a','#2b0d0d','#1a0d2b','#2b1a0d','#0d1a2b','#1a2b0d','#2b2b0d','#0d2b2b','#1c1c1c'];
+  const AVATAR_COLOR_OPTIONS = ['#1a1a2e','#0d2b1a','#2b0d0d','#1a0d2b','#2b1a0d','#0d1a2b','#1a2b0d','#2b2b0d','#0d2b2b','#1c1c1c','#3b1a00','#00213b','#1f003b','#003b1f','#3b003b','#3b3b00','#003b3b','#2e0e0e','#0e2e0e','#0e0e2e'];
   AVATAR_COLOR_OPTIONS.forEach((color, i) => {
     const swatch = document.createElement('button');
     swatch.type = 'button';
@@ -2617,6 +2672,122 @@ async function approveScoreSubmission(sub) {
   await supabaseClient.from('score_submissions').update({ status: 'approved' }).eq('id', sub.id);
 }
 
+
+// ── PHASE 4: MATCH HISTORY (Supabase persistence) ────────────────────────────
+
+async function saveMatchToHistory(tournamentId, tournamentName, roundIndex, match, winnerName) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('match_history').insert({
+      tournament_id: tournamentId,
+      tournament_name: tournamentName,
+      round_index: roundIndex,
+      team1: match.team1,
+      team2: match.team2,
+      winner: winnerName,
+      match_code: match.code || null,
+    });
+  } catch(e) { console.warn('match_history insert failed', e); }
+}
+
+async function loadTeamMatchHistory(teamName) {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('match_history')
+      .select('*')
+      .or(`team1.eq.${teamName},team2.eq.${teamName}`)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) return [];
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// ── PHASE 5: TOURNAMENT PASSWORD ─────────────────────────────────────────────
+// Password is stored as tournament.password in the bracket object
+// When joining, user must enter matching password
+
+function checkTournamentPassword(tournament, enteredPassword) {
+  if (!tournament.password) return true; // no password set = open
+  return tournament.password === enteredPassword;
+}
+
+// ── PHASE 6: DISCORD WEBHOOK ──────────────────────────────────────────────────
+// DISCORD_WEBHOOK_URL is set in env.js
+// Posts when a match ends and when a tournament completes
+
+async function sendDiscordWebhook(content, embeds) {
+  const url = typeof DISCORD_WEBHOOK_URL !== 'undefined' ? DISCORD_WEBHOOK_URL : null;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content || null, embeds: embeds || [] }),
+    });
+  } catch(e) { console.warn('Discord webhook failed', e); }
+}
+
+async function announceMatchResult(tournamentName, team1, team2, winner) {
+  const loser = team1 === winner ? team2 : team1;
+  await sendDiscordWebhook(null, [{
+    title: '🏒 Match Result',
+    description: `**${winner}** defeated **${loser}**`,
+    color: 0xffc72c,
+    fields: [
+      { name: 'Tournament', value: tournamentName, inline: true },
+    ],
+    footer: { text: 'Reggy Sosa Tournaments' },
+  }]);
+}
+
+async function announceTournamentComplete(tournamentName, winner) {
+  await sendDiscordWebhook(null, [{
+    title: '🏆 Tournament Complete!',
+    description: `**${winner}** is the champion of **${tournamentName}**!`,
+    color: 0xffc72c,
+    image: { url: 'https://www.reggysosa.com/logo.png' },
+    footer: { text: 'Reggy Sosa Tournaments' },
+  }]);
+}
+
+
+
+// Webhook settings — stored in localStorage so admin can set without code changes
+function saveWebhookUrl() {
+  const input = document.getElementById('admin-webhook-url');
+  if (!input) return;
+  const url = input.value.trim();
+  localStorage.setItem('discord_webhook_url', url);
+  // Override the global var
+  window.DISCORD_WEBHOOK_URL = url;
+  const status = document.getElementById('webhook-status');
+  if (status) { status.style.display = 'block'; setTimeout(() => status.style.display = 'none', 2500); }
+}
+
+function loadWebhookSettings() {
+  const saved = localStorage.getItem('discord_webhook_url') || '';
+  const input = document.getElementById('admin-webhook-url');
+  if (input) input.value = saved;
+  if (saved) window.DISCORD_WEBHOOK_URL = saved;
+}
+
+async function testDiscordWebhook() {
+  await sendDiscordWebhook(null, [{
+    title: '✅ Webhook Test',
+    description: 'Your Reggy Sosa Discord webhook is connected and working!',
+    color: 0xffc72c,
+    footer: { text: 'Reggy Sosa Tournaments' },
+  }]);
+  alert('Test message sent! Check your Discord channel.');
+}
+
+// Load saved webhook URL on any page load
+(function() {
+  const saved = localStorage.getItem('discord_webhook_url');
+  if (saved) window.DISCORD_WEBHOOK_URL = saved;
+})();
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 
