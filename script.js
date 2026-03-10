@@ -2492,7 +2492,7 @@ function renderTeamSearch() {
 }
 
 // ── SCORE SUBMISSION (Phase 2) ────────────────────────────────────────────────
-async function submitScoreRequest(tournamentId, roundIndex, matchIndex, myScore, oppScore, screenshotFile) {
+async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reportedWinner, screenshotFile) {
   if (!supabaseClient) return false;
   const email = getCurrentUser();
   if (!email) return false;
@@ -2538,56 +2538,57 @@ function renderScoreSubmitForm(tournamentId, roundIndex, matchIndex, match, cont
   const scoreRow = document.createElement('div');
   scoreRow.className = 'score-row';
 
-  const myScoreInput = document.createElement('input');
-  myScoreInput.type = 'number';
-  myScoreInput.min = '0'; myScoreInput.max = '99';
-  myScoreInput.placeholder = 'Your goals';
-  myScoreInput.className = 'score-input';
+  // Winner picker
+  const winnerLabel = document.createElement('p');
+  winnerLabel.textContent = 'Who won?';
+  winnerLabel.style.cssText = 'font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;';
+  form.appendChild(winnerLabel);
 
-  const dash = document.createElement('span');
-  dash.textContent = '–';
-  dash.style.color = 'var(--text-muted)';
+  const winnerSelect = document.createElement('select');
+  winnerSelect.className = 'score-input';
+  winnerSelect.style.cssText = 'width:100%;padding:0.5rem 0.75rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:0.9rem;cursor:pointer;';
+  const placeholder = document.createElement('option');
+  placeholder.value = ''; placeholder.textContent = '— Select winner —'; placeholder.disabled = true; placeholder.selected = true;
+  winnerSelect.appendChild(placeholder);
+  [match.team1, match.team2].filter(Boolean).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    winnerSelect.appendChild(opt);
+  });
+  form.appendChild(winnerSelect);
 
-  const oppScoreInput = document.createElement('input');
-  oppScoreInput.type = 'number';
-  oppScoreInput.min = '0'; oppScoreInput.max = '99';
-  oppScoreInput.placeholder = 'Opp goals';
-  oppScoreInput.className = 'score-input';
-
-  scoreRow.appendChild(myScoreInput);
-  scoreRow.appendChild(dash);
-  scoreRow.appendChild(oppScoreInput);
-  form.appendChild(scoreRow);
-
+  // Screenshot upload
   const fileLabel = document.createElement('label');
   fileLabel.className = 'score-file-label';
-  fileLabel.textContent = '📎 Attach screenshot';
+  fileLabel.style.marginTop = '0.75rem';
+  fileLabel.innerHTML = '📸 Attach final score screenshot <span style="color:var(--text-muted);font-size:0.75rem">(required)</span>';
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'image/*';
   fileInput.style.display = 'none';
   fileLabel.appendChild(fileInput);
   fileInput.addEventListener('change', () => {
-    fileLabel.textContent = fileInput.files[0] ? '✅ ' + fileInput.files[0].name : '📎 Attach screenshot';
+    const name = fileInput.files[0]?.name || '';
+    fileLabel.innerHTML = name ? ('✅ ' + name) : '📸 Attach final score screenshot <span style="color:var(--text-muted);font-size:0.75rem">(required)</span>';
   });
   form.appendChild(fileLabel);
 
   const submitBtn = document.createElement('button');
   submitBtn.className = 'button score-submit-btn';
-  submitBtn.textContent = 'Submit Score';
+  submitBtn.textContent = 'Submit Result';
   submitBtn.addEventListener('click', async () => {
-    const myScore = parseInt(myScoreInput.value);
-    const oppScore = parseInt(oppScoreInput.value);
-    if (isNaN(myScore) || isNaN(oppScore)) { alert('Please enter both scores.'); return; }
+    const winner = winnerSelect.value;
+    if (!winner) { alert('Please select who won.'); return; }
+    if (!fileInput.files[0]) { alert('Please attach a screenshot of the final score.'); return; }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting...';
-    const ok = await submitScoreRequest(tournamentId, roundIndex, matchIndex, myScore, oppScore, fileInput.files[0] || null);
+    const ok = await submitScoreRequest(tournamentId, roundIndex, matchIndex, winner, fileInput.files[0]);
     if (ok) {
-      form.innerHTML = '<p style="color:var(--gold);font-size:0.9rem">✅ Score submitted — waiting for admin confirmation.</p>';
+      form.innerHTML = '<p style="color:var(--gold);font-size:0.9rem">✅ Result submitted — waiting for admin confirmation.</p>';
     } else {
-      alert('Failed to submit score. Try again.');
+      alert('Failed to submit result. Try again.');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Score';
+      submitBtn.textContent = 'Submit Result';
     }
   });
   form.appendChild(submitBtn);
@@ -2616,12 +2617,35 @@ async function renderPendingScores() {
     data.forEach(sub => {
       const card = document.createElement('div');
       card.className = 'score-sub-card';
+      // Get match teams from local bracket for display
+      const tourns = loadTournaments();
+      const matchTourney = tourns.find(t => t.id === sub.tournament_id);
+      const bracketMatch = matchTourney?.bracket?.[sub.round_index]?.[sub.match_index];
+      const team1 = bracketMatch?.team1 || 'Team 1';
+      const team2 = bracketMatch?.team2 || 'Team 2';
+
       card.innerHTML = `
-        <p><strong>Tournament:</strong> ${sub.tournament_id}</p>
-        <p><strong>Match:</strong> Round ${sub.round_index + 1}, Match ${sub.match_index + 1}</p>
-        <p><strong>Submitter:</strong> ${sub.submitter_email}</p>
-        <p><strong>Score:</strong> ${sub.my_score} – ${sub.opp_score}</p>
-        ${sub.screenshot_url ? `<a href="${sub.screenshot_url}" target="_blank" class="score-screenshot-link">View Screenshot</a>` : ''}
+        <div class="score-card-header">
+          <span class="score-card-badge">Round ${sub.round_index + 1} · Match ${sub.match_index + 1}</span>
+          <span class="score-card-tourney">${matchTourney?.name || sub.tournament_id}</span>
+        </div>
+        <div class="score-matchup">${team1} <span class="vs-divider">vs</span> ${team2}</div>
+        <p class="score-card-meta">Reported winner: <strong style="color:var(--gold)">${sub.reported_winner || '—'}</strong></p>
+        <p class="score-card-meta">Submitted by: ${sub.submitter_email}</p>
+        ${sub.screenshot_url ? `
+          <div class="score-screenshot-wrap">
+            <img src="${sub.screenshot_url}" alt="Score screenshot" class="score-screenshot-img" onclick="window.open('${sub.screenshot_url}','_blank')" />
+            <span class="score-screenshot-hint">Click to open full size</span>
+          </div>
+        ` : '<p class="score-card-meta" style="color:var(--text-muted)">⚠️ No screenshot provided</p>'}
+        <div class="score-admin-entry">
+          <p style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5rem;">Enter final scores to confirm</p>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <input id="score-t1-${sub.id}" type="number" min="0" max="99" placeholder="${team1} goals" class="score-input score-admin-input" />
+            <span style="color:var(--text-muted);font-weight:700;">–</span>
+            <input id="score-t2-${sub.id}" type="number" min="0" max="99" placeholder="${team2} goals" class="score-input score-admin-input" />
+          </div>
+        </div>
       `;
 
       const btnRow = document.createElement('div');
@@ -2631,7 +2655,10 @@ async function renderPendingScores() {
       approveBtn.className = 'button';
       approveBtn.textContent = '✅ Approve';
       approveBtn.addEventListener('click', async () => {
-        await approveScoreSubmission(sub);
+        const t1Score = parseInt(document.getElementById(`score-t1-${sub.id}`)?.value);
+        const t2Score = parseInt(document.getElementById(`score-t2-${sub.id}`)?.value);
+        if (isNaN(t1Score) || isNaN(t2Score)) { alert('Please enter both final scores before approving.'); return; }
+        await approveScoreSubmission(sub, team1, team2, t1Score, t2Score);
         renderPendingScores();
       });
 
@@ -2653,29 +2680,22 @@ async function renderPendingScores() {
   }
 }
 
-async function approveScoreSubmission(sub) {
+async function approveScoreSubmission(sub, team1, team2, t1Score, t2Score) {
   if (!supabaseClient) return;
-  // Determine winner from score
-  const tournaments = loadTournaments();
-  const t = tournaments.find(t => t.id === sub.tournament_id);
-  if (!t || !t.bracket) return;
 
-  const match = t.bracket[sub.round_index]?.[sub.match_index];
-  if (!match) return;
+  // Admin determines the winner from the scores they entered
+  const winnerName = t1Score > t2Score ? team1 : team2;
 
-  // Figure out which team submitted and who their opponent is
-  const teams = loadTeams();
-  const submitterTeam = teams.find(t2 => t2.captain === sub.submitter_email);
-  if (!submitterTeam) return;
+  // Store the admin-confirmed scores on the submission
+  await supabaseClient.from('score_submissions').update({
+    status: 'approved',
+    admin_score_t1: t1Score,
+    admin_score_t2: t2Score,
+    admin_winner: winnerName,
+  }).eq('id', sub.id);
 
-  const winnerName = sub.my_score > sub.opp_score ? submitterTeam.name :
-    (match.team1 === submitterTeam.name ? match.team2 : match.team1);
-
-  // Report the match result
+  // Report the match result which advances the bracket
   await reportMatchResult(sub.tournament_id, sub.round_index, sub.match_index, winnerName);
-
-  // Mark submission as approved
-  await supabaseClient.from('score_submissions').update({ status: 'approved' }).eq('id', sub.id);
 }
 
 

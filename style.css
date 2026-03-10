@@ -2085,3 +2085,113 @@ a {
   font-size: 0.85rem;
 }
 .score-sub-btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+
+/* ── Score Queue Admin Cards ─────────────────────────────────────────── */
+.score-sub-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.score-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.score-card-badge {
+  background: var(--gold);
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+.score-card-tourney {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.score-matchup {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+.score-matchup .vs-divider {
+  color: var(--gold);
+  margin: 0 0.5rem;
+  font-size: 0.9rem;
+}
+.score-card-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0.2rem 0;
+}
+.score-screenshot-wrap {
+  margin: 1rem 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  position: relative;
+  max-width: 600px;
+}
+.score-screenshot-wrap:hover .score-screenshot-hint {
+  opacity: 1;
+}
+.score-screenshot-img {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  object-fit: contain;
+  background: #000;
+}
+.score-screenshot-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.7);
+  color: var(--gold);
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.score-admin-entry {
+  background: var(--surface-2, #0d0d14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+.score-admin-input {
+  width: 110px !important;
+  text-align: center;
+}
+.score-sub-btn-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+/* Player score submission */
+.score-file-label {
+  display: block;
+  padding: 0.6rem 1rem;
+  background: var(--surface-2, #0d0d14);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: border-color 0.2s, color 0.2s;
+}
+.score-file-label:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
