@@ -1760,6 +1760,14 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   const bracket = tournament.bracket;
   if (!bracket || !bracket[roundIndex] || !bracket[roundIndex][matchIndex]) return;
   const match = bracket[roundIndex][matchIndex];
+  // Delete chat messages for this match since it's now over
+  if (match.code) {
+    deleteMatchMessages(match.code);
+    if (activeChatSubscriptions[match.code]) {
+      try { activeChatSubscriptions[match.code].unsubscribe(); } catch(e) {}
+      delete activeChatSubscriptions[match.code];
+    }
+  }
   // Set the winner on the match
   match.winner = winnerName;
   // Propagate the winner to the next round, if there is one
@@ -1805,6 +1813,217 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   } catch (err) {
     console.error('Failed to persist match result to backend:', err);
     alert('Warning: could not reach backend. Match result may not have saved.');
+  }
+}
+
+
+// ── Match Messaging System ──────────────────────────────────────────────────
+
+// Returns true if the current user is a captain in the given match
+function isUserInMatch(match, tournament) {
+  const email = getCurrentUser();
+  if (!email) return false;
+  const teams = loadTeams();
+  // Find teams in this match
+  const team1 = teams.find(t => t.name === match.team1);
+  const team2 = teams.find(t => t.name === match.team2);
+  if (!team1 && !team2) return false;
+  return (team1 && team1.captain === email) || (team2 && team2.captain === email);
+}
+
+// Send a message to Supabase messages table
+async function sendMatchMessage(matchCode, tournamentId, content) {
+  if (!supabaseClient || !content.trim()) return false;
+  const email = getCurrentUser();
+  if (!email) return false;
+  try {
+    const { error } = await supabaseClient.from('messages').insert({
+      match_code: matchCode,
+      tournament_id: tournamentId,
+      sender_email: email,
+      content: content.trim(),
+    });
+    if (error) { console.error('Send message error:', error); return false; }
+    return true;
+  } catch (e) {
+    console.error('Send message error:', e);
+    return false;
+  }
+}
+
+// Load messages for a match from Supabase
+async function loadMatchMessages(matchCode) {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('messages')
+      .select('*')
+      .eq('match_code', matchCode)
+      .order('created_at', { ascending: true });
+    if (error) return [];
+    return data || [];
+  } catch (e) { return []; }
+}
+
+// Delete all messages for a match (called when match winner is set)
+async function deleteMatchMessages(matchCode) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('messages').delete().eq('match_code', matchCode);
+  } catch (e) { console.error('Delete messages error:', e); }
+}
+
+// Active chat subscriptions — we keep track to unsubscribe when needed
+const activeChatSubscriptions = {};
+
+// Render the chat box for a match inside a given container element
+async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
+  const email = getCurrentUser();
+  if (!email) return;
+
+  // Wrapper
+  const chatWrapper = document.createElement('div');
+  chatWrapper.className = 'match-chat';
+  chatWrapper.id = 'chat-' + matchCode;
+
+  const chatTitle = document.createElement('p');
+  chatTitle.className = 'chat-title';
+  chatTitle.textContent = isAdmin ? '💬 Match Chat (Admin View)' : '💬 Match Chat';
+  chatWrapper.appendChild(chatTitle);
+
+  // Messages area
+  const messagesEl = document.createElement('div');
+  messagesEl.className = 'chat-messages';
+  chatWrapper.appendChild(messagesEl);
+
+  // Render a single message bubble
+  function renderMessage(msg) {
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + (msg.sender_email === email ? 'mine' : 'theirs');
+    const sender = document.createElement('span');
+    sender.className = 'chat-sender';
+    sender.textContent = msg.sender_email;
+    const text = document.createElement('p');
+    text.textContent = msg.content;
+    const time = document.createElement('span');
+    time.className = 'chat-time';
+    time.textContent = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    bubble.appendChild(sender);
+    bubble.appendChild(text);
+    bubble.appendChild(time);
+    return bubble;
+  }
+
+  // Load initial messages
+  const initial = await loadMatchMessages(matchCode);
+  initial.forEach(msg => messagesEl.appendChild(renderMessage(msg)));
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Real-time subscription
+  if (activeChatSubscriptions[matchCode]) {
+    try { activeChatSubscriptions[matchCode].unsubscribe(); } catch(e) {}
+  }
+  const channel = supabaseClient
+    .channel('match-chat-' + matchCode)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: 'match_code=eq.' + matchCode,
+    }, (payload) => {
+      messagesEl.appendChild(renderMessage(payload.new));
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    })
+    .subscribe();
+  activeChatSubscriptions[matchCode] = channel;
+
+  // Input area — admins read-only
+  if (!isAdmin) {
+    const inputRow = document.createElement('div');
+    inputRow.className = 'chat-input-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chat-input';
+    input.placeholder = 'Type a message...';
+    input.maxLength = 300;
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'button chat-send-btn';
+    sendBtn.textContent = 'Send';
+
+    async function doSend() {
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = '';
+      input.disabled = true;
+      sendBtn.disabled = true;
+      await sendMatchMessage(matchCode, tournamentId, val);
+      input.disabled = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+
+    sendBtn.addEventListener('click', doSend);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });
+    inputRow.appendChild(input);
+    inputRow.appendChild(sendBtn);
+    chatWrapper.appendChild(inputRow);
+  } else {
+    const readOnly = document.createElement('p');
+    readOnly.className = 'chat-readonly-note';
+    readOnly.textContent = 'Read-only admin view';
+    chatWrapper.appendChild(readOnly);
+  }
+
+  containerEl.appendChild(chatWrapper);
+}
+
+// ── Admin: view all active match chats ──────────────────────────────────────
+async function renderAdminChats() {
+  const container = document.getElementById('admin-chats-container');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text-muted)">Loading active match chats...</p>';
+
+  if (!supabaseClient) {
+    container.innerHTML = '<p>Supabase not connected.</p>';
+    return;
+  }
+
+  // Get all messages grouped by match_code
+  try {
+    const { data, error } = await supabaseClient
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error || !data || data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">No active match chats.</p>';
+      return;
+    }
+    // Group by match_code
+    const grouped = {};
+    data.forEach(msg => {
+      if (!grouped[msg.match_code]) grouped[msg.match_code] = [];
+      grouped[msg.match_code].push(msg);
+    });
+    container.innerHTML = '';
+    Object.entries(grouped).forEach(([matchCode, messages]) => {
+      const block = document.createElement('div');
+      block.className = 'admin-chat-block';
+      const heading = document.createElement('h4');
+      heading.textContent = 'Match Code: ' + matchCode;
+      heading.style.color = 'var(--gold)';
+      heading.style.marginBottom = '0.5rem';
+      block.appendChild(heading);
+      messages.forEach(msg => {
+        const line = document.createElement('div');
+        line.className = 'admin-chat-line';
+        const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        line.innerHTML = '<span class="chat-sender">' + msg.sender_email + '</span> <span class="chat-time">' + time + '</span><p>' + msg.content + '</p>';
+        block.appendChild(line);
+      });
+      container.appendChild(block);
+    });
+  } catch (e) {
+    container.innerHTML = '<p style="color:var(--text-muted)">Failed to load chats.</p>';
   }
 }
 
@@ -2057,6 +2276,22 @@ function renderTournamentDetails(id) {
           reportDiv.appendChild(select);
           reportDiv.appendChild(reportBtn);
           matchDiv.appendChild(reportDiv);
+        }
+        // Match chat — show for admin (read-only) and the two captains in this match
+        if (
+          tournament.status === 'started' &&
+          match.team1 && match.team2 &&
+          match.team2 !== 'BYE' &&
+          !match.winner &&
+          match.code
+        ) {
+          const userRole = getCurrentUserRole();
+          const isAdmin = userRole === 'admin';
+          const isInMatch = isUserInMatch(match, tournament);
+          if (isAdmin || isInMatch) {
+            // Render chat async into matchDiv
+            renderMatchChat(match.code, tournament.id, matchDiv, isAdmin);
+          }
         }
         roundDiv.appendChild(matchDiv);
       });
