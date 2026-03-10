@@ -2656,13 +2656,33 @@ async function renderPendingScores() {
     }
 
     container.innerHTML = '';
+
+    // Fetch all relevant tournaments from Supabase so bracket data is fresh
+    let supabaseTourns = [];
+    try {
+      const tIds = [...new Set(data.map(s => s.tournament_id))];
+      const { data: tData } = await supabaseClient
+        .from('tournaments')
+        .select('id, name, bracket')
+        .in('id', tIds);
+      if (tData) supabaseTourns = tData;
+    } catch(e) { console.warn('Could not fetch tournaments for score queue', e); }
+
     data.forEach(sub => {
       const card = document.createElement('div');
       card.className = 'score-sub-card';
-      // Get match teams from local bracket for display
-      const tourns = loadTournaments();
-      const matchTourney = tourns.find(t => t.id === sub.tournament_id);
-      const bracketMatch = matchTourney?.bracket?.[sub.round_index]?.[sub.match_index];
+
+      // Use fresh Supabase bracket data, fall back to localStorage
+      let matchTourney = supabaseTourns.find(t => String(t.id) === String(sub.tournament_id));
+      if (!matchTourney) {
+        const localTourns = loadTournaments();
+        matchTourney = localTourns.find(t => String(t.id) === String(sub.tournament_id));
+      }
+
+      // Bracket may come back as object from jsonb — normalize it
+      let bracket = matchTourney?.bracket || [];
+      if (!Array.isArray(bracket)) bracket = Object.values(bracket);
+      const bracketMatch = bracket?.[sub.round_index]?.[sub.match_index];
       const team1 = bracketMatch?.team1 || 'Team 1';
       const team2 = bracketMatch?.team2 || 'Team 2';
 
@@ -3542,7 +3562,32 @@ function renderTournamentDetails(id) {
         ) {
           const currentRole = getCurrentUserRole();
           if (currentRole !== 'admin' && isUserInMatch(match, tournament)) {
-            renderScoreSubmitForm(tournament.id, rIndex, mIndex, match, matchDiv);
+            // Check if a submission already exists so we don't re-show form on refresh
+            const scoreSlot = document.createElement('div');
+            matchDiv.appendChild(scoreSlot);
+            (async () => {
+              let alreadySubmitted = false;
+              if (supabaseClient) {
+                try {
+                  const { data: existingSubs } = await supabaseClient
+                    .from('score_submissions')
+                    .select('id, status')
+                    .eq('tournament_id', String(tournament.id))
+                    .eq('round_index', rIndex)
+                    .eq('match_index', mIndex)
+                    .in('status', ['pending', 'approved'])
+                    .limit(1);
+                  if (existingSubs && existingSubs.length > 0) {
+                    alreadySubmitted = true;
+                  }
+                } catch(e) { /* ignore, show form as fallback */ }
+              }
+              if (alreadySubmitted) {
+                scoreSlot.innerHTML = '<p style="color:var(--gold);font-size:0.85rem;margin-top:0.5rem;">✅ Result submitted — waiting for admin confirmation.</p>';
+              } else {
+                renderScoreSubmitForm(tournament.id, rIndex, mIndex, match, scoreSlot);
+              }
+            })();
           }
         }
         // Match chat — show for admin (read-only) and the two captains in this match
