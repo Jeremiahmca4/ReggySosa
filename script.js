@@ -2526,20 +2526,46 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
   }
 
   try {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const submitterEmail = user?.email || email || 'unknown';
-    const { error } = await supabaseClient.from('score_submissions').insert({
+    // Safely get auth user — don't destructure in case data is null
+    let submitterEmail = email || 'unknown';
+    try {
+      const authResp = await supabaseClient.auth.getUser();
+      if (authResp?.data?.user?.email) {
+        submitterEmail = authResp.data.user.email;
+      }
+    } catch(authErr) {
+      console.warn('Could not get auth user, using localStorage email:', authErr);
+    }
+
+    console.log('Inserting score submission:', {
       tournament_id: tournamentId,
       round_index: roundIndex,
       match_index: matchIndex,
       submitter_email: submitterEmail,
       reported_winner: reportedWinner,
       screenshot_url: screenshotUrl,
+    });
+
+    const { error } = await supabaseClient.from('score_submissions').insert({
+      tournament_id: String(tournamentId),
+      round_index: parseInt(roundIndex),
+      match_index: parseInt(matchIndex),
+      submitter_email: submitterEmail,
+      reported_winner: reportedWinner,
+      screenshot_url: screenshotUrl,
       status: 'pending',
     });
-    if (error) { console.error('Score submission DB error', error); return false; }
+    if (error) {
+      console.error('Score submission DB error:', JSON.stringify(error));
+      alert('Submission failed: ' + (error.message || error.details || JSON.stringify(error)));
+      return false;
+    }
     return true;
-  } catch(e) { console.error('Score submission error', e); return false; }
+  } catch(e) {
+    console.error('Score submission exception:', e);
+    alert('Submission error: ' + e.message);
+    return false;
+  }
 }
 
 function renderScoreSubmitForm(tournamentId, roundIndex, matchIndex, match, containerEl) {
@@ -2602,7 +2628,7 @@ function renderScoreSubmitForm(tournamentId, roundIndex, matchIndex, match, cont
     if (ok) {
       form.innerHTML = '<p style="color:var(--gold);font-size:0.9rem">✅ Result submitted — waiting for admin confirmation.</p>';
     } else {
-      alert('Failed to submit result. Try again.');
+      // Error alert already shown inside submitScoreRequest
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Result';
     }
