@@ -1577,3 +1577,164 @@ a {
   margin: 0.1rem 0 0 0;
   color: var(--text-muted);
 }
+
+/* ── Leaderboard ─────────────────────────────────────────────────────────── */
+.leaderboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.leaderboard-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gold);
+  margin: 0;
+}
+
+.leaderboard-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.leaderboard-filter-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.leaderboard-filter-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.leaderboard-filter-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+}
+
+.leaderboard-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr repeat(5, 3.5rem);
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: border-color var(--transition), transform var(--transition);
+  gap: 0.25rem;
+}
+
+.leaderboard-row:hover:not(.leaderboard-col-header) {
+  border-color: var(--border-hover);
+  transform: translateX(3px);
+}
+
+.leaderboard-col-header {
+  background: transparent;
+  border-color: transparent;
+  padding-bottom: 0.25rem;
+}
+
+.leaderboard-row.top-1 {
+  border-color: var(--gold);
+  background: rgba(255,199,44,0.07);
+}
+
+.leaderboard-row.top-2 {
+  border-color: rgba(192,192,192,0.4);
+  background: rgba(192,192,192,0.04);
+}
+
+.leaderboard-row.top-3 {
+  border-color: rgba(205,127,50,0.4);
+  background: rgba(205,127,50,0.04);
+}
+
+.lb-rank {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.lb-team {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-champ-badge {
+  background: var(--gold);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.1rem 0.35rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.lb-stat {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-stat.highlight {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.leaderboard-col-header .lb-stat,
+.leaderboard-col-header .lb-rank,
+.leaderboard-col-header .lb-team {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+@media (max-width: 480px) {
+  .leaderboard-row {
+    grid-template-columns: 2rem 1fr repeat(5, 2.6rem);
+    padding: 0.6rem 0.5rem;
+    font-size: 0.85rem;
+  }
+}

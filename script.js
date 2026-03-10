@@ -1817,6 +1817,223 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
 }
 
 
+
+// ── Leaderboard ──────────────────────────────────────────────────────────────
+
+async function buildLeaderboardData() {
+  // Pull latest data from backend before computing
+  if (supabaseClient) {
+    await syncTournamentsFromBackend();
+    await syncTeamsFromBackend();
+  }
+
+  const tournaments = loadTournaments();
+  const teams = loadTeams();
+
+  // Map: teamName -> stats
+  const stats = {};
+
+  function getOrCreate(name) {
+    if (!stats[name]) {
+      stats[name] = {
+        name,
+        championships: 0,
+        wins: 0,
+        losses: 0,
+        tournamentsEntered: 0,
+        tournamentIds: new Set(),
+      };
+    }
+    return stats[name];
+  }
+
+  for (const t of tournaments) {
+    if (!t.bracket || !Array.isArray(t.bracket)) continue;
+
+    // Count tournament entries — any team in this tournament
+    const enteredTeams = new Set();
+    t.bracket.forEach(round => {
+      round.forEach(match => {
+        if (match.team1 && match.team1 !== 'BYE') enteredTeams.add(match.team1);
+        if (match.team2 && match.team2 !== 'BYE') enteredTeams.add(match.team2);
+      });
+    });
+    enteredTeams.forEach(name => {
+      const s = getOrCreate(name);
+      if (!s.tournamentIds.has(t.id)) {
+        s.tournamentIds.add(t.id);
+        s.tournamentsEntered++;
+      }
+    });
+
+    // Count wins and losses from completed matches
+    t.bracket.forEach(round => {
+      round.forEach(match => {
+        if (!match.winner || !match.team1 || !match.team2) return;
+        if (match.team2 === 'BYE') return;
+        const winner = match.winner;
+        const loser = match.team1 === winner ? match.team2 : match.team1;
+        getOrCreate(winner).wins++;
+        getOrCreate(loser).losses++;
+      });
+    });
+
+    // Championship
+    if (t.status === 'completed' && t.winner) {
+      getOrCreate(t.winner).championships++;
+    }
+  }
+
+  // Convert to array and compute win %
+  return Object.values(stats).map(s => ({
+    ...s,
+    tournamentIds: undefined,
+    winPct: s.wins + s.losses > 0
+      ? Math.round((s.wins / (s.wins + s.losses)) * 100)
+      : 0,
+  }));
+}
+
+async function renderLeaderboard() {
+  const container = document.getElementById('leaderboard-container');
+  if (!container) return;
+
+  container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem;">Loading leaderboard...</p>';
+
+  let data;
+  try {
+    data = await buildLeaderboardData();
+  } catch (e) {
+    container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem;">Failed to load leaderboard.</p>';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem;">No tournament data yet. Check back after the first tournament completes!</p>';
+    return;
+  }
+
+  // Current sort state
+  let sortKey = 'championships';
+  let sortDir = 'desc';
+
+  function sorted(key, dir) {
+    return [...data].sort((a, b) => {
+      if (dir === 'desc') return b[key] - a[key];
+      return a[key] - b[key];
+    });
+  }
+
+  function render(key, dir) {
+    container.innerHTML = '';
+
+    // Header row with filter buttons
+    const header = document.createElement('div');
+    header.className = 'leaderboard-header';
+
+    const title = document.createElement('h2');
+    title.className = 'leaderboard-title';
+    title.textContent = 'Team Leaderboard';
+    header.appendChild(title);
+
+    const filters = document.createElement('div');
+    filters.className = 'leaderboard-filters';
+
+    const filterDefs = [
+      { label: 'Championships', key: 'championships' },
+      { label: 'Most Wins', key: 'wins' },
+      { label: 'Win %', key: 'winPct' },
+      { label: 'Tournaments', key: 'tournamentsEntered' },
+    ];
+
+    filterDefs.forEach(f => {
+      const btn = document.createElement('button');
+      btn.textContent = f.label;
+      btn.className = 'leaderboard-filter-btn' + (f.key === key ? ' active' : '');
+      btn.addEventListener('click', () => {
+        const newDir = f.key === key && dir === 'desc' ? 'asc' : 'desc';
+        sortKey = f.key;
+        sortDir = newDir;
+        render(sortKey, sortDir);
+      });
+      filters.appendChild(btn);
+    });
+
+    header.appendChild(filters);
+    container.appendChild(header);
+
+    // Table
+    const table = document.createElement('div');
+    table.className = 'leaderboard-table';
+
+    // Column headers
+    const colHeader = document.createElement('div');
+    colHeader.className = 'leaderboard-row leaderboard-col-header';
+    colHeader.innerHTML =
+      '<span class="lb-rank">#</span>' +
+      '<span class="lb-team">Team</span>' +
+      '<span class="lb-stat">🏆</span>' +
+      '<span class="lb-stat">W</span>' +
+      '<span class="lb-stat">L</span>' +
+      '<span class="lb-stat">W%</span>' +
+      '<span class="lb-stat">Played</span>';
+    table.appendChild(colHeader);
+
+    const rows = sorted(key, dir);
+    rows.forEach((team, i) => {
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row' + (i < 3 ? ' top-' + (i + 1) : '');
+
+      const rankEl = document.createElement('span');
+      rankEl.className = 'lb-rank';
+      rankEl.textContent = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'lb-team';
+      nameEl.textContent = team.name;
+      if (team.championships > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'lb-champ-badge';
+        badge.textContent = team.championships + '×';
+        nameEl.appendChild(badge);
+      }
+
+      const champEl = document.createElement('span');
+      champEl.className = 'lb-stat' + (key === 'championships' ? ' highlight' : '');
+      champEl.textContent = team.championships;
+
+      const winsEl = document.createElement('span');
+      winsEl.className = 'lb-stat' + (key === 'wins' ? ' highlight' : '');
+      winsEl.textContent = team.wins;
+
+      const lossEl = document.createElement('span');
+      lossEl.className = 'lb-stat';
+      lossEl.textContent = team.losses;
+
+      const pctEl = document.createElement('span');
+      pctEl.className = 'lb-stat' + (key === 'winPct' ? ' highlight' : '');
+      pctEl.textContent = team.winPct + '%';
+
+      const playedEl = document.createElement('span');
+      playedEl.className = 'lb-stat' + (key === 'tournamentsEntered' ? ' highlight' : '');
+      playedEl.textContent = team.tournamentsEntered;
+
+      row.appendChild(rankEl);
+      row.appendChild(nameEl);
+      row.appendChild(champEl);
+      row.appendChild(winsEl);
+      row.appendChild(lossEl);
+      row.appendChild(pctEl);
+      row.appendChild(playedEl);
+      table.appendChild(row);
+    });
+
+    container.appendChild(table);
+  }
+
+  render(sortKey, sortDir);
+}
+
 // ── Match Messaging System ──────────────────────────────────────────────────
 
 // Returns true if the current user is a captain in the given match

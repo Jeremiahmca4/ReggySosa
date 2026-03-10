@@ -38,6 +38,7 @@
       <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">Upcoming</button>
       <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
       <button type="button" class="tournament-nav-item" data-tab="rules-tab">Rules</button>
+      <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">Leaderboard</button>
     </nav>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
@@ -51,6 +52,11 @@
     <section id="past-tab" class="tournament-tab" style="display:none;">
       <div id="past-champions-tab-list" class="tournament-list"></div>
       <div id="static-champions-tab-list" class="tournament-list"></div>
+    </section>
+
+    <!-- Leaderboard tab -->
+    <section id="leaderboard-tab" class="tournament-tab" style="display:none;">
+      <div id="leaderboard-container"></div>
     </section>
 
     <!-- Rules tab: copy of the official tournament rules from rules.html -->
@@ -182,6 +188,9 @@
         }
         if (tabId === 'past-tab' && typeof renderPastChampionsTab === 'function') {
           renderPastChampionsTab();
+        }
+        if (tabId === 'leaderboard-tab' && typeof renderLeaderboard === 'function') {
+          renderLeaderboard();
         }
       }
       navItems.forEach((btn) => {
