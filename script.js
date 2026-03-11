@@ -2175,6 +2175,24 @@ async function loadProfile() {
       });
     }
   } catch(e) { console.error('loadProfile error', e); }
+
+  // Wire the View Team Page button to the user's team
+  try {
+    const email = getCurrentUser();
+    if (email && supabaseClient) {
+      const { data: teamData } = await supabaseClient
+        .from('teams')
+        .select('id')
+        .eq('captain', email)
+        .single();
+      const btn = document.getElementById('view-team-page-btn');
+      if (btn && teamData?.id) {
+        btn.href = 'team.html?id=' + teamData.id;
+      } else if (btn) {
+        btn.style.display = 'none'; // hide if no team yet
+      }
+    }
+  } catch(e) { /* no team yet */ }
 }
 
 async function handleProfileSave() {
@@ -2245,9 +2263,22 @@ function buildProfileEditor() {
   if (!main) return;
   main.innerHTML = '';
 
+  // Top row: heading + View Team Page button
+  const topRow = document.createElement('div');
+  topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.5rem;';
   const heading = document.createElement('h1');
   heading.textContent = 'Team Profile';
-  main.appendChild(heading);
+  heading.style.margin = '0';
+  topRow.appendChild(heading);
+
+  const viewTeamBtn = document.createElement('a');
+  viewTeamBtn.className = 'button';
+  viewTeamBtn.style.cssText = 'font-size:0.85rem;padding:0.5rem 1rem;text-decoration:none;';
+  viewTeamBtn.textContent = '👁 View Team Page';
+  viewTeamBtn.href = '#'; // updated after team loads
+  viewTeamBtn.id = 'view-team-page-btn';
+  topRow.appendChild(viewTeamBtn);
+  main.appendChild(topRow);
 
   const sub = document.createElement('p');
   sub.style.color = 'var(--text-muted)';
@@ -2695,8 +2726,11 @@ async function renderPendingScores() {
         <p class="score-card-meta">Reported winner: <strong style="color:var(--gold)">${sub.reported_winner || '—'}</strong></p>
         <p class="score-card-meta">Submitted by: ${sub.submitter_email}</p>
         ${sub.screenshot_url ? `
-          <div class="score-screenshot-wrap">
-            <img src="${sub.screenshot_url}" alt="Score screenshot" class="score-screenshot-img" onclick="window.open('${sub.screenshot_url}','_blank')" />
+          <div class="score-screenshot-wrap" onclick="window.open('${sub.screenshot_url}','_blank')" style="cursor:pointer;">
+            <img src="${sub.screenshot_url}" alt="Score screenshot" class="score-screenshot-img"
+              crossorigin="anonymous"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
+            <p style="display:none;color:var(--text-muted);font-size:0.85rem;padding:0.5rem;">⚠️ Image failed to load — <a href="${sub.screenshot_url}" target="_blank" style="color:var(--gold)">open directly</a></p>
             <span class="score-screenshot-hint">Click to open full size</span>
           </div>
         ` : '<p class="score-card-meta" style="color:var(--text-muted)">⚠️ No screenshot provided</p>'}

@@ -1898,8 +1898,15 @@ a {
   border: 1px solid var(--border);
   transition: background 0.3s;
 }
-.profile-editor-form { max-width: 600px; }
+.profile-editor-form { max-width: 560px; width: 100%; }
 .profile-section { margin-bottom: 1.75rem; }
+
+/* Profile page desktop — don't let it stretch too wide */
+.profile-page {
+  max-width: 700px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
 .profile-section-title {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 0.8rem;
