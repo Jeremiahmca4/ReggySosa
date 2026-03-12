@@ -81,7 +81,7 @@ async function checkProfileCompletion() {
     // Query the profiles table for the current user
     const { data, error } = await supabaseClient
       .from('profiles')
-      .select('display_name, discord_handle, gamertag')
+      .select('discord_handle, gamertag')
       .eq('id', user.id)
       .single();
     if (error) {
@@ -89,10 +89,10 @@ async function checkProfileCompletion() {
       // Fail open; allow access rather than blocking due to query failure
       return true;
     }
-    const displayName = data && data.display_name;
+    const displayName = data && (data.discord_handle || data.gamertag); // display_name removed
     const discord = data && data.discord_handle;
     const gamertag = data && data.gamertag;
-    if (!displayName || !discord || !gamertag) {
+    if (!discord || !gamertag) {
       // Redirect to profile page. Avoid infinite redirect loops by checking current page.
       const currentPage = window.location.pathname.split('/').pop();
       if (currentPage !== 'profile.html') {
@@ -511,45 +511,7 @@ function renderUserTeam() {
       membersList.appendChild(li);
     });
     section.appendChild(membersList);
-    // Pending invites
-    if (team.invites && team.invites.length > 0) {
-      const invitesHeading = document.createElement('h3');
-      invitesHeading.textContent = 'Pending Invites';
-      section.appendChild(invitesHeading);
-      const invitesList = document.createElement('ul');
-      team.invites.forEach((inv) => {
-        const li = document.createElement('li');
-        li.textContent = inv;
-        invitesList.appendChild(li);
-      });
-      section.appendChild(invitesList);
-    }
-    // If current user is captain, allow inviting
-    if (team.captain === currentEmail) {
-      const inviteForm = document.createElement('form');
-      inviteForm.id = 'invite-form';
-      inviteForm.style.marginTop = '1rem';
-      const label = document.createElement('label');
-      label.textContent = 'Invite by email:';
-      const emailInput = document.createElement('input');
-      emailInput.type = 'email';
-      emailInput.required = true;
-      emailInput.style.marginLeft = '0.5rem';
-      label.appendChild(emailInput);
-      const sendBtn = document.createElement('button');
-      sendBtn.textContent = 'Invite';
-      sendBtn.className = 'button';
-      inviteForm.appendChild(label);
-      inviteForm.appendChild(sendBtn);
-      inviteForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        inviteToTeam(team.id, emailInput.value);
-        emailInput.value = '';
-        // Re-render to show updated invites list
-        renderUserTeam();
-      });
-      section.appendChild(inviteForm);
-    }
+    // Invite by email removed — not needed
   }
 }
 
@@ -565,10 +527,9 @@ async function handleRegister() {
   ensureDefaultAdmin();
   const email = document.getElementById('register-email').value.trim().toLowerCase();
   const password = document.getElementById('register-password').value;
-  const displayInput = document.getElementById('register-display-name');
-  const displayName = displayInput ? displayInput.value.trim() : '';
-  if (!displayName) {
-    alert('Please enter a display name.');
+  const displayName = ''; // display name removed
+  if (false) {
+    alert('');
     return;
   }
   // If a Supabase client is configured, register the user via Supabase Auth.
@@ -592,7 +553,7 @@ async function handleRegister() {
         }
       }
       if (userId) {
-        await supabaseClient.from('profiles').upsert({ id: userId, email: email, display_name: displayName });
+        await supabaseClient.from('profiles').upsert({ id: userId, email: email });
       }
     } catch (err) {
       alert('Registration failed.');
@@ -614,10 +575,10 @@ async function handleRegister() {
   const role = email === ADMIN_EMAIL ? 'admin' : 'user';
   if (existing) {
     existing.role = role;
-    existing.displayName = displayName;
+    // displayName removed
     // Do not update password for security reasons
   } else {
-    usersList.push({ email, password: '', role, displayName: displayName, discord: '', gamertag: '', teamId: null });
+    usersList.push({ email, password: '', role, displayName: '', discord: '', gamertag: '', teamId: null });
   }
   saveUsers(usersList);
   setCurrentUser(email);
@@ -1180,12 +1141,12 @@ async function renderAdminUsers() {
   // Always fetch from Supabase `profiles` table. We no longer use localStorage as fallback.
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from('profiles').select('email, discord_handle, display_name, gamertag, created_at');
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord_handle, gamertag, created_at');
       if (!error && Array.isArray(data) && data.length > 0) {
         usersArray = data.map((row) => ({
           email: (row.email || '').toLowerCase(),
           discord: row.discord_handle || '',
-          display_name: row.display_name || '',
+          display_name: row.discord_handle || row.gamertag || '',
           gamertag: row.gamertag || '',
           created_at: row.created_at || null,
         }));
@@ -2133,14 +2094,14 @@ async function loadProfile() {
   try {
     const { data } = await supabaseClient
       .from('profiles')
-      .select('display_name, discord_handle, gamertag, avatar, avatar_color, banner_color, platform')
+      .select('discord_handle, gamertag, avatar, avatar_color, banner_color, platform')
       .eq('email', email)
       .single();
     if (!data) return;
-    const dn = document.getElementById('profile-display-name');
+    const dn = null; // display_name field removed
     const dc = document.getElementById('profile-discord');
     const gt = document.getElementById('profile-gamertag');
-    if (dn) dn.value = data.display_name || '';
+    // display_name removed
     if (dc) dc.value = data.discord_handle || '';
     if (gt) gt.value = data.gamertag || '';
     // Set avatar color
@@ -2197,10 +2158,10 @@ async function loadProfile() {
 
 async function handleProfileSave() {
   if (!supabaseClient) { alert('Profile updates require Supabase.'); return; }
-  const displayName = document.getElementById('profile-display-name')?.value.trim();
+  const displayName = ''; // display_name removed
   const discord = document.getElementById('profile-discord')?.value.trim();
   const gamertag = document.getElementById('profile-gamertag')?.value.trim();
-  if (!displayName || !discord || !gamertag) { alert('Please fill out all fields.'); return; }
+  if (!discord || !gamertag) { alert('Please fill out Discord handle and Gamertag.'); return; }
 
   const selectedAvatar = document.querySelector('.avatar-option.selected')?.dataset.avatar || 'wolf';
   const avatarColor = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
@@ -2214,7 +2175,7 @@ async function handleProfileSave() {
     const { error } = await supabaseClient.from('profiles').upsert({
       id: user.id,
       email: user.email,
-      display_name: displayName,
+      // display_name removed
       discord_handle: discord,
       gamertag: gamertag,
       avatar: selectedAvatar,
@@ -2237,7 +2198,7 @@ async function handleProfileSave() {
     const users = loadUsers();
     const idx = users.findIndex(u => u.email === user.email.toLowerCase());
     if (idx !== -1) {
-      users[idx].displayName = displayName;
+      // displayName removed
       users[idx].discord = discord;
       users[idx].gamertag = gamertag;
       saveUsers(users);
@@ -2306,7 +2267,7 @@ function buildProfileEditor() {
   infoSection.className = 'profile-section';
   infoSection.innerHTML = '<h3 class="profile-section-title">Basic Info</h3>';
 
-  ['Display Name:display-name:Your display name', 'Discord Handle:discord:Discord#1234', 'Gamertag:gamertag:Your Gamertag'].forEach(field => {
+  ['Discord Handle:discord:Discord#1234', 'Gamertag:gamertag:Your Gamertag'].forEach(field => {
     const [label, id, placeholder] = field.split(':');
     const lbl = document.createElement('label');
     lbl.innerHTML = `${label}<input type="text" id="profile-${id}" placeholder="${placeholder}" required />`;
