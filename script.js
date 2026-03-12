@@ -1590,14 +1590,21 @@ function registerTeamToTournament(tournamentId, teamId) {
       /* ignore */
     }
   }
-  // Notify Discord registrations channel
-  try {
-    const tObj = loadTournaments().find(function(x) { return x.id === tournamentId; });
-    const tName = tObj ? tObj.name : tournamentId;
-    const total = tObj && tObj.teams ? tObj.teams.length : 1;
-    const max = tObj ? (tObj.maxTeams || '?') : '?';
-    announceTeamRegistration(teamObj.name, tName, total, max);
-  } catch(_) {}
+  // Notify Discord registrations channel — fire and forget
+  (function() {
+    try {
+      const tObj = loadTournaments().find(function(x) { return x.id === tournamentId; });
+      const tName = tObj ? tObj.name : String(tournamentId);
+      const total = tObj && tObj.teams ? tObj.teams.length : 1;
+      // Backend stores as max_teams, local storage may use maxTeams — check both
+      const max = tObj ? (tObj.max_teams || tObj.maxTeams || '?') : '?';
+      announceTeamRegistration(teamObj.name, tName, total, max).catch(function(e) {
+        console.warn('Registration webhook error:', e);
+      });
+    } catch(regWhErr) {
+      console.warn('Registration webhook setup error:', regWhErr);
+    }
+  })();
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
   // Note: caller should call renderTournamentDetails separately if needed
@@ -2565,13 +2572,25 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
       return false;
     }
     console.log('Score submission inserted OK');
-    // Alert mods via Discord webhook
-    try {
-      const tournaments = loadTournaments();
-      const t = tournaments.find(function(x) { return String(x.id) === String(tournamentId); });
-      const tName = t ? t.name : tournamentId;
-      announceScoreSubmission(tName, reportedWinner, submitterEmail);
-    } catch(_) {}
+    // Alert mods via Discord webhook — fire and forget, do NOT let failures block return
+    (async function() {
+      try {
+        let tName = String(tournamentId);
+        // Try localStorage first, then backend
+        const localTournaments = loadTournaments();
+        const localT = localTournaments.find(function(x) { return String(x.id) === String(tournamentId); });
+        if (localT && localT.name) {
+          tName = localT.name;
+        } else if (supabaseClient) {
+          const { data: tRow } = await supabaseClient.from('tournaments').select('name').eq('id', String(tournamentId)).single();
+          if (tRow && tRow.name) tName = tRow.name;
+        }
+        await announceScoreSubmission(tName, reportedWinner, submitterEmail);
+        console.log('Score submission webhook fired OK');
+      } catch(whErr) {
+        console.warn('Score submission webhook error (non-blocking):', whErr);
+      }
+    })();
     return true;
   } catch(e) {
     console.error('Score submission exception:', e);
