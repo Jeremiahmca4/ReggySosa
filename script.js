@@ -1236,11 +1236,11 @@ async function renderAdminTeams() {
   let discordMap = {};
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from('profiles').select('email, discord');
+      const { data, error } = await supabaseClient.from('profiles').select('email, discord_handle');
       if (!error && Array.isArray(data) && data.length > 0) {
         data.forEach((row) => {
           const email = (row.email || '').toLowerCase();
-          discordMap[email] = row.discord || '';
+          discordMap[email] = row.discord_handle || '';
         });
       }
     } catch (err) {
@@ -1252,7 +1252,7 @@ async function renderAdminTeams() {
   if (teamsArray.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 4;
+    td.colSpan = 4; // Team Name, Email, Discord, Actions
     td.textContent = 'No teams found.';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -1269,10 +1269,7 @@ async function renderAdminTeams() {
     const discordTd = document.createElement('td');
     const emailKey = (team.captain || '').toLowerCase();
     const discordVal = discordMap[emailKey] || '';
-    discordTd.textContent = discordVal || 'Not set';
-    const membersTd = document.createElement('td');
-    const members = Array.isArray(team.members) ? team.members : [];
-    membersTd.textContent = members.length.toString();
+    discordTd.textContent = discordVal || '—';
     // Delete team button
     const deleteTd = document.createElement('td');
     const deleteBtn = document.createElement('button');
@@ -1297,7 +1294,6 @@ async function renderAdminTeams() {
     tr.appendChild(nameTd);
     tr.appendChild(captainTd);
     tr.appendChild(discordTd);
-    tr.appendChild(membersTd);
     tr.appendChild(deleteTd);
     tbody.appendChild(tr);
   });
