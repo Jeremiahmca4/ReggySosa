@@ -3187,9 +3187,11 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
   function renderMessage(msg) {
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble ' + (msg.sender_email === email ? 'mine' : 'theirs');
+    if (msg.id) bubble.dataset.msgId = msg.id;
     const sender = document.createElement('span');
     sender.className = 'chat-sender';
-    sender.textContent = msg.sender_email;
+    // Show "Admin" label if the message came from the admin email
+    sender.textContent = msg.sender_email === '93pacc93@gmail.com' ? '⚙️ Admin' : msg.sender_email;
     const text = document.createElement('p');
     text.textContent = msg.content;
     const time = document.createElement('span');
@@ -3218,47 +3220,71 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
       table: 'messages',
       filter: 'match_code=eq.' + matchCode,
     }, (payload) => {
-      messagesEl.appendChild(renderMessage(payload.new));
+      const newBubble = renderMessage(payload.new);
+      messagesEl.appendChild(newBubble);
+      if (isAdmin && payload.new?.id) addDeleteBtn(newBubble, payload.new.id, messagesEl);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     })
     .subscribe();
   activeChatSubscriptions[matchCode] = channel;
 
-  // Input area — admins read-only
-  if (!isAdmin) {
-    const inputRow = document.createElement('div');
-    inputRow.className = 'chat-input-row';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'chat-input';
-    input.placeholder = 'Type a message...';
-    input.maxLength = 300;
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'button chat-send-btn';
-    sendBtn.textContent = 'Send';
+  // Input area — both players and admin can send; admin also gets delete buttons
+  const inputRow = document.createElement('div');
+  inputRow.className = 'chat-input-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'chat-input';
+  input.placeholder = isAdmin ? 'Send admin message...' : 'Type a message...';
+  input.maxLength = 300;
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'button chat-send-btn';
+  sendBtn.textContent = 'Send';
 
-    async function doSend() {
-      const val = input.value.trim();
-      if (!val) return;
-      input.value = '';
-      input.disabled = true;
-      sendBtn.disabled = true;
-      await sendMatchMessage(matchCode, tournamentId, val);
-      input.disabled = false;
-      sendBtn.disabled = false;
-      input.focus();
-    }
+  async function doSend() {
+    const val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+    await sendMatchMessage(matchCode, tournamentId, val);
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
 
-    sendBtn.addEventListener('click', doSend);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });
-    inputRow.appendChild(input);
-    inputRow.appendChild(sendBtn);
-    chatWrapper.appendChild(inputRow);
-  } else {
-    const readOnly = document.createElement('p');
-    readOnly.className = 'chat-readonly-note';
-    readOnly.textContent = 'Read-only admin view';
-    chatWrapper.appendChild(readOnly);
+  sendBtn.addEventListener('click', doSend);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });
+  inputRow.appendChild(input);
+  inputRow.appendChild(sendBtn);
+  chatWrapper.appendChild(inputRow);
+
+  if (isAdmin) {
+    const adminNote = document.createElement('p');
+    adminNote.className = 'chat-readonly-note';
+    adminNote.textContent = '⚙️ Admin — you can message and delete individual messages';
+    chatWrapper.appendChild(adminNote);
+
+    // Add delete button to each existing bubble
+    chatWrapper.querySelectorAll('.chat-bubble').forEach(bubble => {
+      const msgId = bubble.dataset.msgId;
+      if (msgId) addDeleteBtn(bubble, msgId, messagesEl);
+    });
+  }
+
+  // Helper: add a delete button to a bubble (admin only)
+  function addDeleteBtn(bubble, msgId, container) {
+    if (!isAdmin || !msgId) return;
+    const del = document.createElement('button');
+    del.className = 'chat-delete-btn';
+    del.title = 'Delete message';
+    del.textContent = '🗑';
+    del.addEventListener('click', async () => {
+      if (!confirm('Delete this message?')) return;
+      const { error } = await supabaseClient.from('messages').delete().eq('id', msgId);
+      if (!error) bubble.remove();
+      else alert('Delete failed: ' + error.message);
+    });
+    bubble.appendChild(del);
   }
 
   containerEl.appendChild(chatWrapper);
@@ -3295,18 +3321,83 @@ async function renderAdminChats() {
     Object.entries(grouped).forEach(([matchCode, messages]) => {
       const block = document.createElement('div');
       block.className = 'admin-chat-block';
+
+      // Header row with match code + clear chat button
+      const headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;';
       const heading = document.createElement('h4');
-      heading.textContent = 'Match Code: ' + matchCode;
-      heading.style.color = 'var(--gold)';
-      heading.style.marginBottom = '0.5rem';
-      block.appendChild(heading);
+      heading.textContent = 'Match ' + matchCode;
+      heading.style.cssText = 'color:var(--gold);margin:0;';
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'button delete';
+      clearBtn.style.cssText = 'font-size:0.75rem;padding:0.3rem 0.75rem;';
+      clearBtn.textContent = '🗑 Clear Chat';
+      clearBtn.addEventListener('click', async () => {
+        if (!confirm('Delete ALL messages in match ' + matchCode + '?')) return;
+        const { error } = await supabaseClient.from('messages').delete().eq('match_code', matchCode);
+        if (!error) { block.remove(); }
+        else alert('Delete failed: ' + error.message);
+      });
+      headerRow.appendChild(heading);
+      headerRow.appendChild(clearBtn);
+      block.appendChild(headerRow);
+
+      // Messages list
+      const msgList = document.createElement('div');
+      msgList.className = 'admin-chat-messages';
+      const tournId = messages[0]?.tournament_id || '';
+
       messages.forEach(msg => {
         const line = document.createElement('div');
         line.className = 'admin-chat-line';
+        line.dataset.msgId = msg.id || '';
         const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        line.innerHTML = '<span class="chat-sender">' + msg.sender_email + '</span> <span class="chat-time">' + time + '</span><p>' + msg.content + '</p>';
-        block.appendChild(line);
+        const senderLabel = msg.sender_email === '93pacc93@gmail.com' ? '⚙️ Admin' : msg.sender_email;
+        line.innerHTML = '<span class="chat-sender">' + senderLabel + '</span><span class="chat-time">' + time + '</span><p class="chat-line-text">' + msg.content + '</p>';
+        // Delete single message
+        const delBtn = document.createElement('button');
+        delBtn.className = 'chat-delete-btn';
+        delBtn.title = 'Delete message';
+        delBtn.textContent = '🗑';
+        delBtn.addEventListener('click', async () => {
+          if (!confirm('Delete this message?')) return;
+          const { error } = await supabaseClient.from('messages').delete().eq('id', msg.id);
+          if (!error) line.remove();
+          else alert('Delete failed: ' + error.message);
+        });
+        line.appendChild(delBtn);
+        msgList.appendChild(line);
       });
+      block.appendChild(msgList);
+
+      // Admin send box for this chat
+      const sendRow = document.createElement('div');
+      sendRow.className = 'chat-input-row';
+      sendRow.style.marginTop = '0.75rem';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'chat-input';
+      input.placeholder = 'Admin message to match ' + matchCode + '...';
+      input.maxLength = 300;
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'button chat-send-btn';
+      sendBtn.textContent = 'Send';
+      async function doAdminSend() {
+        const val = input.value.trim();
+        if (!val) return;
+        input.value = '';
+        input.disabled = true; sendBtn.disabled = true;
+        await sendMatchMessage(matchCode, tournId, val);
+        // Refresh the tab to show new message
+        setTimeout(() => renderAdminChats(), 500);
+        input.disabled = false; sendBtn.disabled = false;
+      }
+      sendBtn.addEventListener('click', doAdminSend);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') doAdminSend(); });
+      sendRow.appendChild(input);
+      sendRow.appendChild(sendBtn);
+      block.appendChild(sendRow);
+
       container.appendChild(block);
     });
   } catch (e) {
