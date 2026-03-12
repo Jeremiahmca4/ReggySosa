@@ -2872,14 +2872,10 @@ async function announceMatchResult(tournamentName, team1, team2, winner, score1,
 // 2. Tournament champion → #champions
 async function announceTournamentComplete(tournamentName, winner) {
   await sendToWebhook('champions', [{
-    title: '🏆 TOURNAMENT CHAMPION!',
-    description: '# 👑 ' + winner + '\nis the champion of **' + tournamentName + '**!\n\n🎉 Congratulations to the whole squad!',
+    title: '🏆 ' + winner + ' are the Champions!',
+    description: '**' + winner + '** are the champions of **' + tournamentName + '**!\n\nCongratulations! 🎉👑',
     color: 0xffd700,
     thumbnail: { url: 'https://www.reggysosa.com/logo.png' },
-    fields: [
-      { name: 'Tournament', value: tournamentName, inline: true },
-      { name: 'Champion', value: winner, inline: true },
-    ],
     footer: { text: 'Reggy Sosa Tournaments • ' + new Date().toLocaleDateString() },
     timestamp: new Date().toISOString(),
   }]);
