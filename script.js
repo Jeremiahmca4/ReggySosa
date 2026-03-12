@@ -1636,7 +1636,7 @@ function removeTeamFromTournament(tournamentId, teamId) {
 
 // Report a match result for a given tournament. Updates the winner and propagates
 // the winner to the next round. Only called by admins.
-async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName) {
+async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName, t1Score, t2Score) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => t.id === tournamentId);
   if (idx === -1) return;
@@ -1656,7 +1656,7 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   match.winner = winnerName;
   // Save to match history and send Discord announcement
   saveMatchToHistory(tournamentId, tournament.name, roundIndex, match, winnerName);
-  announceMatchResult(tournament.name, match.team1, match.team2, winnerName);
+  announceMatchResult(tournament.name, match.team1, match.team2, winnerName, t1Score, t2Score);
   // Propagate the winner to the next round, if there is one
   const nextRound = bracket[roundIndex + 1];
   if (nextRound) {
@@ -2761,7 +2761,7 @@ async function approveScoreSubmission(sub, team1, team2, t1Score, t2Score) {
   }).eq('id', sub.id);
 
   // Report the match result which advances the bracket
-  await reportMatchResult(sub.tournament_id, sub.round_index, sub.match_index, winnerName);
+  await reportMatchResult(sub.tournament_id, sub.round_index, sub.match_index, winnerName, t1Score, t2Score);
 }
 
 
@@ -2810,37 +2810,61 @@ function checkTournamentPassword(tournament, enteredPassword) {
 // Posts when a match ends and when a tournament completes
 
 async function sendDiscordWebhook(content, embeds) {
-  const url = typeof DISCORD_WEBHOOK_URL !== 'undefined' ? DISCORD_WEBHOOK_URL : null;
-  if (!url) return;
+  // Always pull fresh from localStorage — don't depend on window var being set
+  const url = localStorage.getItem('discordWebhookUrl') ||
+              localStorage.getItem('discord_webhook_url') ||
+              (typeof DISCORD_WEBHOOK_URL !== 'undefined' ? DISCORD_WEBHOOK_URL : null);
+  if (!url) {
+    console.warn('Discord webhook: no URL configured');
+    return;
+  }
+  console.log('Sending Discord webhook to:', url.substring(0, 60) + '...');
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: content || null, embeds: embeds || [] }),
+      body: JSON.stringify({ content: content || undefined, embeds: embeds || [] }),
     });
-  } catch(e) { console.warn('Discord webhook failed', e); }
+    if (!res.ok) {
+      console.error('Discord webhook failed:', res.status, await res.text());
+    } else {
+      console.log('Discord webhook sent OK');
+    }
+  } catch(e) { console.warn('Discord webhook error:', e); }
 }
 
-async function announceMatchResult(tournamentName, team1, team2, winner) {
+async function announceMatchResult(tournamentName, team1, team2, winner, score1, score2) {
   const loser = team1 === winner ? team2 : team1;
+  const scoreStr = (score1 !== undefined && score2 !== undefined)
+    ? `
+**Score:** ${team1} ${score1} – ${score2} ${team2}` : '';
   await sendDiscordWebhook(null, [{
     title: '🏒 Match Result',
-    description: `**${winner}** defeated **${loser}**`,
+    description: `**${winner}** defeated **${loser}**${scoreStr}`,
     color: 0xffc72c,
     fields: [
       { name: 'Tournament', value: tournamentName, inline: true },
     ],
     footer: { text: 'Reggy Sosa Tournaments' },
+    timestamp: new Date().toISOString(),
   }]);
 }
 
 async function announceTournamentComplete(tournamentName, winner) {
   await sendDiscordWebhook(null, [{
-    title: '🏆 Tournament Complete!',
-    description: `**${winner}** is the champion of **${tournamentName}**!`,
+    title: '🏆 TOURNAMENT CHAMPION!',
+    description: `# 👑 ${winner}
+is the champion of **${tournamentName}**!
+
+🎉 Congratulations!`,
     color: 0xffc72c,
-    image: { url: 'https://www.reggysosa.com/logo.png' },
-    footer: { text: 'Reggy Sosa Tournaments' },
+    thumbnail: { url: 'https://www.reggysosa.com/logo.png' },
+    fields: [
+      { name: 'Tournament', value: tournamentName, inline: true },
+      { name: 'Champion', value: winner, inline: true },
+    ],
+    footer: { text: 'Reggy Sosa Tournaments • ' + new Date().toLocaleDateString() },
+    timestamp: new Date().toISOString(),
   }]);
 }
 
@@ -2852,16 +2876,22 @@ function saveWebhookUrl() {
   if (!input) return;
   const url = input.value.trim();
   localStorage.setItem('discord_webhook_url', url);
-  // Override the global var
+  localStorage.setItem('discordWebhookUrl', url); // consistent key
   window.DISCORD_WEBHOOK_URL = url;
   const status = document.getElementById('webhook-status');
   if (status) { status.style.display = 'block'; setTimeout(() => status.style.display = 'none', 2500); }
 }
 
 function loadWebhookSettings() {
-  const saved = localStorage.getItem('discord_webhook_url') || '';
-  const input = document.getElementById('admin-webhook-url');
-  if (input) input.value = saved;
+  // Try both storage keys for backwards compatibility
+  const saved = localStorage.getItem('discordWebhookUrl') ||
+                localStorage.getItem('discord_webhook_url') || '';
+  // Populate the new Settings tab input
+  const input1 = document.getElementById('discord-webhook-url');
+  if (input1) input1.value = saved;
+  // Populate the old input if it exists
+  const input2 = document.getElementById('admin-webhook-url');
+  if (input2) input2.value = saved;
   if (saved) window.DISCORD_WEBHOOK_URL = saved;
 }
 
@@ -2875,9 +2905,10 @@ async function testDiscordWebhook() {
   alert('Test message sent! Check your Discord channel.');
 }
 
-// Load saved webhook URL on any page load
+// Load saved webhook URL immediately on every page load
 (function() {
-  const saved = localStorage.getItem('discord_webhook_url');
+  const saved = localStorage.getItem('discordWebhookUrl') ||
+                localStorage.getItem('discord_webhook_url');
   if (saved) window.DISCORD_WEBHOOK_URL = saved;
 })();
 

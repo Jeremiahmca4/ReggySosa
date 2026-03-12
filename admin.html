@@ -134,8 +134,8 @@
 
       document.getElementById('save-webhook-btn')?.addEventListener('click', () => {
         const url = document.getElementById('discord-webhook-url')?.value.trim();
-        if (url) { localStorage.setItem('discordWebhookUrl', url); document.getElementById('webhook-status').textContent = '✅ Webhook saved.'; }
-        else { localStorage.removeItem('discordWebhookUrl'); document.getElementById('webhook-status').textContent = 'Webhook cleared.'; }
+        if (url) { localStorage.setItem('discordWebhookUrl', url); localStorage.setItem('discord_webhook_url', url); window.DISCORD_WEBHOOK_URL = url; document.getElementById('webhook-status').textContent = '✅ Webhook saved.'; }
+        else { localStorage.removeItem('discordWebhookUrl'); localStorage.removeItem('discord_webhook_url'); document.getElementById('webhook-status').textContent = 'Webhook cleared.'; }
       });
 
       document.getElementById('test-webhook-btn')?.addEventListener('click', async () => {
