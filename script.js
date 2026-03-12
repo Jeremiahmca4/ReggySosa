@@ -2554,9 +2554,11 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
     });
     if (error) {
       console.error('Score submission DB error:', JSON.stringify(error));
-      alert('Submission failed: ' + (error.message || error.details || JSON.stringify(error)));
+      const msg = error.message || error.details || JSON.stringify(error);
+      alert('❌ Submission failed: ' + msg + '\n\nIf this says "violates not-null constraint", run the SQL fix in Supabase. If it says "RLS" or "permission", disable Row Level Security on score_submissions.');
       return false;
     }
+    console.log('Score submission inserted OK');
     return true;
   } catch(e) {
     console.error('Score submission exception:', e);
@@ -2657,6 +2659,7 @@ async function renderPendingScores() {
       return;
     }
 
+    console.log('Score queue: fetched', data.length, 'pending submissions:', data.map(s => s.id));
     container.innerHTML = '';
 
     // Fetch all relevant tournaments from Supabase so bracket data is fresh
