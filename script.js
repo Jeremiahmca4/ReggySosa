@@ -2500,10 +2500,15 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
         .upload(path, screenshotFile, { upsert: true, contentType: screenshotFile.type });
       if (uploadError) {
         console.error('Screenshot storage upload error:', uploadError);
-        // Show error to user — storage bucket may not be set up
         const bucketMsg = uploadError.message || JSON.stringify(uploadError);
-        alert('Screenshot upload failed: ' + bucketMsg + '\n\nMake sure the \'score-screenshots\' bucket exists in Supabase Storage and has public access enabled.');
-        return false;
+        // If it's a bucket/permissions issue, warn but continue — save record with null URL
+        if (uploadError.statusCode === 404 || uploadError.message?.includes('bucket') || uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
+          alert('⚠️ Screenshot storage not configured — your result will still be submitted but without the image.\n\nAdmin: create the \'score-screenshots\' bucket in Supabase Storage.');
+          screenshotUrl = null; // continue without screenshot
+        } else {
+          alert('Screenshot upload failed: ' + bucketMsg);
+          return false;
+        }
       }
       if (uploadData) {
         const { data: urlData } = supabaseClient.storage.from('score-screenshots').getPublicUrl(path);
@@ -2642,7 +2647,12 @@ async function renderPendingScores() {
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.error('Score submissions fetch error:', JSON.stringify(error));
+      container.innerHTML = `<p style="color:#ff6b6b;">⚠️ Error loading submissions: ${error.message || JSON.stringify(error)}<br><small>Check Supabase RLS settings — score_submissions table must have RLS disabled or allow admin reads.</small></p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
       container.innerHTML = '<p style="color:var(--text-muted)">No pending score submissions.</p>';
       return;
     }
@@ -3094,12 +3104,15 @@ async function renderLeaderboard() {
 function isUserInMatch(match, tournament) {
   const email = getCurrentUser();
   if (!email) return false;
+  // Check localStorage teams first (fast path)
   const teams = loadTeams();
-  // Find teams in this match
-  const team1 = teams.find(t => t.name === match.team1);
-  const team2 = teams.find(t => t.name === match.team2);
-  if (!team1 && !team2) return false;
-  return (team1 && team1.captain === email) || (team2 && team2.captain === email);
+  const team1local = teams.find(t => t.name === match.team1);
+  const team2local = teams.find(t => t.name === match.team2);
+  if ((team1local && team1local.captain === email) || (team2local && team2local.captain === email)) return true;
+  // Also check if the user's own team name matches either slot (name-only fallback)
+  const myTeam = getUserTeam();
+  if (myTeam && (myTeam.name === match.team1 || myTeam.name === match.team2)) return true;
+  return false;
 }
 
 // Send a message to Supabase messages table

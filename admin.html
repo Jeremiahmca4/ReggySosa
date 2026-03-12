@@ -17,7 +17,6 @@
         <li><a href="index.html">Home</a></li>
         <li><a href="tournaments.html">Tournaments</a></li>
         <li><a href="merch.html">Merch</a></li>
-        <!-- Profile link is hidden by default and shown when a user is logged in -->
         <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
         <li><a href="admin.html" id="admin-nav">Admin</a></li>
       </ul>
@@ -26,134 +25,132 @@
   </header>
   <main class="container admin-container">
     <h1>Admin Dashboard</h1>
-    <!-- Admin navigation tabs -->
     <nav class="admin-nav">
       <button type="button" class="admin-nav-item" data-tab="tournaments-tab">Tournaments</button>
+      <button type="button" class="admin-nav-item" data-tab="scores-tab">Score Queue</button>
+      <button type="button" class="admin-nav-item" data-tab="chats-tab">Match Chats</button>
       <button type="button" class="admin-nav-item" data-tab="teams-tab">Teams</button>
       <button type="button" class="admin-nav-item" data-tab="users-tab">Users</button>
+      <button type="button" class="admin-nav-item" data-tab="settings-tab">Settings</button>
     </nav>
+
     <!-- Tournaments tab -->
     <section id="tournaments-tab" class="admin-tab">
       <h2>Create New Tournament</h2>
       <form id="create-tournament-form">
-        <label>
-          Tournament Name:
-          <input type="text" id="tournament-name" required />
-        </label>
-        <label>
-          Maximum number of teams:
-          <input type="number" id="tournament-max-teams" min="2" required />
-        </label>
-        <label>
-          Start date:
-          <input type="date" id="tournament-start-date" required />
-        </label>
-        <label>
-          Password (optional — leave blank for open tournament):
-          <input type="text" id="tournament-password" placeholder="Leave blank for public" />
-        </label>
+        <label>Tournament Name:<input type="text" id="tournament-name" required /></label>
+        <label>Maximum number of teams:<input type="number" id="tournament-max-teams" min="2" required /></label>
+        <label>Start date:<input type="date" id="tournament-start-date" required /></label>
+        <label>Password (optional — leave blank for open):<input type="text" id="tournament-password" placeholder="Leave blank for public" /></label>
         <button type="submit" class="button">Create Tournament</button>
       </form>
       <h2 style="margin-top:2rem;">Manage Tournaments</h2>
-      <div id="admin-tournament-list" class="tournament-list">
-        <!-- Populated by script.js -->
-      </div>
+      <div id="admin-tournament-list" class="tournament-list"></div>
     </section>
+
+    <!-- Score Queue tab -->
+    <section id="scores-tab" class="admin-tab" style="display:none;">
+      <h2>Pending Score Submissions</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem;">Review submitted screenshots, enter the final scores, then approve or reject.</p>
+      <button type="button" class="button" id="refresh-scores-btn" style="margin-bottom:1.5rem;font-size:0.85rem;padding:0.4rem 1rem;">🔄 Refresh</button>
+      <div id="admin-scores-container"></div>
+    </section>
+
+    <!-- Match Chats tab -->
+    <section id="chats-tab" class="admin-tab" style="display:none;">
+      <h2>Active Match Chats</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem;">Read-only view of all active match conversations.</p>
+      <div id="admin-chats-container"></div>
+    </section>
+
     <!-- Teams tab -->
     <section id="teams-tab" class="admin-tab" style="display:none;">
       <h2>Registered Teams</h2>
       <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Team Name</th>
-            <th>Captain Email</th>
-            <th>Captain Discord</th>
-            <th># Members</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="admin-teams-table-body">
-          <!-- Filled by script.js -->
-        </tbody>
+        <thead><tr><th>Team Name</th><th>Captain Email</th><th>Captain Discord</th><th># Members</th><th>Actions</th></tr></thead>
+        <tbody id="admin-teams-table-body"></tbody>
       </table>
     </section>
+
     <!-- Users tab -->
     <section id="users-tab" class="admin-tab" style="display:none;">
       <h2>Registered Users</h2>
       <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Discord</th>
-            <th>Display Name</th>
-            <th>Gamertag</th>
-            <th>Signup Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="admin-users-table-body">
-          <!-- Filled by script.js -->
-        </tbody>
+        <thead><tr><th>Email</th><th>Discord</th><th>Gamertag</th><th>Signup Date</th><th>Actions</th></tr></thead>
+        <tbody id="admin-users-table-body"></tbody>
       </table>
+    </section>
+
+    <!-- Settings tab -->
+    <section id="settings-tab" class="admin-tab" style="display:none;">
+      <h2>Discord Webhook</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Discord webhook URL to auto-post match results.</p>
+      <label style="display:block;margin-bottom:1rem;">Webhook URL:
+        <input type="text" id="discord-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="width:100%;margin-top:0.4rem;" />
+      </label>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <button type="button" class="button" id="save-webhook-btn">💾 Save Webhook</button>
+        <button type="button" class="button" id="test-webhook-btn" style="background:var(--surface-2);color:var(--text);">📡 Send Test Message</button>
+      </div>
+      <p id="webhook-status" style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted);"></p>
     </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
   </footer>
-  <!-- Supabase client library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      // Sync Supabase session first
-      if (typeof syncSession === 'function') {
-        await syncSession();
-      }
+      if (typeof syncSession === 'function') await syncSession();
       populateAuthLinks();
-      // Enforce profile completion for logged‑in users (admin included)
       if (typeof checkProfileCompletion === 'function') {
         const complete = await checkProfileCompletion();
         if (!complete) return;
       }
       ensureAdminAccess();
-      // Sync from backend to get latest tournaments
-      if (typeof syncTournamentsFromBackend === 'function') {
-        await syncTournamentsFromBackend();
-      }
-      // Default to tournaments tab active
+      if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+
       const navItems = document.querySelectorAll('.admin-nav-item');
       const tabs = document.querySelectorAll('.admin-tab');
-      // Helper to switch active tab
+
       function switchTab(tabId) {
-        tabs.forEach((tab) => {
-          tab.style.display = tab.id === tabId ? 'block' : 'none';
-        });
-        navItems.forEach((btn) => {
-          if (btn.dataset.tab === tabId) {
-            btn.classList.add('active');
-          } else {
-            btn.classList.remove('active');
-          }
-        });
-        // Render data for the selected tab
-        if (tabId === 'tournaments-tab') {
-          renderAdminTournaments();
-        } else if (tabId === 'teams-tab') {
-          renderAdminTeams();
-        } else if (tabId === 'users-tab') {
-          renderAdminUsers();
-        }
+        tabs.forEach(tab => tab.style.display = tab.id === tabId ? 'block' : 'none');
+        navItems.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+        if (tabId === 'tournaments-tab') renderAdminTournaments();
+        else if (tabId === 'teams-tab') renderAdminTeams();
+        else if (tabId === 'users-tab') renderAdminUsers();
+        else if (tabId === 'scores-tab' && typeof renderPendingScores === 'function') renderPendingScores();
+        else if (tabId === 'chats-tab' && typeof renderAdminChats === 'function') renderAdminChats();
+        else if (tabId === 'settings-tab' && typeof loadWebhookSettings === 'function') loadWebhookSettings();
       }
-      navItems.forEach((btn) => {
-        btn.addEventListener('click', function () {
-          const tab = this.dataset.tab;
-          switchTab(tab);
-        });
+
+      navItems.forEach(btn => btn.addEventListener('click', function () { switchTab(this.dataset.tab); }));
+
+      document.getElementById('refresh-scores-btn')?.addEventListener('click', () => {
+        if (typeof renderPendingScores === 'function') renderPendingScores();
       });
-      // Show tournaments tab by default
+
+      document.getElementById('save-webhook-btn')?.addEventListener('click', () => {
+        const url = document.getElementById('discord-webhook-url')?.value.trim();
+        if (url) { localStorage.setItem('discordWebhookUrl', url); document.getElementById('webhook-status').textContent = '✅ Webhook saved.'; }
+        else { localStorage.removeItem('discordWebhookUrl'); document.getElementById('webhook-status').textContent = 'Webhook cleared.'; }
+      });
+
+      document.getElementById('test-webhook-btn')?.addEventListener('click', async () => {
+        const url = localStorage.getItem('discordWebhookUrl');
+        if (!url) { alert('Save a webhook URL first.'); return; }
+        const status = document.getElementById('webhook-status');
+        status.textContent = 'Sending...';
+        try {
+          const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ embeds: [{ title: '✅ Test Message', description: 'Reggy Sosa admin webhook is working!', color: 0xffc72c }] }) });
+          status.textContent = res.ok ? '✅ Test sent successfully!' : '❌ Failed: ' + res.status;
+        } catch (e) { status.textContent = '❌ Error: ' + e.message; }
+      });
+
       switchTab('tournaments-tab');
-      // Attach create tournament form handler
       document.getElementById('create-tournament-form').addEventListener('submit', function (e) {
         e.preventDefault();
         createTournamentFromForm();
