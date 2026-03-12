@@ -150,7 +150,10 @@
         } catch (e) { status.textContent = '❌ Error: ' + e.message; }
       });
 
-      switchTab('tournaments-tab');
+      // Check URL hash for direct tab link (e.g. admin.html#scores)
+      const hash = window.location.hash.replace('#', '');
+      const tabMap = { scores: 'scores-tab', chats: 'chats-tab', teams: 'teams-tab', users: 'users-tab', settings: 'settings-tab' };
+      switchTab(tabMap[hash] || 'tournaments-tab');
       document.getElementById('create-tournament-form').addEventListener('submit', function (e) {
         e.preventDefault();
         createTournamentFromForm();

@@ -3448,14 +3448,33 @@ function renderTournamentDetails(id) {
   container.innerHTML = '';
   const detail = document.createElement('div');
   detail.className = 'tournament-detail';
+
+  // Top row: tournament name + admin Score Queue shortcut
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.25rem;';
   const title = document.createElement('h2');
   title.textContent = tournament.name;
+  title.style.margin = '0';
+  titleRow.appendChild(title);
+  // Admin shortcut button — only when tournament is running
+  if (role === 'admin' && tournament.status === 'started') {
+    const sqBtn = document.createElement('button');
+    sqBtn.className = 'button';
+    sqBtn.style.cssText = 'font-size:0.8rem;padding:0.4rem 0.9rem;display:flex;align-items:center;gap:0.4rem;';
+    sqBtn.innerHTML = '📋 Score Queue';
+    sqBtn.addEventListener('click', () => {
+      // Navigate to admin page and open the Score Queue tab
+      window.location.href = 'admin.html#scores';
+    });
+    titleRow.appendChild(sqBtn);
+  }
+  detail.appendChild(titleRow);
+
   const status = document.createElement('p');
   status.textContent = 'Status: ' + tournament.status;
   const created = document.createElement('p');
   const date = new Date(tournament.created);
   created.textContent = 'Created: ' + date.toLocaleString();
-  detail.appendChild(title);
   detail.appendChild(status);
   detail.appendChild(created);
   // Display start date if defined
