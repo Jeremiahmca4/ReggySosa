@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | CHEL Tournaments</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta property="og:title" content="Reggy Sosa" />
+  <meta property="og:description" content="Join the premier CHEL tournament community and compete with the best." />
+  <meta property="og:image" content="logo.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.reggysosa.com/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Reggy Sosa" />
+  <meta name="twitter:description" content="Join the premier CHEL tournament community and compete with the best." />
+  <meta name="twitter:image" content="logo.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="logo.png" />
+  <link rel="icon" href="logo.png" type="image/png" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="logo.png" alt="Reggy Sosa logo" class="logo-img" />
+        <span>Reggy&nbsp;Sosa</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+
+  <main class="container home-page">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-bg-orbs" aria-hidden="true">
+        <span class="orb orb-1"></span>
+        <span class="orb orb-2"></span>
+        <span class="orb orb-3"></span>
+      </div>
+
+      <!-- Hockey SVG background animations -->
+      <div class="hockey-bg" aria-hidden="true">
+
+        <!-- Ice rink face-off circle -->
+        <svg class="rink-circle" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <!-- Outer circle -->
+          <circle cx="200" cy="200" r="160" fill="none" stroke="rgba(255,199,44,0.14)" stroke-width="2"/>
+          <!-- Inner ring -->
+          <circle cx="200" cy="200" r="130" fill="none" stroke="rgba(255,199,44,0.05)" stroke-width="1" stroke-dasharray="8 6"/>
+          <!-- Center dot -->
+          <circle cx="200" cy="200" r="12" fill="none" stroke="rgba(255,199,44,0.25)" stroke-width="2"/>
+          <circle cx="200" cy="200" r="4" fill="rgba(255,199,44,0.3)"/>
+          <!-- Center cross lines -->
+          <line x1="200" y1="40" x2="200" y2="175" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="200" y1="225" x2="200" y2="360" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="40" y1="200" x2="175" y2="200" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <line x1="225" y1="200" x2="360" y2="200" stroke="rgba(255,199,44,0.07)" stroke-width="1"/>
+          <!-- Face-off hash marks -->
+          <line x1="180" y1="40" x2="180" y2="65" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="220" y1="40" x2="220" y2="65" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="180" y1="335" x2="180" y2="360" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="220" y1="335" x2="220" y2="360" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="40" y1="180" x2="65" y2="180" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="40" y1="220" x2="65" y2="220" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="335" y1="180" x2="360" y2="180" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+          <line x1="335" y1="220" x2="360" y2="220" stroke="rgba(255,199,44,0.2)" stroke-width="2.5"/>
+        </svg>
+
+        <!-- Hockey stick 1 (left) — proper ice hockey stick shape -->
+        <svg class="hockey-stick stick-left" viewBox="0 0 100 420" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shaft: thick tapered stick body going diagonally -->
+          <path d="M 58 4 L 62 4 L 68 300 L 64 300 Z" fill="rgba(255,199,44,0.22)"/>
+          <!-- Shaft center line for depth -->
+          <line x1="60" y1="4" x2="66" y2="300" stroke="rgba(255,199,44,0.35)" stroke-width="2"/>
+          <!-- Heel: the curved knuckle where shaft meets blade -->
+          <path d="M 64 300 Q 66 330 52 338" fill="none" stroke="rgba(255,199,44,0.32)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Blade top edge: long flat extending left -->
+          <path d="M 52 338 L 6 348" fill="none" stroke="rgba(255,199,44,0.30)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Blade bottom edge: slight curve at toe -->
+          <path d="M 66 344 L 12 356 Q 4 358 5 352 Q 5 348 6 348" fill="none" stroke="rgba(255,199,44,0.20)" stroke-width="4" stroke-linecap="round"/>
+          <!-- Blade face fill -->
+          <path d="M 52 338 L 6 348 Q 4 350 5 352 Q 5 358 12 356 L 66 344 Q 65 340 64 336 Z" fill="rgba(255,199,44,0.06)"/>
+          <!-- Tape on shaft (grip area near top) -->
+          <rect x="56" y="20" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="56" y="28" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="56" y="36" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+        </svg>
+
+        <!-- Hockey stick 2 (right, mirrored) -->
+        <svg class="hockey-stick stick-right" viewBox="0 0 100 420" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shaft -->
+          <path d="M 38 4 L 42 4 L 36 300 L 32 300 Z" fill="rgba(255,199,44,0.22)"/>
+          <line x1="40" y1="4" x2="34" y2="300" stroke="rgba(255,199,44,0.35)" stroke-width="2"/>
+          <!-- Heel -->
+          <path d="M 36 300 Q 34 330 48 338" fill="none" stroke="rgba(255,199,44,0.32)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Blade top edge -->
+          <path d="M 48 338 L 94 348" fill="none" stroke="rgba(255,199,44,0.30)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Blade bottom edge -->
+          <path d="M 34 344 L 88 356 Q 96 358 95 352 Q 95 348 94 348" fill="none" stroke="rgba(255,199,44,0.20)" stroke-width="4" stroke-linecap="round"/>
+          <!-- Blade face fill -->
+          <path d="M 48 338 L 94 348 Q 96 350 95 352 Q 95 358 88 356 L 34 344 Q 35 340 36 336 Z" fill="rgba(255,199,44,0.06)"/>
+          <!-- Tape grip -->
+          <rect x="35" y="20" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="35" y="28" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+          <rect x="35" y="36" width="9" height="4" rx="1" fill="rgba(255,199,44,0.15)"/>
+        </svg>
+
+        <!-- Skating trail lines -->
+        <div class="skate-trails">
+          <span class="trail trail-1"></span>
+          <span class="trail trail-2"></span>
+          <span class="trail trail-3"></span>
+          <span class="trail trail-4"></span>
+          <span class="trail trail-5"></span>
+        </div>
+
+        <!-- Sliding pucks -->
+        <svg class="puck puck-1" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,199,44,0.15)" stroke="rgba(255,199,44,0.4)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,199,44,0.22)" stroke-width="0.75"/>
+        </svg>
+        <svg class="puck puck-2" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,149,0,0.12)" stroke="rgba(255,149,0,0.35)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,149,0,0.2)" stroke-width="0.75"/>
+        </svg>
+        <svg class="puck puck-3" viewBox="0 0 30 12" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="15" cy="6" rx="14" ry="5" fill="rgba(255,230,102,0.1)" stroke="rgba(255,230,102,0.3)" stroke-width="1"/>
+          <ellipse cx="15" cy="5" rx="10" ry="2.5" fill="none" stroke="rgba(255,230,102,0.18)" stroke-width="0.75"/>
+        </svg>
+
+      </div>
+      <div class="hero-content">
+        <h1 class="hero-title">
+          <span class="hero-title-line">REGGY</span>
+          <span class="hero-title-line">SOSA</span>
+        </h1>
+        <p class="hero-tagline">
+          <span class="tagline-dot"></span>
+          World of CHEL Tournament Host
+          <span class="tagline-dot"></span>
+        </p>
+        <p class="hero-sub">Register your team, compete in online CHEL tournaments, and climb the bracket.</p>
+        <div class="hero-buttons">
+          <a class="button" href="tournaments.html">Register Now</a>
+          <a class="secondary-button" href="https://discord.gg/H4n8Wxc4ZD" target="_blank">Join Discord</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Social links -->
+    <section class="social-links-section top">
+      <h2>Connect</h2>
+      <ul class="social-list">
+        <li><a href="https://www.instagram.com/reggysosa_/" target="_blank">Instagram</a></li>
+        <li><a href="https://www.tiktok.com/@reggysosa" target="_blank">TikTok</a></li>
+        <li><a href="https://www.facebook.com/reggysosa/#" target="_blank">Facebook</a></li>
+        <li><a href="https://x.com/reggysosa_" target="_blank">Twitter</a></li>
+        <li><a href="https://www.youtube.com/@reggysosa" target="_blank">YouTube</a></li>
+        <li><a href="https://www.threads.com/@reggysosa_" target="_blank">Threads</a></li>
+        <li><a href="https://www.twitch.tv/reggysosa" target="_blank">Twitch</a></li>
+      </ul>
+    </section>
+
+    <!-- Next tournament -->
+    <section id="next-tournament-section" class="next-tournament" style="display:none;">
+      <h2>Next Tournament</h2>
+      <div id="next-tournament-block" class="next-tournament-card"></div>
+    </section>
+
+    <!-- Twitch -->
+    <section id="twitch-section" class="next-tournament">
+      <h2>Live on Twitch</h2>
+      <div class="next-tournament-card">
+        <div class="twitch-player">
+          <iframe
+            src="https://player.twitch.tv/?channel=reggysosa&parent=reggysosa.com&parent=www.reggysosa.com"
+            allowfullscreen
+            scrolling="no"
+            frameborder="0">
+          </iframe>
+        </div>
+        <a class="button" href="https://www.twitch.tv/reggysosa" target="_blank">Watch on Twitch</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
+  <script src="env.js"></script>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', async function () {
+      if (typeof syncSession === 'function') await syncSession();
+      populateAuthLinks();
+      if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
+      if (typeof renderNextTournament === 'function') renderNextTournament();
+    });
+  </script>
+</body>
+</html>

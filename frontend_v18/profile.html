@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Team Profile</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="logo.png" type="image/png" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="logo.png" alt="Reggy Sosa logo" class="logo-img" />
+        <span>Reggy&nbsp;Sosa</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+  <main class="container profile-page">
+    <!-- Built dynamically by buildProfileEditor() in script.js -->
+    <div id="profile-loading" style="color:var(--text-muted);padding:3rem 0">Loading profile...</div>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', async function () {
+      if (typeof syncSession === 'function') await syncSession();
+      populateAuthLinks();
+      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
+      // Build the editor UI
+      const loading = document.getElementById('profile-loading');
+      if (loading) loading.remove();
+      if (typeof buildProfileEditor === 'function') buildProfileEditor();
+      // Load existing values into the editor
+      if (typeof loadProfile === 'function') await loadProfile();
+    });
+  </script>
+</body>
+</html>

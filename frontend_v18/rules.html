@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reggy Sosa | Tournament Rules</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="logo.png" alt="Reggy Sosa logo" class="logo-img" />
+        <span>Reggy&nbsp;Sosa</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="tournaments.html">Tournaments</a></li>
+        <li><a href="merch.html">Merch</a></li>
+        <!-- Profile link is hidden by default and shown when a user is logged in -->
+        <li id="profile-nav" style="display:none;"><a href="profile.html">Profile</a></li>
+        <!-- Link to the rules page itself. This makes the section easily accessible from anywhere on the site. -->
+        <li><a href="admin.html" id="admin-nav">Admin</a></li>
+      </ul>
+      <div class="auth-links" id="auth-links"></div>
+    </nav>
+  </header>
+  <main class="container rules-page">
+    <h1>Official Tournament Rules</h1>
+    <!-- Important notice at the top -->
+    <p class="rules-notice"><strong>Notice:</strong> Failure to follow these rules may result in disqualification.</p>
+    <!-- Format Section Card -->
+    <div class="rule-card" id="format-section">
+      <h2>Format</h2>
+      <ul class="rules-list">
+        <li>Single Elimination</li>
+        <li>1 Game per round</li>
+        <li>Crossplay ON (PS5 + Xbox)</li>
+        <li>NA‑East servers</li>
+      </ul>
+    </div>
+    <!-- Match Setup Section Card -->
+    <div class="rule-card" id="setup-section">
+      <h2>Match Setup (World of CHEL)</h2>
+      <ol class="rules-list">
+        <li>
+          Both teams navigate to <strong>World of CHEL → Clubs → Play → Private Match</strong>.
+        </li>
+        <li>
+          Apply the following match settings:
+          <ul>
+            <li>Game Type: <strong>Private Game</strong></li>
+            <li>Password: <strong>(Generated for each match)</strong></li>
+            <li>Server Selection: <strong>North America East</strong></li>
+            <li>Replay Skipping: <strong>Yes</strong></li>
+            <li>Period Length: <strong>3 Minutes</strong></li>
+            <li>Grudge Match Game: <strong>Off</strong></li>
+            <li>Use Best Game Location: <strong>Relaxed</strong></li>
+            <li>Side Selection: <strong>(Highest seed is Home)</strong></li>
+          </ul>
+        </li>
+        <li>
+          Highest seed chooses the Home side.
+          <ul>
+            <li><em>Example:</em> Seed 2 vs Seed 5 → Seed 2 selects Home; Seed 5 selects Away.</li>
+            <li>Both players must pick the correct side or the game won’t match.</li>
+          </ul>
+        </li>
+        <li>
+          After entering settings, both teams press <strong>Search</strong> simultaneously. The game will auto‑match you based on password and side selection.
+        </li>
+      </ol>
+      <p class="critical">Lag‑outs = DQ (no exceptions)</p>
+    </div>
+    <!-- Gameplay Rules Section Card -->
+    <div class="rule-card" id="gameplay-section">
+      <h2>Gameplay Rules</h2>
+      <ul class="rules-list">
+        <li>Grudge Match setting = <strong>OFF</strong></li>
+        <li><span class="critical">Lag‑outs = DQ (no replays)</span></li>
+        <li>No pause abuse or toxic behavior</li>
+        <li>If your opponent no‑shows after 10 minutes, ping a mod in ⁠❓・tourney‑questions</li>
+      </ul>
+    </div>
+    <!-- Score Reporting Section Card -->
+    <div class="rule-card" id="reporting-section">
+      <h2>Reporting Scores</h2>
+      <ul class="rules-list">
+        <li>
+          Winner must post a screenshot of the final score in <strong>🧊・score‑submissions</strong> on Reggy&nbsp;Sosa’s Discord.
+        </li>
+        <li><span class="critical">No screenshot = no win</span></li>
+      </ul>
+    </div>
+  </main>
+  <footer>
+    <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
+  </footer>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.3.0/dist/umd/supabase.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Set the current year in the footer and initialise auth links
+    document.getElementById('year').textContent = new Date().getFullYear();
+    window.addEventListener('DOMContentLoaded', async function () {
+      if (typeof syncSession === 'function') {
+        await syncSession();
+      }
+      populateAuthLinks();
+    });
+  </script>
+</body>
+</html>
