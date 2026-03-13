@@ -1572,50 +1572,31 @@ function registerTeamToTournament(tournamentId, teamId) {
   tournament.teams.push({ id: teamObj.id, name: teamObj.name });
   tournaments[idx] = tournament;
   saveTournaments(tournaments);
-  // Persist the registration to the back‑end. We send the teamId in the body
-  // and target the specific tournament endpoint. The request is non‑blocking;
-  // any network errors are ignored to avoid disrupting the UI.
+
+  // Fire Discord registration webhook
+  try {
+    var _tName = tournament.name || String(tournamentId);
+    var _total = tournament.teams.length;
+    var _max = tournament.max_teams || tournament.maxTeams || null;
+    announceTeamRegistration(teamObj.name, _tName, _total, _max);
+  } catch(e) { console.warn('[Webhook] Registration error:', e); }
+
+  // Persist the registration to the back‑end.
   try {
     fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teamId: teamObj.id }),
-    }).catch(() => {
-      /* ignore errors */
-    });
+    }).catch(() => { /* ignore errors */ });
   } catch (err) {
     console.error('Failed to register team on backend:', err);
   }
-  // After registering the team on the server, refresh tournaments from
-  // the back‑end so that the local state picks up the canonical data
-  // (including team registrations). This call is fire‑and‑forget;
-  // failures are ignored to keep the UI responsive.
+  // Sync tournaments from back-end after registration
   if (typeof syncTournamentsFromBackend === 'function') {
     try {
-      syncTournamentsFromBackend().catch(() => {
-        /* ignore errors */
-      });
-    } catch (_) {
-      /* ignore */
-    }
+      syncTournamentsFromBackend().catch(() => { /* ignore errors */ });
+    } catch (_) { /* ignore */ }
   }
-  // Notify Discord registrations channel — fire and forget
-  (function() {
-    try {
-      const regWhUrl = localStorage.getItem('webhook_registrations');
-      console.log('[Webhook] Registration firing. URL saved?', !!regWhUrl, '| Team:', teamObj.name);
-      const tObj = loadTournaments().find(function(x) { return x.id === tournamentId; });
-      const tName = tObj ? tObj.name : String(tournamentId);
-      const total = tObj && tObj.teams ? tObj.teams.length : 1;
-      const max = tObj ? (tObj.max_teams || tObj.maxTeams || '?') : '?';
-      console.log('[Webhook] Registration params — team:', teamObj.name, 'tournament:', tName, 'total:', total, 'max:', max);
-      announceTeamRegistration(teamObj.name, tName, total, max).catch(function(e) {
-        console.warn('[Webhook] Registration webhook error:', e);
-      });
-    } catch(regWhErr) {
-      console.warn('[Webhook] Registration webhook setup error:', regWhErr);
-    }
-  })();
   alert('Team registered successfully.');
   // Re-render details view (if on details page)
   // Note: caller should call renderTournamentDetails separately if needed
@@ -2583,27 +2564,12 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
       return false;
     }
     console.log('Score submission inserted OK');
-    // Alert mods via Discord webhook — fire and forget, do NOT let failures block return
-    (async function() {
-      try {
-        const subWhUrl = localStorage.getItem('webhook_submissions');
-        console.log('[Webhook] Score submission firing. URL saved?', !!subWhUrl, '| Winner:', reportedWinner);
-        let tName = String(tournamentId);
-        const localTournaments = loadTournaments();
-        const localT = localTournaments.find(function(x) { return String(x.id) === String(tournamentId); });
-        if (localT && localT.name) {
-          tName = localT.name;
-        } else if (supabaseClient) {
-          const { data: tRow } = await supabaseClient.from('tournaments').select('name').eq('id', String(tournamentId)).single();
-          if (tRow && tRow.name) tName = tRow.name;
-        }
-        console.log('[Webhook] Score submission params — tournament:', tName, 'winner:', reportedWinner, 'submitter:', submitterEmail);
-        await announceScoreSubmission(tName, reportedWinner, submitterEmail);
-        console.log('[Webhook] Score submission webhook fired OK');
-      } catch(whErr) {
-        console.warn('[Webhook] Score submission webhook error (non-blocking):', whErr);
-      }
-    })();
+    // Fire Discord submission webhook
+    try {
+      var _ts = loadTournaments().find(function(x) { return String(x.id) === String(tournamentId); });
+      var _tName = (_ts && _ts.name) ? _ts.name : String(tournamentId);
+      announceScoreSubmission(_tName, reportedWinner, submitterEmail);
+    } catch(e) { console.warn('[Webhook] Score submission error:', e); }
     return true;
   } catch(e) {
     console.error('Score submission exception:', e);
@@ -2854,55 +2820,59 @@ function checkTournamentPassword(tournament, enteredPassword) {
   return tournament.password === enteredPassword;
 }
 
-// ── PHASE 6: DISCORD WEBHOOKS (Multi-channel) ───────────────────────────────
-// Four separate webhook URLs, each posting to a different Discord channel:
-//   webhook_results       → #score-results      (match winner + score, bracket)
-//   webhook_champions     → #champions          (tournament champion)
-//   webhook_submissions   → #score-submissions  (new photo submitted — alert mods)
-//   webhook_registrations → #registrations      (new team joined a tournament)
+// ── PHASE 6: DISCORD WEBHOOKS ────────────────────────────────────────────────
 
-// WEBHOOK_KEYS defined at top of file
+// WEBHOOK_KEYS defined at top of file (var, so hoisted):
+// webhook_results, webhook_champions, webhook_submissions, webhook_registrations
 
-function getWebhookUrl(type) {
-  return localStorage.getItem(WEBHOOK_KEYS[type]) || null;
-}
-
-async function sendToWebhook(type, embeds, content) {
-  let url = getWebhookUrl(type);
-  if (!url) { console.warn('No webhook URL set for:', type); return; }
-  // Discord deprecated discordapp.com — silently rewrite to discord.com
+// Core send function — all webhooks go through here
+async function sendToWebhook(type, embeds) {
+  var key = WEBHOOK_KEYS[type];
+  if (!key) { console.warn('[Webhook] Unknown type:', type); return; }
+  var url = localStorage.getItem(key);
+  if (!url) { console.warn('[Webhook] No URL for type:', type); return; }
+  // Discord deprecated discordapp.com — rewrite silently
   url = url.replace('discordapp.com', 'discord.com');
   try {
-    const res = await fetch(url, {
+    var res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: content || undefined, embeds: embeds || [] }),
+      body: JSON.stringify({ embeds: embeds }),
     });
-    if (!res.ok) console.error('Webhook [' + type + '] failed:', res.status);
-    else console.log('Webhook [' + type + '] sent OK');
-  } catch(e) { console.warn('Webhook [' + type + '] error:', e); }
+    if (res.ok) {
+      console.log('[Webhook] ' + type + ' sent OK (' + res.status + ')');
+    } else {
+      console.error('[Webhook] ' + type + ' failed: HTTP ' + res.status);
+    }
+  } catch(e) {
+    console.error('[Webhook] ' + type + ' fetch error:', e.message);
+  }
 }
 
 // 1. Match result → #score-results
-async function announceMatchResult(tournamentName, team1, team2, winner, score1, score2) {
-  const loser = team1 === winner ? team2 : team1;
-  const hasScores = score1 !== undefined && score2 !== undefined && !isNaN(score1) && !isNaN(score2);
-  const scoreStr = hasScores ? '\n📊 **' + team1 + '** ' + score1 + ' – ' + score2 + ' **' + team2 + '**' : '';
-  await sendToWebhook('results', [{
+function announceMatchResult(tournamentName, team1, team2, winner, score1, score2) {
+  var loser = (team1 === winner) ? team2 : team1;
+  var hasScores = (score1 != null && score2 != null && !isNaN(score1) && !isNaN(score2));
+  var desc = '**' + winner + '** defeated **' + loser + '**';
+  if (hasScores) desc += '
+📊 **' + team1 + '** ' + score1 + ' – ' + score2 + ' **' + team2 + '**';
+  sendToWebhook('results', [{
     title: '🏒 Match Result',
-    description: '**' + winner + '** defeated **' + loser + '**' + scoreStr,
+    description: desc,
     color: 0xffc72c,
-    fields: [{ name: 'Tournament', value: tournamentName, inline: true }],
+    fields: [{ name: 'Tournament', value: tournamentName || 'Unknown', inline: true }],
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
 }
 
 // 2. Tournament champion → #champions
-async function announceTournamentComplete(tournamentName, winner) {
-  await sendToWebhook('champions', [{
+function announceTournamentComplete(tournamentName, winner) {
+  sendToWebhook('champions', [{
     title: '🏆 ' + winner + ' are the Champions!',
-    description: '**' + winner + '** are the champions of **' + tournamentName + '**!\n\nCongratulations! 🎉👑',
+    description: '**' + winner + '** are the champions of **' + tournamentName + '**!
+
+🎉 Congratulations! 👑',
     color: 0xffd700,
     thumbnail: { url: 'https://www.reggysosa.com/logo.png' },
     footer: { text: 'Reggy Sosa Tournaments • ' + new Date().toLocaleDateString() },
@@ -2910,15 +2880,17 @@ async function announceTournamentComplete(tournamentName, winner) {
   }]);
 }
 
-// 3. Score photo submitted → #score-submissions (mod alert)
-async function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail) {
-  await sendToWebhook('submissions', [{
+// 3. Score photo submitted → #score-submissions
+function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail) {
+  sendToWebhook('submissions', [{
     title: '📸 Score Submission — Review Needed',
-    description: 'A player has submitted a match result and is waiting for admin approval.\n\nGo to **Admin → Score Queue** to review and enter the final score.',
+    description: 'A player submitted a score screenshot waiting for admin review.
+
+Go to **Admin → Score Queue** to approve.',
     color: 0xff9500,
     fields: [
       { name: 'Tournament', value: tournamentName || 'Unknown', inline: true },
-      { name: 'Reported Winner', value: reportedWinner || 'Not specified', inline: true },
+      { name: 'Reported Winner', value: reportedWinner || 'Unknown', inline: true },
       { name: 'Submitted by', value: submitterEmail || 'Unknown', inline: false },
     ],
     footer: { text: 'reggysosa.com/admin.html' },
@@ -2927,56 +2899,61 @@ async function announceScoreSubmission(tournamentName, reportedWinner, submitter
 }
 
 // 4. Team registered → #registrations
-async function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams) {
-  await sendToWebhook('registrations', [{
+function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams) {
+  sendToWebhook('registrations', [{
     title: '👥 New Team Registered',
-    description: '**' + teamName + '** has entered the tournament!',
+    description: '**' + teamName + '** has entered **' + tournamentName + '**!',
     color: 0x00c9a7,
     fields: [
-      { name: 'Tournament', value: tournamentName, inline: true },
-      { name: 'Spots Filled', value: totalTeams + ' / ' + (maxTeams || '∞'), inline: true },
+      { name: 'Tournament', value: tournamentName || 'Unknown', inline: true },
+      { name: 'Spots Filled', value: (totalTeams || '?') + ' / ' + (maxTeams || '∞'), inline: true },
     ],
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
 }
 
-// 5. Bracket generated → #score-results (match codes hidden)
-async function announceBracketGenerated(tournamentName, bracket) {
-  if (!bracket || !Array.isArray(bracket) || bracket.length === 0) return;
-  const round1 = bracket[0] || [];
-  const matchLines = round1
+// 5. Bracket posted → #score-results (no match codes)
+function announceBracketGenerated(tournamentName, bracket) {
+  if (!bracket || !Array.isArray(bracket) || !bracket[0]) return;
+  var lines = bracket[0]
     .filter(function(m) { return m.team1 && m.team2 && m.team1 !== 'BYE' && m.team2 !== 'BYE'; })
-    .map(function(m) { return '⚔️  **' + m.team1 + '** vs **' + m.team2 + '**'; })
-    .join('\n');
-  await sendToWebhook('results', [{
+    .map(function(m) { return '⚔️ **' + m.team1 + '** vs **' + m.team2 + '**'; })
+    .join('
+');
+  sendToWebhook('results', [{
     title: '🏒 Bracket Set — ' + tournamentName,
-    description: 'The tournament has started! Here are the Round 1 matchups:\n\n' + (matchLines || 'No matchups yet') + '\n\nHead to **reggysosa.com** to find your match and get playing!',
+    description: 'Round 1 matchups:
+
+' + (lines || 'TBD') + '
+
+Head to **reggysosa.com** to find your match!',
     color: 0xffc72c,
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
 }
 
-// Load all 4 webhook inputs from localStorage
+// Load saved URLs into admin settings inputs
 function loadWebhookSettings() {
-  Object.entries(WEBHOOK_KEYS).forEach(function([type, key]) {
-    const val = localStorage.getItem(key) || '';
-    const input = document.getElementById('webhook-input-' + type);
-    if (input) input.value = val;
+  Object.entries(WEBHOOK_KEYS).forEach(function(entry) {
+    var type = entry[0], key = entry[1];
+    var input = document.getElementById('webhook-input-' + type);
+    if (input) input.value = localStorage.getItem(key) || '';
   });
 }
 
-// Save all 4 webhook inputs to localStorage
+// Save all 4 URLs from admin settings inputs
 function saveAllWebhooks() {
-  Object.entries(WEBHOOK_KEYS).forEach(function([type, key]) {
-    const input = document.getElementById('webhook-input-' + type);
-    if (!input) { console.warn('[Webhook] No input found for:', type); return; }
-    const url = input.value.trim();
-    if (url) { localStorage.setItem(key, url); console.log('[Webhook] Saved', key, '→', url.substring(0,50) + '...'); }
-    else { localStorage.removeItem(key); console.log('[Webhook] Cleared', key); }
+  Object.entries(WEBHOOK_KEYS).forEach(function(entry) {
+    var type = entry[0], key = entry[1];
+    var input = document.getElementById('webhook-input-' + type);
+    if (!input) return;
+    var url = input.value.trim();
+    if (url) localStorage.setItem(key, url);
+    else localStorage.removeItem(key);
   });
-  const status = document.getElementById('webhook-status');
+  var status = document.getElementById('webhook-status');
   if (status) {
     status.textContent = '✅ All webhooks saved!';
     status.style.display = 'block';
@@ -2984,25 +2961,28 @@ function saveAllWebhooks() {
   }
 }
 
-// Test a single webhook by type
+// Test a specific webhook from admin settings
 async function testWebhook(type) {
-  const url = getWebhookUrl(type);
-  if (!url) { alert('No URL saved for "' + type + '" webhook yet. Save it first.'); return; }
+  var key = WEBHOOK_KEYS[type];
+  if (!key) { alert('Unknown webhook type: ' + type); return; }
+  var url = localStorage.getItem(key);
+  if (!url) { alert('No URL saved for "' + type + '". Save it first.'); return; }
   await sendToWebhook(type, [{
     title: '✅ Test — ' + type,
-    description: 'This **' + type + '** webhook is connected and working!',
+    description: 'The **' + type + '** webhook is connected and working!',
     color: 0xffc72c,
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
-  alert('Test sent to ' + type + ' channel! Check Discord.');
+  alert('Test sent! Check your Discord channel.');
 }
 
-// Legacy compat: migrate old single URL to results key on load
+// Migrate legacy single-URL to results slot on page load
 (function() {
-  const legacy = localStorage.getItem('discordWebhookUrl') || localStorage.getItem('discord_webhook_url');
+  var legacy = localStorage.getItem('discordWebhookUrl') || localStorage.getItem('discord_webhook_url');
   if (legacy && !localStorage.getItem(WEBHOOK_KEYS.results)) {
     localStorage.setItem(WEBHOOK_KEYS.results, legacy);
+    console.log('[Webhook] Migrated legacy URL to webhook_results');
   }
 })();
 
