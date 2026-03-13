@@ -20,6 +20,7 @@ var WEBHOOK_KEYS = {
   champions:     'webhook_champions',
   submissions:   'webhook_submissions',
   registrations: 'webhook_registrations',
+  created:       'webhook_created',
 };
 
 // === Seeded random helpers ===
@@ -1346,6 +1347,9 @@ function createTournamentFromForm() {
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
+  // Fire Discord webhook — new tournament announced
+  try { announceTournamentCreated(name, newTournament.startDate, maxVal); }
+  catch(e) { console.warn('[Webhook] Tournament created error:', e); }
   // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
   // any network errors will be logged to the console. The backend expects
   // name, maxTeams and startDate in the request body.
@@ -2900,6 +2904,24 @@ function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail)
 }
 
 // 4. Team registered → #registrations
+function announceTournamentCreated(tournamentName, startDate, maxTeams) {
+  var dateStr = startDate
+    ? new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : 'TBD';
+  sendToWebhook('created', [{
+    title: '🏆 New Tournament — Registration Open!',
+    description: 'A new tournament has been created. Sign up now before spots fill up!',
+    color: 0xffc72c,
+    fields: [
+      { name: 'Tournament', value: tournamentName || 'Unknown', inline: false },
+      { name: 'Start Date', value: dateStr,                     inline: true  },
+      { name: 'Max Teams',  value: String(maxTeams || '?'),     inline: true  },
+    ],
+    footer: { text: 'Head to reggysosa.com/tournaments.html to register' },
+    timestamp: new Date().toISOString(),
+  }]);
+}
+
 function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams) {
   sendToWebhook('registrations', [{
     title: '👥 New Team Registered',

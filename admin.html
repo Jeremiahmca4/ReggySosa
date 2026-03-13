@@ -124,6 +124,15 @@
           </div>
         </div>
 
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem;">
+          <p style="font-weight:600;margin-bottom:0.25rem;">Tournament Created</p>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 0.6rem;">Posts when you create a new tournament — announces registration is open.</p>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input type="text" id="webhook-input-created" placeholder="https://discord.com/api/webhooks/..." style="flex:1;" />
+            <button type="button" class="button" style="white-space:nowrap;padding:0.4rem 0.8rem;font-size:0.8rem;" onclick="testWebhook('created')">📡 Test</button>
+          </div>
+        </div>
+
       </div>
 
       <div style="margin-top:1.25rem;display:flex;align-items:center;gap:1rem;">
