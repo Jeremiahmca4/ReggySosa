@@ -2854,8 +2854,7 @@ function announceMatchResult(tournamentName, team1, team2, winner, score1, score
   var loser = (team1 === winner) ? team2 : team1;
   var hasScores = (score1 != null && score2 != null && !isNaN(score1) && !isNaN(score2));
   var desc = '**' + winner + '** defeated **' + loser + '**';
-  if (hasScores) desc += '
-📊 **' + team1 + '** ' + score1 + ' – ' + score2 + ' **' + team2 + '**';
+  if (hasScores) desc += '\n📊 **' + team1 + '** ' + score1 + ' – ' + score2 + ' **' + team2 + '**';
   sendToWebhook('results', [{
     title: '🏒 Match Result',
     description: desc,
@@ -2870,9 +2869,7 @@ function announceMatchResult(tournamentName, team1, team2, winner, score1, score
 function announceTournamentComplete(tournamentName, winner) {
   sendToWebhook('champions', [{
     title: '🏆 ' + winner + ' are the Champions!',
-    description: '**' + winner + '** are the champions of **' + tournamentName + '**!
-
-🎉 Congratulations! 👑',
+    description: '**' + winner + '** are the champions of **' + tournamentName + '**!\n\n🎉 Congratulations! 👑',
     color: 0xffd700,
     thumbnail: { url: 'https://www.reggysosa.com/logo.png' },
     footer: { text: 'Reggy Sosa Tournaments • ' + new Date().toLocaleDateString() },
@@ -2884,9 +2881,7 @@ function announceTournamentComplete(tournamentName, winner) {
 function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail) {
   sendToWebhook('submissions', [{
     title: '📸 Score Submission — Review Needed',
-    description: 'A player submitted a score screenshot waiting for admin review.
-
-Go to **Admin → Score Queue** to approve.',
+    description: 'A player submitted a score screenshot waiting for admin review.\n\nGo to **Admin \u2192 Score Queue** to approve.',
     color: 0xff9500,
     fields: [
       { name: 'Tournament', value: tournamentName || 'Unknown', inline: true },
@@ -2919,15 +2914,10 @@ function announceBracketGenerated(tournamentName, bracket) {
   var lines = bracket[0]
     .filter(function(m) { return m.team1 && m.team2 && m.team1 !== 'BYE' && m.team2 !== 'BYE'; })
     .map(function(m) { return '⚔️ **' + m.team1 + '** vs **' + m.team2 + '**'; })
-    .join('
-');
+    .join('\n');
   sendToWebhook('results', [{
     title: '🏒 Bracket Set — ' + tournamentName,
-    description: 'Round 1 matchups:
-
-' + (lines || 'TBD') + '
-
-Head to **reggysosa.com** to find your match!',
+    description: 'Round 1 matchups:\n\n' + (lines || 'TBD') + '\n\nHead to **reggysosa.com** to find your match!',
     color: 0xffc72c,
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
