@@ -13,6 +13,15 @@
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
+// Discord webhook localStorage keys — declared here so all functions can access them
+// regardless of call order (const inside a module block would cause TDZ errors)
+var WEBHOOK_KEYS = {
+  results:       'webhook_results',
+  champions:     'webhook_champions',
+  submissions:   'webhook_submissions',
+  registrations: 'webhook_registrations',
+};
+
 // === Seeded random helpers ===
 // Simple deterministic random number generator. Given a seed (integer), returns
 // a function that yields pseudo‑random numbers between 0 and 1. This allows
@@ -1593,16 +1602,18 @@ function registerTeamToTournament(tournamentId, teamId) {
   // Notify Discord registrations channel — fire and forget
   (function() {
     try {
+      const regWhUrl = localStorage.getItem('webhook_registrations');
+      console.log('[Webhook] Registration firing. URL saved?', !!regWhUrl, '| Team:', teamObj.name);
       const tObj = loadTournaments().find(function(x) { return x.id === tournamentId; });
       const tName = tObj ? tObj.name : String(tournamentId);
       const total = tObj && tObj.teams ? tObj.teams.length : 1;
-      // Backend stores as max_teams, local storage may use maxTeams — check both
       const max = tObj ? (tObj.max_teams || tObj.maxTeams || '?') : '?';
+      console.log('[Webhook] Registration params — team:', teamObj.name, 'tournament:', tName, 'total:', total, 'max:', max);
       announceTeamRegistration(teamObj.name, tName, total, max).catch(function(e) {
-        console.warn('Registration webhook error:', e);
+        console.warn('[Webhook] Registration webhook error:', e);
       });
     } catch(regWhErr) {
-      console.warn('Registration webhook setup error:', regWhErr);
+      console.warn('[Webhook] Registration webhook setup error:', regWhErr);
     }
   })();
   alert('Team registered successfully.');
@@ -2575,8 +2586,9 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
     // Alert mods via Discord webhook — fire and forget, do NOT let failures block return
     (async function() {
       try {
+        const subWhUrl = localStorage.getItem('webhook_submissions');
+        console.log('[Webhook] Score submission firing. URL saved?', !!subWhUrl, '| Winner:', reportedWinner);
         let tName = String(tournamentId);
-        // Try localStorage first, then backend
         const localTournaments = loadTournaments();
         const localT = localTournaments.find(function(x) { return String(x.id) === String(tournamentId); });
         if (localT && localT.name) {
@@ -2585,10 +2597,11 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
           const { data: tRow } = await supabaseClient.from('tournaments').select('name').eq('id', String(tournamentId)).single();
           if (tRow && tRow.name) tName = tRow.name;
         }
+        console.log('[Webhook] Score submission params — tournament:', tName, 'winner:', reportedWinner, 'submitter:', submitterEmail);
         await announceScoreSubmission(tName, reportedWinner, submitterEmail);
-        console.log('Score submission webhook fired OK');
+        console.log('[Webhook] Score submission webhook fired OK');
       } catch(whErr) {
-        console.warn('Score submission webhook error (non-blocking):', whErr);
+        console.warn('[Webhook] Score submission webhook error (non-blocking):', whErr);
       }
     })();
     return true;
@@ -2848,12 +2861,7 @@ function checkTournamentPassword(tournament, enteredPassword) {
 //   webhook_submissions   → #score-submissions  (new photo submitted — alert mods)
 //   webhook_registrations → #registrations      (new team joined a tournament)
 
-const WEBHOOK_KEYS = {
-  results:       'webhook_results',
-  champions:     'webhook_champions',
-  submissions:   'webhook_submissions',
-  registrations: 'webhook_registrations',
-};
+// WEBHOOK_KEYS defined at top of file
 
 function getWebhookUrl(type) {
   return localStorage.getItem(WEBHOOK_KEYS[type]) || null;
@@ -2961,10 +2969,10 @@ function loadWebhookSettings() {
 function saveAllWebhooks() {
   Object.entries(WEBHOOK_KEYS).forEach(function([type, key]) {
     const input = document.getElementById('webhook-input-' + type);
-    if (!input) return;
+    if (!input) { console.warn('[Webhook] No input found for:', type); return; }
     const url = input.value.trim();
-    if (url) localStorage.setItem(key, url);
-    else localStorage.removeItem(key);
+    if (url) { localStorage.setItem(key, url); console.log('[Webhook] Saved', key, '→', url.substring(0,50) + '...'); }
+    else { localStorage.removeItem(key); console.log('[Webhook] Cleared', key); }
   });
   const status = document.getElementById('webhook-status');
   if (status) {
