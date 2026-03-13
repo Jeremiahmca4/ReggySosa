@@ -2905,9 +2905,14 @@ function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail)
 
 // 4. Team registered → #registrations
 function announceTournamentCreated(tournamentName, startDate, maxTeams) {
-  var dateStr = startDate
-    ? new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    : 'TBD';
+  var dateStr = 'TBD';
+  if (startDate) {
+    // Parse as local date by appending T00:00:00 — avoids UTC-to-local shift
+    // that causes YYYY-MM-DD strings to show one day behind in US timezones
+    var parts = startDate.split('-');
+    var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    dateStr = localDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
   sendToWebhook('created', [{
     title: '🏆 New Tournament — Registration Open!',
     description: 'A new tournament has been created. Sign up now before spots fill up!',
