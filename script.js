@@ -2566,12 +2566,16 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
       return false;
     }
     console.log('Score submission inserted OK');
-    // Fire Discord submission webhook
+    // Fire Discord webhook via backend (server-side, works for all users)
     try {
       var _ts = loadTournaments().find(function(x) { return String(x.id) === String(tournamentId); });
       var _tName = (_ts && _ts.name) ? _ts.name : String(tournamentId);
-      announceScoreSubmission(_tName, reportedWinner, submitterEmail);
-    } catch(e) { console.warn('[Webhook] Score submission error:', e); }
+      fetch(API_BASE_URL + '/api/notify/submission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentName: _tName, reportedWinner: reportedWinner, submitterEmail: submitterEmail }),
+      }).catch(function(e) { console.warn('[Webhook] Submission notify failed:', e.message); });
+    } catch(e) { console.warn('[Webhook] Score submission notify error:', e); }
     return true;
   } catch(e) {
     console.error('Score submission exception:', e);
