@@ -244,6 +244,8 @@ async function syncSession() {
   if (!supabaseClient) {
     return;
   }
+  // Load webhook URLs from Supabase so all pages/users have them
+  fetchAndCacheWebhookUrls();
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user && session.user.email) {
@@ -2938,24 +2940,64 @@ function loadWebhookSettings() {
 
 // Save all 4 URLs from admin settings inputs
 function saveAllWebhooks() {
+  // Collect all 4 URLs from inputs
+  var urls = {};
   Object.entries(WEBHOOK_KEYS).forEach(function(entry) {
     var type = entry[0], key = entry[1];
     var input = document.getElementById('webhook-input-' + type);
     if (!input) return;
     var url = input.value.trim();
-    // Only save if there is a value — never delete an existing URL just because input is blank
-    if (url) localStorage.setItem(key, url);
-    // To clear a webhook, user must explicitly clear the field AND save
-    // But only remove if they typed something and cleared it (url is empty string after trimming a non-empty field)
-    // We check if the input was actually interacted with by seeing if it has a value attribute
-    // Simplest safe rule: only removeItem if input exists AND has been explicitly cleared to empty
-    else if (input.dataset.touched) localStorage.removeItem(key);
+    if (url) {
+      localStorage.setItem(key, url);
+      urls[key] = url;
+    }
+    // Never delete existing keys if input is blank — user must explicitly clear
   });
+
+  // Also push to Supabase so ALL user browsers can fetch them on page load
+  if (supabaseClient && Object.keys(urls).length > 0) {
+    var payload = JSON.stringify(urls);
+    supabaseClient.from('profiles')
+      .update({ webhook_urls: payload })
+      .eq('email', ADMIN_EMAIL)
+      .then(function(res) {
+        if (res.error) {
+          // webhook_urls column may not exist yet — that's OK, localStorage still works
+          console.warn('[Webhook] Could not save to Supabase (column may need adding):', res.error.message);
+        } else {
+          console.log('[Webhook] URLs saved to Supabase for all users');
+        }
+      });
+  }
+
   var status = document.getElementById('webhook-status');
   if (status) {
     status.textContent = '✅ All webhooks saved!';
     status.style.display = 'block';
     setTimeout(function() { status.style.display = 'none'; }, 2500);
+  }
+}
+
+// Fetch webhook URLs from Supabase admin profile and populate localStorage
+// Called on every page load so all users have the URLs
+async function fetchAndCacheWebhookUrls() {
+  if (!supabaseClient) return;
+  try {
+    var res = await supabaseClient.from('profiles')
+      .select('webhook_urls')
+      .eq('email', ADMIN_EMAIL)
+      .single();
+    if (res.data && res.data.webhook_urls) {
+      var urls = JSON.parse(res.data.webhook_urls);
+      Object.entries(urls).forEach(function(entry) {
+        var key = entry[0], url = entry[1];
+        if (url) localStorage.setItem(key, url);
+      });
+      console.log('[Webhook] URLs loaded from Supabase into localStorage');
+    }
+  } catch(e) {
+    // Column doesn't exist yet or network error — silently ignore, localStorage fallback still works
+    console.warn('[Webhook] Could not fetch URLs from Supabase:', e.message);
   }
 }
 
