@@ -2929,7 +2929,10 @@ function loadWebhookSettings() {
   Object.entries(WEBHOOK_KEYS).forEach(function(entry) {
     var type = entry[0], key = entry[1];
     var input = document.getElementById('webhook-input-' + type);
-    if (input) input.value = localStorage.getItem(key) || '';
+    if (!input) return;
+    input.value = localStorage.getItem(key) || '';
+    // Mark as touched when user manually edits the field
+    input.addEventListener('input', function() { input.dataset.touched = '1'; }, { once: false });
   });
 }
 
@@ -2940,8 +2943,13 @@ function saveAllWebhooks() {
     var input = document.getElementById('webhook-input-' + type);
     if (!input) return;
     var url = input.value.trim();
+    // Only save if there is a value — never delete an existing URL just because input is blank
     if (url) localStorage.setItem(key, url);
-    else localStorage.removeItem(key);
+    // To clear a webhook, user must explicitly clear the field AND save
+    // But only remove if they typed something and cleared it (url is empty string after trimming a non-empty field)
+    // We check if the input was actually interacted with by seeing if it has a value attribute
+    // Simplest safe rule: only removeItem if input exists AND has been explicitly cleared to empty
+    else if (input.dataset.touched) localStorage.removeItem(key);
   });
   var status = document.getElementById('webhook-status');
   if (status) {
