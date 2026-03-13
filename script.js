@@ -2868,8 +2868,10 @@ function getWebhookUrl(type) {
 }
 
 async function sendToWebhook(type, embeds, content) {
-  const url = getWebhookUrl(type);
+  let url = getWebhookUrl(type);
   if (!url) { console.warn('No webhook URL set for:', type); return; }
+  // Discord deprecated discordapp.com — silently rewrite to discord.com
+  url = url.replace('discordapp.com', 'discord.com');
   try {
     const res = await fetch(url, {
       method: 'POST',
