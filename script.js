@@ -4102,3 +4102,29 @@ async function loadTwitchStatus() {
     card.appendChild(a);
   }
 }
+
+// ── Sidebar: mark active link based on current page ──────────────────────────
+(function markSidebarActive() {
+  var path = window.location.pathname.split('/').pop() || 'index.html';
+  var page = path.replace('.html', '') || 'index';
+  // Mark active
+  document.querySelectorAll('.sidebar-link').forEach(function(link) {
+    if (link.dataset.page === page) {
+      link.classList.add('sidebar-link--active');
+    }
+  });
+  // Show/hide profile and admin based on session (handled by populateAuthLinks)
+})();
+
+// ── Sidebar: show Live badge when Twitch is live ──────────────────────────────
+(function initSidebarLive() {
+  var liveBadge = document.getElementById('sidebar-live');
+  if (!liveBadge) return;
+  // Re-use the existing Twitch check if available
+  fetch('https://reggysosa-backend.vercel.app/api/twitch/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.isLive) liveBadge.style.display = 'flex';
+    })
+    .catch(function() { /* ignore */ });
+})();
