@@ -714,6 +714,10 @@ function populateAuthLinks() {
       profileNav.classList.remove('active');
     }
   }
+  // Sync mobile bottom tab bar profile tab
+  const tabProfile = document.getElementById('tab-profile');
+  if (tabProfile) tabProfile.style.display = userEmail ? 'flex' : 'none';
+  // Show admin tab if admin (reuse existing admin-nav logic)
 }
 
 // Ensure the current user is an admin; if not, redirect to login

@@ -2253,3 +2253,203 @@ a {
   border-color: var(--gold);
   color: var(--gold);
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   PWA — MOBILE BOTTOM TAB BAR
+   Only visible on mobile (≤768px). Desktop never sees this.
+   ═══════════════════════════════════════════════════════════ */
+
+.mobile-tab-bar {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+
+  /* ── Bottom tab bar ── */
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 500;
+    background: rgba(8, 9, 14, 0.97);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom); /* iPhone home bar */
+    height: calc(56px + env(safe-area-inset-bottom));
+    align-items: stretch;
+  }
+
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 6px 4px 4px;
+    transition: color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .tab-item:active {
+    opacity: 0.7;
+  }
+
+  .tab-item--active {
+    color: var(--gold);
+  }
+
+  .tab-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    stroke-width: 1.75;
+  }
+
+  .tab-item--active .tab-icon {
+    stroke-width: 2.25;
+  }
+
+  /* ── Push page content above tab bar ── */
+  main,
+  .page-content {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  footer {
+    margin-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  /* ── Nav bar: clean up cramped layout ── */
+  .navbar {
+    height: 52px;
+    padding: 0 1rem;
+    flex-wrap: nowrap; /* single row */
+    gap: 0;
+  }
+
+  /* Hide nav links on mobile — tab bar handles navigation */
+  .nav-links {
+    display: none;
+  }
+
+  /* Auth area: just show login/logout button, hide email */
+  .user-email {
+    display: none;
+  }
+
+  .auth-links {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+
+  .auth-links a,
+  .auth-links button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.65rem;
+    white-space: nowrap;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 80vh;
+    padding: 3rem 1rem 2rem;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .hero-buttons .button,
+  .hero-buttons .secondary-button {
+    width: 100% !important;
+    text-align: center;
+  }
+
+  /* ── Containers ── */
+  main.container,
+  .container {
+    padding: 1.25rem 1rem;
+  }
+
+  /* ── Tournament tabs — scrollable row ── */
+  .tournament-nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .tournament-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tournament-nav-item {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Tournament cards ── */
+  .tournament-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Bracket horizontal scroll ── */
+  .bracket {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+  }
+
+  .round {
+    min-width: 150px;
+    flex-shrink: 0;
+  }
+
+  /* ── Score submit form ── */
+  .score-submit-form {
+    padding: 1rem;
+  }
+
+  /* ── Admin tabs — scrollable ── */
+  .admin-nav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-nav::-webkit-scrollbar { display: none; }
+
+  .admin-nav-item {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title-line {
+    font-size: clamp(3.5rem, 20vw, 5.5rem);
+  }
+
+  .hero {
+    min-height: 70vh;
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Reggy Sosa Tournaments",
+  "short_name": "Reggy Sosa",
+  "description": "World of CHEL tournament platform — register, compete, climb the bracket.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ffc72c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "games"],
+  "screenshots": []
+}
