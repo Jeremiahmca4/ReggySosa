@@ -2513,3 +2513,56 @@ body.has-sidebar footer {
     margin-left: 0;
   }
 }
+
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR CENTERING FIXES
+   ═══════════════════════════════════════════════════════════ */
+
+/* Containers center within the content pane (not full viewport) */
+body.has-sidebar .container {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Hero fills the content pane width and centers everything inside */
+body.has-sidebar .hero {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* hero-content is the actual text block — keep it centered and reasonable width */
+body.has-sidebar .hero-content {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+  z-index: 2;
+}
+
+/* Admin: no max-width cap, just padding */
+body.has-sidebar .admin-container {
+  max-width: none;
+  padding: 1.5rem 2rem;
+  margin: 0;
+}
+
+/* Footer stays under content pane only */
+body.has-sidebar footer {
+  text-align: center;
+}
+
+/* Social links section on home page — center within content */
+body.has-sidebar .social-links-section {
+  text-align: center;
+}
+
+/* Twitch section — full width, centered */
+body.has-sidebar .twitch-section {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
