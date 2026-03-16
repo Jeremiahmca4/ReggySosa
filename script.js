@@ -1127,6 +1127,27 @@ function renderAdminTournaments() {
     deleteBtn.addEventListener('click', () => {
       deleteTournament(t.id);
     });
+    // Post Registration Update to Discord (only when status is open)
+    if (!t.status || t.status === 'open') {
+      const updateBtn = document.createElement('button');
+      updateBtn.className = 'button';
+      updateBtn.textContent = '📣 Post Update';
+      updateBtn.title = 'Post registration status to Discord announcements';
+      updateBtn.style.cssText = 'background:transparent;border:1px solid rgba(255,199,44,0.4);color:var(--gold);font-size:0.78rem;padding:0.3rem 0.7rem;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;';
+      updateBtn.addEventListener('click', function() {
+        // Fetch latest tournament data so team count is fresh
+        var latest = loadTournaments().find(function(x) { return x.id === t.id; });
+        if (!latest) latest = t;
+        announceRegistrationUpdate(latest);
+        updateBtn.textContent = '✅ Posted!';
+        updateBtn.disabled = true;
+        setTimeout(function() {
+          updateBtn.textContent = '📣 Post Update';
+          updateBtn.disabled = false;
+        }, 3000);
+      });
+      actions.appendChild(updateBtn);
+    }
     actions.appendChild(startBtn);
     actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
@@ -2927,6 +2948,51 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams) {
       { name: 'Max Teams',  value: String(maxTeams || '?'),     inline: true  },
     ],
     footer: { text: 'Head to reggysosa.com/tournaments.html to register' },
+    timestamp: new Date().toISOString(),
+  }]);
+}
+
+function announceRegistrationUpdate(tournament) {
+  var name = tournament.name || 'Unknown Tournament';
+  var teams = tournament.teams ? tournament.teams.length : 0;
+  var max = tournament.maxTeams || tournament.max_teams || null;
+  var spotsLeft = max ? max - teams : null;
+  var spotsStr = spotsLeft !== null ? String(spotsLeft) + ' spot' + (spotsLeft !== 1 ? 's' : '') + ' left' : 'Open';
+  var statusStr = spotsLeft === 0 ? 'Full — Registration Closed' : 'Open';
+
+  // Format start date in EST, no UTC shift
+  var dateStr = 'TBD';
+  if (tournament.startDate || tournament.start_date) {
+    var raw = tournament.startDate || tournament.start_date;
+    var parts = raw.split('-');
+    var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    dateStr = localDate.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      timeZone: 'America/New_York'
+    });
+  }
+
+  // Current time in EST for the footer
+  var estTime = new Date().toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  }) + ' EST';
+
+  sendToWebhook('created', [{
+    title: '🏒 Registration Update — ' + name,
+    description: spotsLeft === 0
+      ? '❌ This tournament is now **full**. Registration is closed.'
+      : '📣 Spots are still available — register now before it fills up!',
+    color: spotsLeft === 0 ? 0xff4e1a : 0xffc72c,
+    fields: [
+      { name: 'Tournament',     value: name,                                      inline: false },
+      { name: 'Teams Signed Up', value: String(teams) + (max ? ' / ' + max : ''), inline: true  },
+      { name: 'Spots Left',     value: spotsStr,                                  inline: true  },
+      { name: 'Start Date',     value: dateStr,                                   inline: false },
+      { name: 'Status',         value: statusStr,                                 inline: false },
+    ],
+    footer: { text: 'reggysosa.com/tournaments.html • Posted ' + estTime },
     timestamp: new Date().toISOString(),
   }]);
 }
