@@ -3366,14 +3366,14 @@ async function sendMatchMessage(matchCode, tournamentId, content) {
   const email = getCurrentUser();
   if (!email) return false;
   try {
-    const { error } = await supabaseClient.from('messages').insert({
+    const { data, error } = await supabaseClient.from('messages').insert({
       match_code: matchCode,
       tournament_id: tournamentId,
       sender_email: email,
       content: content.trim(),
-    });
+    }).select('id').single();
     if (error) { console.error('Send message error:', error); return false; }
-    return true;
+    return data || true; // return row with ID so doSend can deduplicate
   } catch (e) {
     console.error('Send message error:', e);
     return false;
@@ -3451,6 +3451,10 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   // Real-time subscription
+  // Track IDs we've already rendered to avoid duplicates from optimistic updates
+  const renderedIds = new Set();
+  initial.forEach(msg => { if (msg.id) renderedIds.add(msg.id); });
+
   if (activeChatSubscriptions[matchCode]) {
     try { activeChatSubscriptions[matchCode].unsubscribe(); } catch(e) {}
   }
@@ -3462,12 +3466,17 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
       table: 'messages',
       filter: 'match_code=eq.' + matchCode,
     }, (payload) => {
+      // Skip if we already showed this message via optimistic update
+      if (payload.new?.id && renderedIds.has(payload.new.id)) return;
+      if (payload.new?.id) renderedIds.add(payload.new.id);
       const newBubble = renderMessage(payload.new);
       messagesEl.appendChild(newBubble);
       if (isAdmin && payload.new?.id) addDeleteBtn(newBubble, payload.new.id, messagesEl);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[Chat] Realtime status for', matchCode, ':', status);
+    });
   activeChatSubscriptions[matchCode] = channel;
 
   // Input area — both players and admin can send; admin also gets delete buttons
@@ -3486,12 +3495,40 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
     const val = input.value.trim();
     if (!val) return;
     input.value = '';
+    input.focus();
+
+    // Optimistic update — show message immediately without waiting for Supabase
+    const optimisticMsg = {
+      id: null, // no ID yet — real-time event will be skipped by content match below
+      sender_email: getCurrentUser(),
+      content: val,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    };
+    const optimisticBubble = renderMessage(optimisticMsg);
+    optimisticBubble.style.opacity = '0.75'; // slightly dim until confirmed
+    messagesEl.appendChild(optimisticBubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Send to Supabase — get back the real ID
     input.disabled = true;
     sendBtn.disabled = true;
-    await sendMatchMessage(matchCode, tournamentId, val);
+    const result = await sendMatchMessage(matchCode, tournamentId, val);
     input.disabled = false;
     sendBtn.disabled = false;
-    input.focus();
+
+    if (result && result.id) {
+      // Mark as confirmed and register ID so real-time event is deduplicated
+      optimisticBubble.style.opacity = '1';
+      renderedIds.add(result.id);
+    } else if (!result) {
+      // Send failed — remove optimistic bubble and restore input
+      optimisticBubble.remove();
+      input.value = val;
+    } else {
+      // Sent OK but no ID returned — just make it fully opaque
+      optimisticBubble.style.opacity = '1';
+    }
   }
 
   sendBtn.addEventListener('click', doSend);
