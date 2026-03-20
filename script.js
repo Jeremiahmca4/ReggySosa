@@ -3410,6 +3410,32 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
   const email = getCurrentUser();
   if (!email) return;
 
+  // Build email → discord_handle lookup map for all participants
+  // Falls back to email if no handle is set
+  const discordMap = {};
+  if (supabaseClient) {
+    try {
+      const { data: profiles } = await supabaseClient
+        .from('profiles')
+        .select('email, discord_handle, gamertag');
+      if (Array.isArray(profiles)) {
+        profiles.forEach(function(p) {
+          if (p.email) {
+            discordMap[p.email.toLowerCase()] =
+              p.discord_handle || p.gamertag || p.email;
+          }
+        });
+      }
+    } catch(e) { /* silently fall back to email */ }
+  }
+
+  function getDisplayName(senderEmail) {
+    if (!senderEmail) return 'Unknown';
+    // Admin always shows as Admin
+    if (senderEmail === ADMIN_EMAIL) return '⚙️ Admin';
+    return discordMap[senderEmail.toLowerCase()] || senderEmail;
+  }
+
   // Wrapper
   const chatWrapper = document.createElement('div');
   chatWrapper.className = 'match-chat';
@@ -3432,8 +3458,8 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
     if (msg.id) bubble.dataset.msgId = msg.id;
     const sender = document.createElement('span');
     sender.className = 'chat-sender';
-    // Show "Admin" label if the message came from the admin email
-    sender.textContent = msg.sender_email === '93pacc93@gmail.com' ? '⚙️ Admin' : msg.sender_email;
+    // Show Discord handle (or gamertag) instead of email
+    sender.textContent = getDisplayName(msg.sender_email);
     const text = document.createElement('p');
     text.textContent = msg.content;
     const time = document.createElement('span');
