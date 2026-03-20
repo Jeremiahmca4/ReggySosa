@@ -3740,7 +3740,9 @@ async function renderLeaderboard() {
             saveBtn.textContent = 'Saving...';
             statusEl.textContent = '';
 
-            if (!supabaseClient) {
+            // Use window.supabaseClient to avoid closure scope issues
+            const supa = window.supabaseClient;
+            if (!supa) {
               statusEl.style.color = '#ff6b6b';
               statusEl.textContent = 'Supabase not connected.';
               saveBtn.disabled = false;
@@ -3754,7 +3756,7 @@ async function renderLeaderboard() {
               //    This is the safest approach since stats are computed FROM match_history
 
               // First get all current match_history rows for this team
-              const { data: existingRows } = await supabaseClient
+              const { data: existingRows } = await supa
                 .from('match_history')
                 .select('id, winner, team1, team2')
                 .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
@@ -3773,13 +3775,13 @@ async function renderLeaderboard() {
                   .slice(0, Math.abs(winDiff))
                   .map(r => r.id);
                 for (const id of toDelete) {
-                  await supabaseClient.from('match_history').delete().eq('id', id);
+                  await supa.from('match_history').delete().eq('id', id);
                 }
               }
               // Add missing wins
               if (winDiff > 0) {
                 for (let w = 0; w < winDiff; w++) {
-                  await supabaseClient.from('match_history').insert({
+                  await supa.from('match_history').insert({
                     tournament_id: 'admin-edit',
                     tournament_name: 'Admin Edit',
                     round_index: 0,
@@ -3797,13 +3799,13 @@ async function renderLeaderboard() {
                   .slice(0, Math.abs(lossDiff))
                   .map(r => r.id);
                 for (const id of toDeleteL) {
-                  await supabaseClient.from('match_history').delete().eq('id', id);
+                  await supa.from('match_history').delete().eq('id', id);
                 }
               }
               // Add missing losses
               if (lossDiff > 0) {
                 for (let l = 0; l < lossDiff; l++) {
-                  await supabaseClient.from('match_history').insert({
+                  await supa.from('match_history').insert({
                     tournament_id: 'admin-edit',
                     tournament_name: 'Admin Edit',
                     round_index: 0,
@@ -3816,7 +3818,7 @@ async function renderLeaderboard() {
               }
 
               // 2. Championships — update tournament winner records
-              const { data: allTourneys } = await supabaseClient
+              const { data: allTourneys } = await supa
                 .from('tournaments')
                 .select('id, winner, status')
                 .eq('winner', team.name);
@@ -3832,7 +3834,7 @@ async function renderLeaderboard() {
               // 3. GF/GA — update score_submissions for this team
               // Find all approved submissions involving this team and scale them proportionally
               // This is complex — simpler to just insert an adjustment row
-              const { data: existingSubs } = await supabaseClient
+              const { data: existingSubs } = await supa
                 .from('score_submissions')
                 .select('id, admin_score_t1, admin_score_t2, tournament_id, round_index, match_index')
                 .eq('status', 'approved');
@@ -3856,7 +3858,7 @@ async function renderLeaderboard() {
               const gaDiff = newGA - curGA;
               if (gfDiff !== 0 || gaDiff !== 0) {
                 // Insert an adjustment score_submission
-                await supabaseClient.from('score_submissions').insert({
+                await supa.from('score_submissions').insert({
                   tournament_id: 'admin-edit',
                   round_index: 0,
                   match_index: 0,
