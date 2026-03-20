@@ -2951,6 +2951,130 @@ async function approveScoreSubmission(sub, team1, team2, t1Score, t2Score) {
 
 // ── PHASE 4: MATCH HISTORY (Supabase persistence) ────────────────────────────
 
+// ── ADMIN: MATCH HISTORY EDITOR ──────────────────────────────────────────────
+
+async function renderAdminMatchHistory() {
+  const container = document.getElementById('admin-history-container');
+  if (!container || !supabaseClient) return;
+  container.innerHTML = '<p style="color:var(--text-muted)">Loading match history...</p>';
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('match_history')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      container.innerHTML = '<p style="color:#ff6b6b">Error: ' + error.message + '</p>';
+      return;
+    }
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">No match history yet.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+
+    // Search/filter bar
+    const searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'margin-bottom:1rem;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Filter by team name or tournament...';
+    searchInput.style.cssText = 'flex:1;min-width:200px;padding:0.5rem 0.75rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.9rem;';
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'button delete';
+    clearBtn.textContent = 'Clear Filter';
+    clearBtn.style.cssText = 'font-size:0.8rem;padding:0.4rem 0.75rem;';
+    clearBtn.addEventListener('click', function() { searchInput.value = ''; renderRows(data); });
+    searchWrap.appendChild(searchInput);
+    searchWrap.appendChild(clearBtn);
+    container.appendChild(searchWrap);
+
+    const tableWrap = document.createElement('div');
+    container.appendChild(tableWrap);
+
+    function renderRows(rows) {
+      tableWrap.innerHTML = '';
+      if (rows.length === 0) {
+        tableWrap.innerHTML = '<p style="color:var(--text-muted)">No results.</p>';
+        return;
+      }
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:0.5rem;padding:0.5rem 0.75rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);border-bottom:1px solid var(--border);margin-bottom:0.25rem;';
+      header.innerHTML = '<span>Tournament</span><span>Team 1</span><span>Team 2</span><span>Winner</span><span></span>';
+      tableWrap.appendChild(header);
+
+      rows.forEach(function(row) {
+        const el = document.createElement('div');
+        el.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:0.5rem;align-items:center;padding:0.6rem 0.75rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:0.3rem;font-size:0.85rem;';
+
+        const tName = document.createElement('span');
+        tName.style.cssText = 'color:var(--text-muted);font-size:0.78rem;';
+        tName.textContent = row.tournament_name || '—';
+
+        const t1 = document.createElement('span');
+        t1.textContent = row.team1;
+        t1.style.color = row.winner === row.team1 ? 'var(--gold)' : 'var(--text)';
+
+        const t2 = document.createElement('span');
+        t2.textContent = row.team2;
+        t2.style.color = row.winner === row.team2 ? 'var(--gold)' : 'var(--text)';
+
+        const winner = document.createElement('span');
+        winner.style.cssText = 'font-weight:600;color:var(--gold);font-size:0.8rem;white-space:nowrap;';
+        winner.textContent = '✓ ' + (row.winner || '?');
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'button delete';
+        delBtn.textContent = 'Delete';
+        delBtn.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.6rem;white-space:nowrap;';
+        delBtn.addEventListener('click', async function() {
+          if (!confirm('Delete this match result? ' + row.team1 + ' vs ' + row.team2 + ' — Winner: ' + row.winner + '. This will remove it from leaderboard stats.')) return;
+          delBtn.disabled = true;
+          delBtn.textContent = '...';
+          const { error: delErr } = await supabaseClient.from('match_history').delete().eq('id', row.id);
+          if (delErr) {
+            alert('Delete failed: ' + delErr.message);
+            delBtn.disabled = false;
+            delBtn.textContent = 'Delete';
+          } else {
+            el.style.opacity = '0.3';
+            el.style.pointerEvents = 'none';
+            delBtn.textContent = 'Deleted';
+          }
+        });
+
+        el.appendChild(tName);
+        el.appendChild(t1);
+        el.appendChild(t2);
+        el.appendChild(winner);
+        el.appendChild(delBtn);
+        tableWrap.appendChild(el);
+      });
+    }
+
+    searchInput.addEventListener('input', function() {
+      const q = searchInput.value.toLowerCase();
+      if (!q) { renderRows(data); return; }
+      const filtered = data.filter(function(r) {
+        return (r.team1 && r.team1.toLowerCase().includes(q)) ||
+               (r.team2 && r.team2.toLowerCase().includes(q)) ||
+               (r.tournament_name && r.tournament_name.toLowerCase().includes(q)) ||
+               (r.winner && r.winner.toLowerCase().includes(q));
+      });
+      renderRows(filtered);
+    });
+
+    renderRows(data);
+
+  } catch(e) {
+    container.innerHTML = '<p style="color:#ff6b6b">Failed to load: ' + e.message + '</p>';
+  }
+}
+
 async function saveMatchToHistory(tournamentId, tournamentName, roundIndex, match, winnerName) {
   if (!supabaseClient) return;
   try {
