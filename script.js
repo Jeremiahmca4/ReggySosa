@@ -1953,22 +1953,87 @@ async function renderTeamPage(teamId) {
   const achievements = computeAchievements(team.name);
   const tournaments = loadTournaments();
 
-  // Stats from leaderboard data
+  // Stats — prefer Supabase match_history for accuracy, fall back to local brackets
   let wins = 0, losses = 0, championships = 0, entered = 0;
-  tournaments.forEach(t => {
-    if (!t.bracket) return;
-    let inThisTournament = false;
-    t.bracket.forEach(round => round.forEach(m => {
-      if (m.team1 === team.name || m.team2 === team.name) inThisTournament = true;
-      if (!m.winner) return;
-      if (m.team1 === team.name || m.team2 === team.name) {
-        if (m.winner === team.name) wins++;
-        else losses++;
+
+  if (supabaseClient) {
+    try {
+      // Pull all matches this team was in from Supabase
+      const { data: histRows } = await supabaseClient
+        .from('match_history')
+        .select('winner, team1, team2, tournament_id')
+        .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
+
+      if (histRows && histRows.length > 0) {
+        const seenTournaments = new Set();
+        histRows.forEach(function(m) {
+          if (m.team1 === team.name || m.team2 === team.name) {
+            seenTournaments.add(m.tournament_id);
+            if (m.winner === team.name) wins++;
+            else if (m.winner) losses++;
+          }
+        });
+        entered = seenTournaments.size;
+      } else {
+        // Fallback to local brackets
+        tournaments.forEach(t => {
+          if (!t.bracket) return;
+          let inThisTournament = false;
+          t.bracket.forEach(round => round.forEach(m => {
+            if (m.team1 === team.name || m.team2 === team.name) inThisTournament = true;
+            if (!m.winner) return;
+            if (m.team1 === team.name || m.team2 === team.name) {
+              if (m.winner === team.name) wins++; else losses++;
+            }
+          }));
+          if (inThisTournament) entered++;
+        });
       }
-    }));
-    if (inThisTournament) entered++;
+    } catch(e) {
+      // Fallback to local
+      tournaments.forEach(t => {
+        if (!t.bracket) return;
+        let inThisTournament = false;
+        t.bracket.forEach(round => round.forEach(m => {
+          if (m.team1 === team.name || m.team2 === team.name) inThisTournament = true;
+          if (!m.winner) return;
+          if (m.team1 === team.name || m.team2 === team.name) {
+            if (m.winner === team.name) wins++; else losses++;
+          }
+        }));
+        if (inThisTournament) entered++;
+      });
+    }
+  } else {
+    tournaments.forEach(t => {
+      if (!t.bracket) return;
+      let inThisTournament = false;
+      t.bracket.forEach(round => round.forEach(m => {
+        if (m.team1 === team.name || m.team2 === team.name) inThisTournament = true;
+        if (!m.winner) return;
+        if (m.team1 === team.name || m.team2 === team.name) {
+          if (m.winner === team.name) wins++; else losses++;
+        }
+      }));
+      if (inThisTournament) entered++;
+    });
+  }
+
+  // Championships always from tournaments table
+  tournaments.forEach(t => {
     if (t.status === 'completed' && t.winner === team.name) championships++;
   });
+  if (supabaseClient) {
+    try {
+      const { data: champData } = await supabaseClient
+        .from('tournaments')
+        .select('id')
+        .eq('winner', team.name)
+        .eq('status', 'completed');
+      if (champData) championships = champData.length;
+    } catch(e) {}
+  }
+
   const winPct = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
 
   // Match history — load from Supabase if available, fall back to local brackets
@@ -2037,22 +2102,51 @@ async function renderTeamPage(teamId) {
   banner.appendChild(bannerInner);
   container.appendChild(banner);
 
-  // Stats bar
-  const statsBar = document.createElement('div');
-  statsBar.className = 'team-stats-bar container';
-  [
-    { label: '🏆 Championships', val: championships },
-    { label: 'Wins', val: wins },
-    { label: 'Losses', val: losses },
-    { label: 'Win %', val: winPct + '%' },
-    { label: 'Tournaments', val: entered },
-  ].forEach(s => {
-    const stat = document.createElement('div');
-    stat.className = 'team-stat-item';
-    stat.innerHTML = `<span class="team-stat-val">${s.val}</span><span class="team-stat-label">${s.label}</span>`;
-    statsBar.appendChild(stat);
-  });
-  container.appendChild(statsBar);
+  // Stats card — hockey card style
+  const statsCard = document.createElement('div');
+  statsCard.className = 'team-stats-card container';
+
+  // Win rate ring + headline stat
+  const statsHero = document.createElement('div');
+  statsHero.className = 'stats-hero';
+  const winRateVal = wins + losses > 0 ? winPct : 0;
+  const ringCircumference = 2 * Math.PI * 44; // r=44
+  const ringOffset = ringCircumference * (1 - winRateVal / 100);
+  statsHero.innerHTML = `
+    <div class="win-rate-ring">
+      <svg viewBox="0 0 100 100" class="ring-svg">
+        <circle cx="50" cy="50" r="44" class="ring-track"/>
+        <circle cx="50" cy="50" r="44" class="ring-fill"
+          stroke-dasharray="${ringCircumference.toFixed(1)}"
+          stroke-dashoffset="${ringOffset.toFixed(1)}"
+          transform="rotate(-90 50 50)"/>
+      </svg>
+      <div class="ring-label">
+        <span class="ring-pct">${winRateVal}%</span>
+        <span class="ring-sub">Win Rate</span>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-box ${championships > 0 ? 'stat-box--champ' : ''}">
+        <span class="stat-box-val">${championships}</span>
+        <span class="stat-box-label">${championships === 1 ? 'Championship' : 'Championships'}</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-box-val">${wins}</span>
+        <span class="stat-box-label">Wins</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-box-val">${losses}</span>
+        <span class="stat-box-label">Losses</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-box-val">${entered}</span>
+        <span class="stat-box-label">Tournaments</span>
+      </div>
+    </div>
+  `;
+  statsCard.appendChild(statsHero);
+  container.appendChild(statsCard);
 
   const content = document.createElement('div');
   content.className = 'container team-page-content';
@@ -3896,7 +3990,7 @@ function renderTournamentDetails(id) {
   // Bracket
   if (tournament.status === 'started' && tournament.bracket) {
     const bracketHeading = document.createElement('h3');
-    bracketHeading.textContent = 'Bracket';
+    bracketHeading.innerHTML = 'Bracket <span class="bracket-live-dot" title="Live — updates automatically"></span>';
     const bracketDiv = document.createElement('div');
     bracketDiv.className = 'bracket';
     tournament.bracket.forEach((round, rIndex) => {
@@ -4067,6 +4161,114 @@ function renderTournamentDetails(id) {
     detail.appendChild(adminActions);
   }
   container.appendChild(detail);
+
+  // ── Live bracket realtime subscription ──────────────────────────────────
+  // Subscribe to changes on this specific tournament row.
+  // When the bracket or status updates (e.g. admin approves a score),
+  // re-render the bracket div in place without a full page reload.
+  if (tournament.status === 'started' && supabaseClient) {
+    // Clean up any previous subscription for this tournament
+    const subKey = 'bracket-live-' + id;
+    if (window._bracketSubs && window._bracketSubs[subKey]) {
+      try { window._bracketSubs[subKey].unsubscribe(); } catch(e) {}
+    }
+    if (!window._bracketSubs) window._bracketSubs = {};
+
+    const bracketChannel = supabaseClient
+      .channel(subKey)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tournaments',
+        filter: 'id=eq.' + id,
+      }, async function(payload) {
+        if (!payload.new) return;
+        const newBracket = Array.isArray(payload.new.bracket)
+          ? payload.new.bracket
+          : (payload.new.bracket && typeof payload.new.bracket === 'object'
+              ? Object.values(payload.new.bracket) : null);
+        const newStatus = payload.new.status || null;
+        if (!newBracket) return;
+
+        // Update localStorage so local state is consistent
+        const localTourneys = loadTournaments();
+        const tIdx = localTourneys.findIndex(t => String(t.id) === String(id));
+        if (tIdx !== -1) {
+          localTourneys[tIdx].bracket = newBracket;
+          if (newStatus) localTourneys[tIdx].status = newStatus;
+          if (payload.new.winner) localTourneys[tIdx].winner = payload.new.winner;
+          saveTournaments(localTourneys);
+        }
+
+        // Re-render just the bracket section (not the whole page)
+        const existingBracket = container.querySelector('.bracket');
+        if (!existingBracket) {
+          // Full re-render if bracket section not found
+          renderTournamentDetails(id);
+          return;
+        }
+
+        // Build updated bracket in a temp div, then swap with animation
+        const tempDiv = document.createElement('div');
+        tempDiv.className = 'bracket';
+        newBracket.forEach(function(round, rIndex) {
+          const roundDiv = document.createElement('div');
+          roundDiv.className = 'round';
+          const roundTitle = document.createElement('h4');
+          roundTitle.textContent = 'Round ' + (rIndex + 1);
+          roundDiv.appendChild(roundTitle);
+          round.forEach(function(match) {
+            const matchDiv = document.createElement('div');
+            matchDiv.className = 'match';
+            const matchTitle = document.createElement('p');
+            matchTitle.textContent = match.team1 + ' vs. ' + (match.team2 || 'BYE');
+            matchDiv.appendChild(matchTitle);
+            if (match.winner) {
+              const winnerEl = document.createElement('p');
+              winnerEl.textContent = 'Winner: ' + match.winner;
+              // Flash gold on newly set winners
+              const oldRound = tournament.bracket[rIndex];
+              const oldMatch = oldRound && oldRound[newBracket[rIndex].indexOf(match)];
+              if (!oldMatch || !oldMatch.winner) {
+                winnerEl.classList.add('bracket-winner-new');
+              }
+              matchDiv.appendChild(winnerEl);
+            }
+            const codeEl = document.createElement('p');
+            const role2 = getCurrentUserRole();
+            const currentTeam2 = getUserTeam();
+            let showCode2 = role2 === 'admin';
+            if (!showCode2 && currentTeam2) {
+              showCode2 = match.team1 === currentTeam2.name || match.team2 === currentTeam2.name;
+            }
+            codeEl.textContent = showCode2 ? 'Match code: ' + match.code : 'Match code: (hidden)';
+            matchDiv.appendChild(codeEl);
+            roundDiv.appendChild(matchDiv);
+          });
+          tempDiv.appendChild(roundDiv);
+        });
+
+        // Swap with fade
+        existingBracket.style.opacity = '0';
+        existingBracket.style.transition = 'opacity 0.2s';
+        setTimeout(function() {
+          existingBracket.replaceWith(tempDiv);
+          tempDiv.style.opacity = '0';
+          tempDiv.style.transition = 'opacity 0.3s';
+          requestAnimationFrame(function() {
+            tempDiv.style.opacity = '1';
+          });
+        }, 200);
+
+        // Update local tournament reference for next diff
+        tournament.bracket = newBracket;
+      })
+      .subscribe(function(status) {
+        console.log('[Bracket Live] ' + id + ':', status);
+      });
+
+    window._bracketSubs[subKey] = bracketChannel;
+  }
 }
 
 // === Bracket generation ===

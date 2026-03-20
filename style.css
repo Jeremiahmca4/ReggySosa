@@ -2453,3 +2453,181 @@ a {
     min-height: 70vh;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   HOCKEY CARD — PLAYER STATS
+   ═══════════════════════════════════════════════════════════ */
+
+.team-stats-card {
+  padding: 1.5rem 0 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-hero {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Win rate ring */
+.win-rate-ring {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  flex-shrink: 0;
+}
+
+.ring-svg {
+  width: 110px;
+  height: 110px;
+  display: block;
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(255,199,44,0.1);
+  stroke-width: 8;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 0 6px rgba(255,199,44,0.4));
+}
+
+.ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.ring-pct {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.ring-sub {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition);
+}
+
+.stat-box:hover { border-color: rgba(255,199,44,0.3); }
+
+.stat-box--champ {
+  border-color: rgba(255,199,44,0.5);
+  background: linear-gradient(135deg, rgba(255,199,44,0.08) 0%, var(--card) 100%);
+  box-shadow: 0 0 20px rgba(255,199,44,0.08);
+}
+
+.stat-box-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.stat-box--champ .stat-box-val::before {
+  content: '🏆 ';
+  font-size: 1.2rem;
+}
+
+.stat-box-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIVE BRACKET — REALTIME ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Flash animation when a winner is newly set via realtime */
+@keyframes winner-flash {
+  0%   { background: rgba(255,199,44,0.3); color: var(--gold); }
+  50%  { background: rgba(255,199,44,0.15); }
+  100% { background: transparent; color: inherit; }
+}
+
+.bracket-winner-new {
+  animation: winner-flash 1.2s ease-out forwards;
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+
+/* Live indicator dot on bracket heading */
+.bracket-live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  animation: pulse-live 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+}
+
+@keyframes bracket-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bracket {
+  animation: bracket-fade-in 0.3s ease-out;
+}
+
+/* Mobile stats card */
+@media (max-width: 480px) {
+  .stats-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+  .stats-grid {
+    width: 100%;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+  .stat-box { padding: 0.65rem 0.25rem; }
+  .stat-box-val { font-size: 1.5rem; }
+}
