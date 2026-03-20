@@ -3419,10 +3419,9 @@ async function buildLeaderboardData() {
     return stats[name];
   }
 
+  // Count tournament entries and championships from local bracket data
   for (const t of tournaments) {
     if (!t.bracket || !Array.isArray(t.bracket)) continue;
-
-    // Count tournament entries — any team in this tournament
     const enteredTeams = new Set();
     t.bracket.forEach(round => {
       round.forEach(match => {
@@ -3437,22 +3436,76 @@ async function buildLeaderboardData() {
         s.tournamentsEntered++;
       }
     });
-
-    // Count wins and losses from completed matches
-    t.bracket.forEach(round => {
-      round.forEach(match => {
-        if (!match.winner || !match.team1 || !match.team2) return;
-        if (match.team2 === 'BYE') return;
-        const winner = match.winner;
-        const loser = match.team1 === winner ? match.team2 : match.team1;
-        getOrCreate(winner).wins++;
-        getOrCreate(loser).losses++;
-      });
-    });
-
-    // Championship
     if (t.status === 'completed' && t.winner) {
       getOrCreate(t.winner).championships++;
+    }
+  }
+
+  // Count wins and losses from match_history in Supabase (includes admin edits)
+  if (supabaseClient) {
+    try {
+      const { data: mhRows } = await supabaseClient
+        .from('match_history')
+        .select('team1, team2, winner');
+      if (mhRows && mhRows.length > 0) {
+        mhRows.forEach(function(m) {
+          if (!m.winner || !m.team1 || !m.team2) return;
+          if (m.team2 === 'Admin Edit' || m.team1 === 'Admin Edit') {
+            // Admin adjustment row — only count if winner is a real team
+            if (m.winner && m.winner !== 'Admin Edit') getOrCreate(m.winner).wins++;
+            else if (m.team1 && m.team1 !== 'Admin Edit') getOrCreate(m.team1).losses++;
+            else if (m.team2 && m.team2 !== 'Admin Edit') getOrCreate(m.team2).losses++;
+            return;
+          }
+          if (m.team2 === 'BYE' || m.team1 === 'BYE') return;
+          if (m.team2 === 'Other Team' || m.team1 === 'Test Team') return; // skip test rows
+          getOrCreate(m.winner).wins++;
+          const loser = m.team1 === m.winner ? m.team2 : m.team1;
+          getOrCreate(loser).losses++;
+        });
+      } else {
+        // Fallback to bracket if no match_history rows
+        for (const t of tournaments) {
+          if (!t.bracket || !Array.isArray(t.bracket)) continue;
+          t.bracket.forEach(round => {
+            round.forEach(match => {
+              if (!match.winner || !match.team1 || !match.team2) return;
+              if (match.team2 === 'BYE') return;
+              getOrCreate(match.winner).wins++;
+              const loser = match.team1 === match.winner ? match.team2 : match.team1;
+              getOrCreate(loser).losses++;
+            });
+          });
+        }
+      }
+    } catch(e) {
+      // Fallback to bracket on error
+      for (const t of tournaments) {
+        if (!t.bracket || !Array.isArray(t.bracket)) continue;
+        t.bracket.forEach(round => {
+          round.forEach(match => {
+            if (!match.winner || !match.team1 || !match.team2) return;
+            if (match.team2 === 'BYE') return;
+            getOrCreate(match.winner).wins++;
+            const loser = match.team1 === match.winner ? match.team2 : match.team1;
+            getOrCreate(loser).losses++;
+          });
+        });
+      }
+    }
+  } else {
+    // No Supabase — read from bracket
+    for (const t of tournaments) {
+      if (!t.bracket || !Array.isArray(t.bracket)) continue;
+      t.bracket.forEach(round => {
+        round.forEach(match => {
+          if (!match.winner || !match.team1 || !match.team2) return;
+          if (match.team2 === 'BYE') return;
+          getOrCreate(match.winner).wins++;
+          const loser = match.team1 === match.winner ? match.team2 : match.team1;
+          getOrCreate(loser).losses++;
+        });
+      });
     }
   }
 
