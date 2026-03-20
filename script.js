@@ -3276,10 +3276,15 @@ async function buildLeaderboardData() {
   // Map: teamName -> stats
   const stats = {};
 
+  // Build team name -> id map for profile links
+  const teamIdMap = {};
+  teams.forEach(function(t) { if (t.name) teamIdMap[t.name] = t.id; });
+
   function getOrCreate(name) {
     if (!stats[name]) {
       stats[name] = {
         name,
+        teamId: teamIdMap[name] || null,
         championships: 0,
         wins: 0,
         losses: 0,
@@ -3373,6 +3378,7 @@ async function buildLeaderboardData() {
   return Object.values(stats).map(s => ({
     ...s,
     tournamentIds: undefined,
+    teamId: s.teamId || null,
     gf: s.gf || 0,
     ga: s.ga || 0,
     gd: (s.gf || 0) - (s.ga || 0),
@@ -3476,14 +3482,30 @@ async function renderLeaderboard() {
     rows.forEach((team, i) => {
       const row = document.createElement('div');
       row.className = 'leaderboard-row' + (i < 3 ? ' top-' + (i + 1) : '');
+      if (team.teamId) {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function(e) {
+          // Don't double-navigate if they clicked the name link directly
+          if (e.target.tagName === 'A') return;
+          window.location.href = 'team.html?id=' + team.teamId;
+        });
+      }
 
       const rankEl = document.createElement('span');
       rankEl.className = 'lb-rank';
       rankEl.textContent = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
-      const nameEl = document.createElement('span');
-      nameEl.className = 'lb-team';
-      nameEl.textContent = team.name;
+      // Make team name clickable — links to team profile page
+      const nameEl = team.teamId
+        ? document.createElement('a')
+        : document.createElement('span');
+      nameEl.className = 'lb-team lb-team-link';
+      if (team.teamId) {
+        nameEl.href = 'team.html?id=' + team.teamId;
+        nameEl.title = 'View ' + team.name + '\'s profile';
+      }
+      const nameText = document.createTextNode(team.name);
+      nameEl.appendChild(nameText);
       if (team.championships > 0) {
         const badge = document.createElement('span');
         badge.className = 'lb-champ-badge';

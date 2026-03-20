@@ -2642,3 +2642,21 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Clickable leaderboard rows */
+.leaderboard-row[style*="cursor: pointer"]:hover,
+.leaderboard-row:has(a.lb-team-link):hover {
+  border-color: rgba(255,199,44,0.35);
+  transform: translateX(2px);
+  background: rgba(255,199,44,0.04);
+}
+
+.lb-team-link {
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.lb-team-link:hover {
+  color: var(--gold);
+}

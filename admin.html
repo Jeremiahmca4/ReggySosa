@@ -38,6 +38,7 @@
       <button type="button" class="admin-nav-item" data-tab="teams-tab">Teams</button>
       <button type="button" class="admin-nav-item" data-tab="users-tab">Users</button>
       <button type="button" class="admin-nav-item" data-tab="settings-tab">Settings</button>
+      <button type="button" class="admin-nav-item" data-tab="history-tab">Match History</button>
     </nav>
 
     <!-- Tournaments tab -->
@@ -146,6 +147,12 @@
         <p id="webhook-status" style="font-size:0.85rem;color:var(--gold);display:none;margin:0;"></p>
       </div>
     </section>
+    <!-- Match History tab -->
+    <section id="history-tab" class="admin-tab" style="display:none;">
+      <h2>Match History Editor</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1.5rem;">View and delete match history entries. Use this to remove results from no-shows or incorrectly advanced players. Deleting a match removes it from leaderboard stats.</p>
+      <div id="admin-history-container"><p style="color:var(--text-muted);">Loading...</p></div>
+    </section>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -176,6 +183,7 @@
         else if (tabId === 'scores-tab' && typeof renderPendingScores === 'function') renderPendingScores();
         else if (tabId === 'chats-tab' && typeof renderAdminChats === 'function') renderAdminChats();
         else if (tabId === 'settings-tab' && typeof loadWebhookSettings === 'function') loadWebhookSettings();
+        else if (tabId === 'history-tab' && typeof renderAdminMatchHistory === 'function') renderAdminMatchHistory();
       }
 
       navItems.forEach(btn => btn.addEventListener('click', function () { switchTab(this.dataset.tab); }));
