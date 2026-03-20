@@ -1827,7 +1827,7 @@ const ACHIEVEMENT_DEFS = [
   { id: 'champion',         icon: '🏆', label: 'Champion',         desc: 'Won a tournament' },
   { id: 'back_to_back',     icon: '🔁', label: 'Back to Back',     desc: 'Won 2 tournaments in a row' },
   { id: 'dynasty',          icon: '👑', label: 'Dynasty',          desc: 'Won 3 or more tournaments' },
-  { id: 'undefeated',       icon: '⚡', label: 'Undefeated Run',   desc: 'Won a tournament without dropping a match' },
+  { id: 'undefeated',       icon: '⚡', label: 'Back-to-Back Champ', desc: 'Won 2 consecutive tournaments' },
   { id: 'shutout_king',     icon: '💀', label: 'Shutout King',     desc: 'Won a match with 0 goals against' },
   { id: 'on_a_streak',      icon: '📈', label: 'On a Streak',      desc: 'Won 3 matches in a row' },
   { id: 'ice_cold',         icon: '🧊', label: 'Ice Cold',         desc: 'Reached a tournament final' },
@@ -1885,16 +1885,19 @@ function computeAchievements(teamName) {
     if (t.status === 'completed' && t.winner === teamName) {
       champCount++;
       earned.add('champion');
-      if (teamLossesThisTournament === 0) earned.add('undefeated');
       if (lastTournamentWon) {
         consecutiveTournamentWins++;
-        if (consecutiveTournamentWins >= 1) earned.add('back_to_back');
+        if (consecutiveTournamentWins >= 1) {
+          earned.add('back_to_back');
+          earned.add('undefeated'); // back-to-back = won 2 tournaments in a row
+        }
       } else {
         consecutiveTournamentWins = 0;
       }
       lastTournamentWon = true;
     } else {
       lastTournamentWon = false;
+      consecutiveTournamentWins = 0;
     }
   });
 
@@ -2036,6 +2039,35 @@ async function renderTeamPage(teamId) {
 
   const winPct = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
 
+  // Goals for / goals against — from approved score_submissions
+  let goalsFor = 0, goalsAgainst = 0;
+  if (supabaseClient) {
+    try {
+      const { data: scoreSubs } = await supabaseClient
+        .from('score_submissions')
+        .select('tournament_id, round_index, match_index, admin_score_t1, admin_score_t2, admin_winner, status')
+        .eq('status', 'approved');
+      if (scoreSubs) {
+        scoreSubs.forEach(function(sub) {
+          if (sub.admin_score_t1 == null || sub.admin_score_t2 == null) return;
+          const t = tournaments.find(t => String(t.id) === String(sub.tournament_id));
+          if (!t || !t.bracket) return;
+          const round = t.bracket[sub.round_index];
+          if (!round) return;
+          const match = round[sub.match_index];
+          if (!match) return;
+          if (match.team1 === team.name) {
+            goalsFor += sub.admin_score_t1;
+            goalsAgainst += sub.admin_score_t2;
+          } else if (match.team2 === team.name) {
+            goalsFor += sub.admin_score_t2;
+            goalsAgainst += sub.admin_score_t1;
+          }
+        });
+      }
+    } catch(e) { /* ignore */ }
+  }
+
   // Match history — load from Supabase if available, fall back to local brackets
   let matchHistory = [];
   if (supabaseClient) {
@@ -2126,7 +2158,7 @@ async function renderTeamPage(teamId) {
         <span class="ring-sub">Win Rate</span>
       </div>
     </div>
-    <div class="stats-grid">
+    <div class="stats-grid stats-grid--6">
       <div class="stat-box ${championships > 0 ? 'stat-box--champ' : ''}">
         <span class="stat-box-val">${championships}</span>
         <span class="stat-box-label">${championships === 1 ? 'Championship' : 'Championships'}</span>
@@ -2138,6 +2170,14 @@ async function renderTeamPage(teamId) {
       <div class="stat-box">
         <span class="stat-box-val">${losses}</span>
         <span class="stat-box-label">Losses</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-box-val">${goalsFor}</span>
+        <span class="stat-box-label">Goals For</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-box-val">${goalsAgainst}</span>
+        <span class="stat-box-label">Goals Against</span>
       </div>
       <div class="stat-box">
         <span class="stat-box-val">${entered}</span>
@@ -3287,10 +3327,55 @@ async function buildLeaderboardData() {
     }
   }
 
+  // Pull goals for / goals against from approved score_submissions
+  if (supabaseClient) {
+    try {
+      const { data: scoreSubs } = await supabaseClient
+        .from('score_submissions')
+        .select('reported_winner, admin_score_t1, admin_score_t2, admin_winner')
+        .eq('status', 'approved');
+
+      // We need to match scores to teams via the bracket
+      // admin_winner tells us who won, admin_score_t1 = team1 goals, admin_score_t2 = team2 goals
+      // We need to know which submission maps to which teams
+      // Pull full data including round/match indexes and tournament_id
+      const { data: fullSubs } = await supabaseClient
+        .from('score_submissions')
+        .select('tournament_id, round_index, match_index, admin_score_t1, admin_score_t2, admin_winner, status')
+        .eq('status', 'approved');
+
+      if (fullSubs) {
+        const localTourneys = loadTournaments();
+        fullSubs.forEach(sub => {
+          if (sub.admin_score_t1 == null || sub.admin_score_t2 == null) return;
+          const t = localTourneys.find(t => String(t.id) === String(sub.tournament_id));
+          if (!t || !t.bracket) return;
+          const round = t.bracket[sub.round_index];
+          if (!round) return;
+          const match = round[sub.match_index];
+          if (!match || !match.team1 || !match.team2) return;
+          const t1 = match.team1;
+          const t2 = match.team2;
+          if (stats[t1]) {
+            stats[t1].gf = (stats[t1].gf || 0) + sub.admin_score_t1;
+            stats[t1].ga = (stats[t1].ga || 0) + sub.admin_score_t2;
+          }
+          if (stats[t2]) {
+            stats[t2].gf = (stats[t2].gf || 0) + sub.admin_score_t2;
+            stats[t2].ga = (stats[t2].ga || 0) + sub.admin_score_t1;
+          }
+        });
+      }
+    } catch(e) { /* ignore, GF/GA will just be 0 */ }
+  }
+
   // Convert to array and compute win %
   return Object.values(stats).map(s => ({
     ...s,
     tournamentIds: undefined,
+    gf: s.gf || 0,
+    ga: s.ga || 0,
+    gd: (s.gf || 0) - (s.ga || 0),
     winPct: s.wins + s.losses > 0
       ? Math.round((s.wins / (s.wins + s.losses)) * 100)
       : 0,
@@ -3344,9 +3429,11 @@ async function renderLeaderboard() {
 
     const filterDefs = [
       { label: 'Championships', key: 'championships' },
-      { label: 'Most Wins', key: 'wins' },
-      { label: 'Win %', key: 'winPct' },
-      { label: 'Tournaments', key: 'tournamentsEntered' },
+      { label: 'Most Wins',     key: 'wins' },
+      { label: 'Win %',         key: 'winPct' },
+      { label: 'Goals For',     key: 'gf' },
+      { label: 'Goal Diff',     key: 'gd' },
+      { label: 'Tournaments',   key: 'tournamentsEntered' },
     ];
 
     filterDefs.forEach(f => {
@@ -3379,6 +3466,9 @@ async function renderLeaderboard() {
       '<span class="lb-stat">W</span>' +
       '<span class="lb-stat">L</span>' +
       '<span class="lb-stat">W%</span>' +
+      '<span class="lb-stat">GF</span>' +
+      '<span class="lb-stat">GA</span>' +
+      '<span class="lb-stat">GD</span>' +
       '<span class="lb-stat">Played</span>';
     table.appendChild(colHeader);
 
@@ -3421,12 +3511,29 @@ async function renderLeaderboard() {
       playedEl.className = 'lb-stat' + (key === 'tournamentsEntered' ? ' highlight' : '');
       playedEl.textContent = team.tournamentsEntered;
 
+      const gfEl = document.createElement('span');
+      gfEl.className = 'lb-stat' + (key === 'gf' ? ' highlight' : '');
+      gfEl.textContent = team.gf || 0;
+
+      const gaEl = document.createElement('span');
+      gaEl.className = 'lb-stat';
+      gaEl.textContent = team.ga || 0;
+
+      const gdEl = document.createElement('span');
+      gdEl.className = 'lb-stat' + (key === 'gd' ? ' highlight' : '');
+      const gdVal = (team.gf || 0) - (team.ga || 0);
+      gdEl.textContent = (gdVal > 0 ? '+' : '') + gdVal;
+      gdEl.style.color = gdVal > 0 ? 'var(--gold)' : gdVal < 0 ? '#ff6b6b' : 'inherit';
+
       row.appendChild(rankEl);
       row.appendChild(nameEl);
       row.appendChild(champEl);
       row.appendChild(winsEl);
       row.appendChild(lossEl);
       row.appendChild(pctEl);
+      row.appendChild(gfEl);
+      row.appendChild(gaEl);
+      row.appendChild(gdEl);
       row.appendChild(playedEl);
       table.appendChild(row);
     });
