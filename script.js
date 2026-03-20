@@ -3441,72 +3441,37 @@ async function buildLeaderboardData() {
     }
   }
 
-  // Count wins and losses from match_history in Supabase (includes admin edits)
+  // Step 1: Count wins/losses from tournament brackets (real match results)
+  for (const t of tournaments) {
+    if (!t.bracket || !Array.isArray(t.bracket)) continue;
+    t.bracket.forEach(round => {
+      round.forEach(match => {
+        if (!match.winner || !match.team1 || !match.team2) return;
+        if (match.team2 === 'BYE') return;
+        getOrCreate(match.winner).wins++;
+        const loser = match.team1 === match.winner ? match.team2 : match.team1;
+        getOrCreate(loser).losses++;
+      });
+    });
+  }
+
+  // Step 2: Apply admin manual adjustments from match_history (only admin-edit rows)
+  // These are rows inserted by the leaderboard editor with tournament_name='Admin Edit'
   if (supabaseClient) {
     try {
-      const { data: mhRows } = await supabaseClient
+      const { data: adminEdits } = await supabaseClient
         .from('match_history')
-        .select('team1, team2, winner');
-      if (mhRows && mhRows.length > 0) {
-        mhRows.forEach(function(m) {
-          if (!m.winner || !m.team1 || !m.team2) return;
-          if (m.team2 === 'Admin Edit' || m.team1 === 'Admin Edit') {
-            // Admin adjustment row — only count if winner is a real team
-            if (m.winner && m.winner !== 'Admin Edit') getOrCreate(m.winner).wins++;
-            else if (m.team1 && m.team1 !== 'Admin Edit') getOrCreate(m.team1).losses++;
-            else if (m.team2 && m.team2 !== 'Admin Edit') getOrCreate(m.team2).losses++;
-            return;
-          }
-          if (m.team2 === 'BYE' || m.team1 === 'BYE') return;
-          if (m.team2 === 'Other Team' || m.team1 === 'Test Team') return; // skip test rows
-          getOrCreate(m.winner).wins++;
-          const loser = m.team1 === m.winner ? m.team2 : m.team1;
-          getOrCreate(loser).losses++;
-        });
-      } else {
-        // Fallback to bracket if no match_history rows
-        for (const t of tournaments) {
-          if (!t.bracket || !Array.isArray(t.bracket)) continue;
-          t.bracket.forEach(round => {
-            round.forEach(match => {
-              if (!match.winner || !match.team1 || !match.team2) return;
-              if (match.team2 === 'BYE') return;
-              getOrCreate(match.winner).wins++;
-              const loser = match.team1 === match.winner ? match.team2 : match.team1;
-              getOrCreate(loser).losses++;
-            });
-          });
-        }
-      }
-    } catch(e) {
-      // Fallback to bracket on error
-      for (const t of tournaments) {
-        if (!t.bracket || !Array.isArray(t.bracket)) continue;
-        t.bracket.forEach(round => {
-          round.forEach(match => {
-            if (!match.winner || !match.team1 || !match.team2) return;
-            if (match.team2 === 'BYE') return;
-            getOrCreate(match.winner).wins++;
-            const loser = match.team1 === match.winner ? match.team2 : match.team1;
-            getOrCreate(loser).losses++;
-          });
+        .select('team1, team2, winner')
+        .eq('tournament_name', 'Admin Edit');
+      if (adminEdits && adminEdits.length > 0) {
+        adminEdits.forEach(function(m) {
+          if (!m.team1 || !m.team2 || !m.winner) return;
+          if (m.winner !== 'Admin Edit') getOrCreate(m.winner).wins++;
+          const loser = m.winner === m.team1 ? m.team2 : m.team1;
+          if (loser && loser !== 'Admin Edit') getOrCreate(loser).losses++;
         });
       }
-    }
-  } else {
-    // No Supabase — read from bracket
-    for (const t of tournaments) {
-      if (!t.bracket || !Array.isArray(t.bracket)) continue;
-      t.bracket.forEach(round => {
-        round.forEach(match => {
-          if (!match.winner || !match.team1 || !match.team2) return;
-          if (match.team2 === 'BYE') return;
-          getOrCreate(match.winner).wins++;
-          const loser = match.team1 === match.winner ? match.team2 : match.team1;
-          getOrCreate(loser).losses++;
-        });
-      });
-    }
+    } catch(e) { /* ignore — bracket data already counted above */ }
   }
 
   // Pull goals for / goals against from approved score_submissions
@@ -3805,100 +3770,87 @@ async function renderLeaderboard() {
             }
 
             try {
-              // 1. Sync wins/losses via match_history: delete all existing entries for this team
-              //    and re-insert the correct number of synthetic W/L rows
-              //    This is the safest approach since stats are computed FROM match_history
+              // How this works:
+              // - Brackets are the source of truth for real match results (never touched)
+              // - We store admin adjustments as 'Admin Edit' rows in match_history
+              // - The leaderboard adds bracket wins + admin-edit wins together
+              // So: target = bracket_count + admin_edit_count
+              //     admin_edit_count = target - bracket_count
 
-              // First get all current match_history rows for this team
-              const { data: existingRows } = await supa
-                .from('match_history')
-                .select('id, winner, team1, team2')
+              // Count what the bracket already shows for this team
+              const localTourneys = loadTournaments();
+              let bracketWins = 0, bracketLosses = 0;
+              localTourneys.forEach(function(t) {
+                if (!t.bracket) return;
+                t.bracket.forEach(function(round) {
+                  round.forEach(function(m) {
+                    if (!m.winner || !m.team1 || !m.team2 || m.team2 === 'BYE') return;
+                    if (m.team1 === team.name || m.team2 === team.name) {
+                      if (m.winner === team.name) bracketWins++;
+                      else bracketLosses++;
+                    }
+                  });
+                });
+              });
+
+              // Delete all existing admin-edit rows for this team
+              await supa.from('match_history')
+                .delete()
+                .eq('tournament_name', 'Admin Edit')
                 .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
 
-              const currentWins = (existingRows || []).filter(r => r.winner === team.name).length;
-              const currentLoss = (existingRows || []).filter(r => r.winner !== team.name).length;
+              // Insert new admin-edit rows = target minus what bracket already provides
+              const adjWins   = Math.max(0, newWins - bracketWins);
+              const adjLosses = Math.max(0, newLoss - bracketLosses);
 
-              // Add or remove win records to reach target
-              const winDiff = newWins - currentWins;
-              const lossDiff = newLoss - currentLoss;
-
-              // Remove excess wins
-              if (winDiff < 0) {
-                const toDelete = (existingRows || [])
-                  .filter(r => r.winner === team.name)
-                  .slice(0, Math.abs(winDiff))
-                  .map(r => r.id);
-                for (const id of toDelete) {
-                  await supa.from('match_history').delete().eq('id', id);
-                }
+              for (let w = 0; w < adjWins; w++) {
+                await supa.from('match_history').insert({
+                  tournament_id: 'admin-edit',
+                  tournament_name: 'Admin Edit',
+                  round_index: 0,
+                  team1: team.name,
+                  team2: 'Admin Edit',
+                  winner: team.name,
+                  match_code: null,
+                });
               }
-              // Add missing wins
-              if (winDiff > 0) {
-                for (let w = 0; w < winDiff; w++) {
-                  await supa.from('match_history').insert({
-                    tournament_id: 'admin-edit',
-                    tournament_name: 'Admin Edit',
-                    round_index: 0,
-                    team1: team.name,
-                    team2: 'Admin Edit',
-                    winner: team.name,
-                    match_code: null,
-                  });
-                }
-              }
-              // Remove excess losses
-              if (lossDiff < 0) {
-                const toDeleteL = (existingRows || [])
-                  .filter(r => r.winner !== team.name)
-                  .slice(0, Math.abs(lossDiff))
-                  .map(r => r.id);
-                for (const id of toDeleteL) {
-                  await supa.from('match_history').delete().eq('id', id);
-                }
-              }
-              // Add missing losses
-              if (lossDiff > 0) {
-                for (let l = 0; l < lossDiff; l++) {
-                  await supa.from('match_history').insert({
-                    tournament_id: 'admin-edit',
-                    tournament_name: 'Admin Edit',
-                    round_index: 0,
-                    team1: team.name,
-                    team2: 'Admin Edit',
-                    winner: 'Admin Edit',
-                    match_code: null,
-                  });
-                }
+              for (let l = 0; l < adjLosses; l++) {
+                await supa.from('match_history').insert({
+                  tournament_id: 'admin-edit',
+                  tournament_name: 'Admin Edit',
+                  round_index: 0,
+                  team1: 'Admin Edit',
+                  team2: team.name,
+                  winner: 'Admin Edit',
+                  match_code: null,
+                });
               }
 
-              // 2. Championships — update tournament winner records
-              const { data: allTourneys } = await supa
-                .from('tournaments')
-                .select('id, winner, status')
-                .eq('winner', team.name);
-              const currentChamp = (allTourneys || []).length;
-              const champDiff = newChamp - currentChamp;
-              // We can't easily add/remove championship records safely
-              // so just show a note if they differ
-              if (champDiff !== 0) {
+              // Championships note (can't easily edit these without touching tournament records)
+              const { data: champData } = await supa.from('tournaments')
+                .select('id').eq('winner', team.name).eq('status', 'completed');
+              const bracketChamps = (champData || []).length;
+              if (newChamp !== bracketChamps) {
                 statusEl.style.color = 'var(--gold)';
-                statusEl.textContent = 'Note: Championship count changes must be made by editing tournament winners directly. W/L records updated successfully.';
+                statusEl.textContent = '⚠️ Championships (' + bracketChamps + ') can only be changed by editing the tournament winner record. W/L saved.';
               }
 
-              // 3. GF/GA — update score_submissions for this team
-              // Find all approved submissions involving this team and scale them proportionally
-              // This is complex — simpler to just insert an adjustment row
-              const { data: existingSubs } = await supa
-                .from('score_submissions')
-                .select('id, admin_score_t1, admin_score_t2, tournament_id, round_index, match_index')
-                .eq('status', 'approved');
+              // GF/GA: delete existing admin score_submission adjustments, insert fresh one
+              await supa.from('score_submissions')
+                .delete()
+                .eq('tournament_id', 'admin-edit')
+                .eq('admin_winner', team.name);
 
-              // Calculate current GF/GA for this team
+              // Calculate current real GF/GA from bracket score submissions
+              const { data: realSubs } = await supa.from('score_submissions')
+                .select('admin_score_t1, admin_score_t2, tournament_id, round_index, match_index')
+                .eq('status', 'approved')
+                .neq('tournament_id', 'admin-edit');
+
               let curGF = 0, curGA = 0;
-              const localTourneys = loadTournaments();
-              (existingSubs || []).forEach(sub => {
+              (realSubs || []).forEach(function(sub) {
                 if (sub.admin_score_t1 == null) return;
-                const t = localTourneys.find(t => String(t.id) === String(sub.tournament_id));
+                const t = localTourneys.find(function(t) { return String(t.id) === String(sub.tournament_id); });
                 if (!t || !t.bracket) return;
                 const round = t.bracket[sub.round_index];
                 if (!round) return;
@@ -3908,10 +3860,9 @@ async function renderLeaderboard() {
                 else if (match.team2 === team.name) { curGF += sub.admin_score_t2; curGA += sub.admin_score_t1; }
               });
 
-              const gfDiff = newGF - curGF;
-              const gaDiff = newGA - curGA;
-              if (gfDiff !== 0 || gaDiff !== 0) {
-                // Insert an adjustment score_submission
+              const gfAdj = newGF - curGF;
+              const gaAdj = newGA - curGA;
+              if (gfAdj !== 0 || gaAdj !== 0) {
                 await supa.from('score_submissions').insert({
                   tournament_id: 'admin-edit',
                   round_index: 0,
@@ -3919,19 +3870,18 @@ async function renderLeaderboard() {
                   submitter_email: ADMIN_EMAIL,
                   reported_winner: team.name,
                   status: 'approved',
-                  admin_score_t1: Math.max(0, gfDiff),
-                  admin_score_t2: Math.max(0, gaDiff),
+                  admin_score_t1: Math.max(0, gfAdj),
+                  admin_score_t2: Math.max(0, gaAdj),
                   admin_winner: team.name,
                 });
               }
 
               if (!statusEl.textContent) {
                 statusEl.style.color = '#22c55e';
-                statusEl.textContent = '✅ Saved! Reload leaderboard to see changes.';
+                statusEl.textContent = '✅ Saved successfully!';
               }
               saveBtn.textContent = 'Saved ✓';
 
-              // Re-render leaderboard after short delay
               setTimeout(async function() {
                 panel.remove();
                 data = await buildLeaderboardData();
