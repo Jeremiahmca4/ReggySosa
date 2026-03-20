@@ -2660,3 +2660,114 @@ a {
 .lb-team-link:hover {
   color: var(--gold);
 }
+
+
+/* ── Leaderboard admin edit ── */
+.leaderboard-row--admin {
+  grid-template-columns: 2.5rem 1fr repeat(8, 2.8rem) 2rem;
+}
+
+.lb-edit-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: color var(--transition), background var(--transition);
+}
+.lb-edit-btn:hover {
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.lb-edit-panel {
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.lb-edit-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin-bottom: 0.35rem;
+}
+
+.lb-edit-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+  line-height: 1.4;
+}
+
+.lb-edit-fields {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.lb-edit-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.lb-edit-fields input {
+  width: 70px;
+  padding: 0.35rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+
+.lb-edit-fields input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.lb-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lb-edit-save {
+  font-size: 0.82rem !important;
+  padding: 0.35rem 1rem !important;
+}
+
+.lb-edit-cancel {
+  font-size: 0.82rem !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
+.lb-edit-status {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  min-height: 1.2em;
+}
+
+@media (max-width: 768px) {
+  .leaderboard-row--admin {
+    grid-template-columns: 2rem 1fr repeat(8, 2.2rem) 1.8rem;
+  }
+}

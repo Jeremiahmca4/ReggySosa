@@ -3544,6 +3544,7 @@ async function renderLeaderboard() {
 
   function render(key, dir) {
     container.innerHTML = '';
+    const isAdmin = getCurrentUserRole() === 'admin';
 
     // Header row with filter buttons
     const header = document.createElement('div');
@@ -3588,7 +3589,7 @@ async function renderLeaderboard() {
 
     // Column headers
     const colHeader = document.createElement('div');
-    colHeader.className = 'leaderboard-row leaderboard-col-header';
+    colHeader.className = 'leaderboard-row leaderboard-col-header' + (isAdmin ? ' leaderboard-row--admin' : '');
     colHeader.innerHTML =
       '<span class="lb-rank">#</span>' +
       '<span class="lb-team">Team</span>' +
@@ -3599,7 +3600,8 @@ async function renderLeaderboard() {
       '<span class="lb-stat">GF</span>' +
       '<span class="lb-stat">GA</span>' +
       '<span class="lb-stat">GD</span>' +
-      '<span class="lb-stat">Played</span>';
+      '<span class="lb-stat">Played</span>' +
+      (isAdmin ? '<span class="lb-stat"></span>' : '');
     table.appendChild(colHeader);
 
     const rows = sorted(key, dir);
@@ -3681,6 +3683,216 @@ async function renderLeaderboard() {
       row.appendChild(gaEl);
       row.appendChild(gdEl);
       row.appendChild(playedEl);
+
+      // Admin-only three-dot edit button
+      if (isAdmin) {
+        row.classList.add('leaderboard-row--admin');
+        const dotsBtn = document.createElement('button');
+        dotsBtn.className = 'lb-edit-btn';
+        dotsBtn.textContent = '⋯';
+        dotsBtn.title = 'Edit ' + team.name + ' stats';
+        dotsBtn.addEventListener('click', function(e) {
+          e.stopPropagation(); // don't navigate to team page
+          // Toggle edit panel
+          const existingPanel = document.getElementById('lb-edit-' + i);
+          if (existingPanel) { existingPanel.remove(); return; }
+          // Close any other open panels first
+          document.querySelectorAll('.lb-edit-panel').forEach(p => p.remove());
+
+          const panel = document.createElement('div');
+          panel.className = 'lb-edit-panel';
+          panel.id = 'lb-edit-' + i;
+          panel.innerHTML =
+            '<p class="lb-edit-title">Edit Stats — ' + team.name + '</p>' +
+            '<p class="lb-edit-note">Changes update Supabase directly. GF/GA require score submissions to exist — edit those values there.</p>' +
+            '<div class="lb-edit-fields">' +
+              '<label>Championships<input type="number" min="0" id="lbe-champ-' + i + '" value="' + team.championships + '" /></label>' +
+              '<label>Wins<input type="number" min="0" id="lbe-wins-' + i + '" value="' + team.wins + '" /></label>' +
+              '<label>Losses<input type="number" min="0" id="lbe-losses-' + i + '" value="' + team.losses + '" /></label>' +
+              '<label>GF<input type="number" min="0" id="lbe-gf-' + i + '" value="' + (team.gf || 0) + '" /></label>' +
+              '<label>GA<input type="number" min="0" id="lbe-ga-' + i + '" value="' + (team.ga || 0) + '" /></label>' +
+            '</div>' +
+            '<div class="lb-edit-actions">' +
+              '<button class="button lb-edit-save" id="lbe-save-' + i + '">Save Changes</button>' +
+              '<button class="button delete lb-edit-cancel" id="lbe-cancel-' + i + '">Cancel</button>' +
+            '</div>' +
+            '<p class="lb-edit-status" id="lbe-status-' + i + '"></p>';
+
+          // Insert after current row
+          row.after(panel);
+
+          // Cancel button
+          document.getElementById('lbe-cancel-' + i).addEventListener('click', function() {
+            panel.remove();
+          });
+
+          // Save button
+          document.getElementById('lbe-save-' + i).addEventListener('click', async function() {
+            const saveBtn = document.getElementById('lbe-save-' + i);
+            const statusEl = document.getElementById('lbe-status-' + i);
+            const newChamp = parseInt(document.getElementById('lbe-champ-' + i).value) || 0;
+            const newWins  = parseInt(document.getElementById('lbe-wins-' + i).value) || 0;
+            const newLoss  = parseInt(document.getElementById('lbe-losses-' + i).value) || 0;
+            const newGF    = parseInt(document.getElementById('lbe-gf-' + i).value) || 0;
+            const newGA    = parseInt(document.getElementById('lbe-ga-' + i).value) || 0;
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            statusEl.textContent = '';
+
+            if (!supabaseClient) {
+              statusEl.style.color = '#ff6b6b';
+              statusEl.textContent = 'Supabase not connected.';
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Save Changes';
+              return;
+            }
+
+            try {
+              // 1. Sync wins/losses via match_history: delete all existing entries for this team
+              //    and re-insert the correct number of synthetic W/L rows
+              //    This is the safest approach since stats are computed FROM match_history
+
+              // First get all current match_history rows for this team
+              const { data: existingRows } = await supabaseClient
+                .from('match_history')
+                .select('id, winner, team1, team2')
+                .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
+
+              const currentWins = (existingRows || []).filter(r => r.winner === team.name).length;
+              const currentLoss = (existingRows || []).filter(r => r.winner !== team.name).length;
+
+              // Add or remove win records to reach target
+              const winDiff = newWins - currentWins;
+              const lossDiff = newLoss - currentLoss;
+
+              // Remove excess wins
+              if (winDiff < 0) {
+                const toDelete = (existingRows || [])
+                  .filter(r => r.winner === team.name)
+                  .slice(0, Math.abs(winDiff))
+                  .map(r => r.id);
+                for (const id of toDelete) {
+                  await supabaseClient.from('match_history').delete().eq('id', id);
+                }
+              }
+              // Add missing wins
+              if (winDiff > 0) {
+                for (let w = 0; w < winDiff; w++) {
+                  await supabaseClient.from('match_history').insert({
+                    tournament_id: 'admin-edit',
+                    tournament_name: 'Admin Edit',
+                    round_index: 0,
+                    team1: team.name,
+                    team2: 'Admin Edit',
+                    winner: team.name,
+                    match_code: null,
+                  });
+                }
+              }
+              // Remove excess losses
+              if (lossDiff < 0) {
+                const toDeleteL = (existingRows || [])
+                  .filter(r => r.winner !== team.name)
+                  .slice(0, Math.abs(lossDiff))
+                  .map(r => r.id);
+                for (const id of toDeleteL) {
+                  await supabaseClient.from('match_history').delete().eq('id', id);
+                }
+              }
+              // Add missing losses
+              if (lossDiff > 0) {
+                for (let l = 0; l < lossDiff; l++) {
+                  await supabaseClient.from('match_history').insert({
+                    tournament_id: 'admin-edit',
+                    tournament_name: 'Admin Edit',
+                    round_index: 0,
+                    team1: team.name,
+                    team2: 'Admin Edit',
+                    winner: 'Admin Edit',
+                    match_code: null,
+                  });
+                }
+              }
+
+              // 2. Championships — update tournament winner records
+              const { data: allTourneys } = await supabaseClient
+                .from('tournaments')
+                .select('id, winner, status')
+                .eq('winner', team.name);
+              const currentChamp = (allTourneys || []).length;
+              const champDiff = newChamp - currentChamp;
+              // We can't easily add/remove championship records safely
+              // so just show a note if they differ
+              if (champDiff !== 0) {
+                statusEl.style.color = 'var(--gold)';
+                statusEl.textContent = 'Note: Championship count changes must be made by editing tournament winners directly. W/L records updated successfully.';
+              }
+
+              // 3. GF/GA — update score_submissions for this team
+              // Find all approved submissions involving this team and scale them proportionally
+              // This is complex — simpler to just insert an adjustment row
+              const { data: existingSubs } = await supabaseClient
+                .from('score_submissions')
+                .select('id, admin_score_t1, admin_score_t2, tournament_id, round_index, match_index')
+                .eq('status', 'approved');
+
+              // Calculate current GF/GA for this team
+              let curGF = 0, curGA = 0;
+              const localTourneys = loadTournaments();
+              (existingSubs || []).forEach(sub => {
+                if (sub.admin_score_t1 == null) return;
+                const t = localTourneys.find(t => String(t.id) === String(sub.tournament_id));
+                if (!t || !t.bracket) return;
+                const round = t.bracket[sub.round_index];
+                if (!round) return;
+                const match = round[sub.match_index];
+                if (!match) return;
+                if (match.team1 === team.name) { curGF += sub.admin_score_t1; curGA += sub.admin_score_t2; }
+                else if (match.team2 === team.name) { curGF += sub.admin_score_t2; curGA += sub.admin_score_t1; }
+              });
+
+              const gfDiff = newGF - curGF;
+              const gaDiff = newGA - curGA;
+              if (gfDiff !== 0 || gaDiff !== 0) {
+                // Insert an adjustment score_submission
+                await supabaseClient.from('score_submissions').insert({
+                  tournament_id: 'admin-edit',
+                  round_index: 0,
+                  match_index: 0,
+                  submitter_email: ADMIN_EMAIL,
+                  reported_winner: team.name,
+                  status: 'approved',
+                  admin_score_t1: Math.max(0, gfDiff),
+                  admin_score_t2: Math.max(0, gaDiff),
+                  admin_winner: team.name,
+                });
+              }
+
+              if (!statusEl.textContent) {
+                statusEl.style.color = '#22c55e';
+                statusEl.textContent = '✅ Saved! Reload leaderboard to see changes.';
+              }
+              saveBtn.textContent = 'Saved ✓';
+
+              // Re-render leaderboard after short delay
+              setTimeout(async function() {
+                panel.remove();
+                data = await buildLeaderboardData();
+                render(key, dir);
+              }, 1200);
+
+            } catch(err) {
+              statusEl.style.color = '#ff6b6b';
+              statusEl.textContent = 'Error: ' + err.message;
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Save Changes';
+            }
+          });
+        });
+        row.appendChild(dotsBtn);
+      }
+
       table.appendChild(row);
     });
 
