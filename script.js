@@ -3545,6 +3545,7 @@ async function renderLeaderboard() {
   function render(key, dir) {
     container.innerHTML = '';
     const isAdmin = getCurrentUserRole() === 'admin';
+    const _supa = supabaseClient; // capture in render() scope so closures always have it
 
     // Header row with filter buttons
     const header = document.createElement('div');
@@ -3740,8 +3741,8 @@ async function renderLeaderboard() {
             saveBtn.textContent = 'Saving...';
             statusEl.textContent = '';
 
-            // Use window.supabaseClient to avoid closure scope issues
-            const supa = window.supabaseClient;
+            // Use render()-scoped capture to avoid closure issues with let variable
+            const supa = _supa;
             if (!supa) {
               statusEl.style.color = '#ff6b6b';
               statusEl.textContent = 'Supabase not connected.';
