@@ -1295,10 +1295,26 @@ async function renderAdminUsers() {
     deleteBtn.className = 'delete';
     deleteBtn.style.fontSize = '0.75rem';
     deleteBtn.addEventListener('click', async function() {
-      if (!confirm('Delete user ' + u.email + '? This cannot be undone.')) return;
+      if (!confirm('Delete user ' + u.email + '?\n\nThis removes their profile and team from the platform. Their login account remains active in Supabase Auth.')) return;
       if (supabaseClient) {
+        // Delete their profile
         await supabaseClient.from('profiles').delete().eq('email', u.email);
+        // Delete their team (if they are captain) and clean up registrations
+        const { data: captainTeams } = await supabaseClient
+          .from('teams').select('id').eq('captain', u.email);
+        if (captainTeams && captainTeams.length > 0) {
+          for (const t of captainTeams) {
+            await supabaseClient.from('tournament_registrations').delete().eq('team_id', t.id);
+            await supabaseClient.from('teams').delete().eq('id', t.id);
+          }
+          // Sync local teams
+          const localTeams = loadTeams().filter(lt => lt.captain !== u.email);
+          saveTeams(localTeams);
+        }
       }
+      // Remove from local users
+      const localUsers = loadUsers().filter(lu => lu.email !== u.email);
+      saveUsers(localUsers);
       renderAdminUsers();
     });
     deleteTd.appendChild(deleteBtn);
@@ -1382,10 +1398,14 @@ async function renderAdminTeams() {
     deleteBtn.addEventListener('click', async function() {
       if (!confirm('Delete team "' + team.name + '"? This cannot be undone.')) return;
       try {
+        // Delete team via backend (handles Supabase deletion)
         await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' })
           .catch(() => {});
         if (supabaseClient) {
+          // Delete team record
           await supabaseClient.from('teams').delete().eq('id', team.id);
+          // Clean up tournament registrations for this team
+          await supabaseClient.from('tournament_registrations').delete().eq('team_id', team.id);
         }
         // Also remove from local teams list
         const localTeams = loadTeams().filter(t => t.id !== team.id);
