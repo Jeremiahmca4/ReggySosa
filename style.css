@@ -2771,3 +2771,79 @@ a {
     grid-template-columns: 2rem 1fr repeat(8, 2.2rem) 1.8rem;
   }
 }
+
+/* ── Edit Match Panel ──────────────────────────────────────────────────── */
+.edit-match-panel {
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-top: 0.5rem;
+}
+.edit-match-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin-bottom: 0.25rem;
+}
+.edit-match-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+.edit-match-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.edit-match-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 120px;
+}
+.edit-match-row select {
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: 'DM Sans', sans-serif;
+  width: 100%;
+}
+.edit-match-row select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.edit-match-vs {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-bottom: 0.4rem;
+  flex-shrink: 0;
+}
+.edit-match-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.edit-match-actions .button {
+  font-size: 0.8rem !important;
+  padding: 0.3rem 0.75rem !important;
+}
+.edit-match-status {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  min-height: 1.1em;
+}

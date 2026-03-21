@@ -4553,6 +4553,143 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
           reportDiv.appendChild(reportBtn);
           matchDiv.appendChild(reportDiv);
         }
+
+        // ── Admin: Edit Match slot (rearrange bracket) ──────────────────────
+        if (role === 'admin' && tournament.status === 'started') {
+          const editMatchBtn = document.createElement('button');
+          editMatchBtn.className = 'button';
+          editMatchBtn.textContent = '✏️ Edit Match';
+          editMatchBtn.style.cssText = 'font-size:0.75rem;padding:0.25rem 0.6rem;margin-top:0.35rem;background:transparent;border-color:rgba(255,255,255,0.2);color:var(--text-muted);';
+
+          editMatchBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Toggle panel
+            const panelId = 'edit-match-' + rIndex + '-' + mIndex;
+            const existing = document.getElementById(panelId);
+            if (existing) { existing.remove(); return; }
+            // Close any other open edit panels
+            document.querySelectorAll('.edit-match-panel').forEach(p => p.remove());
+
+            // Build team options — registered teams + BYE + TBD
+            const allTeamNames = ['BYE', 'TBD'];
+            (tournament.teams || []).forEach(function(t) {
+              const n = typeof t === 'string' ? t : t.name;
+              if (n && !allTeamNames.includes(n)) allTeamNames.push(n);
+            });
+
+            const panel = document.createElement('div');
+            panel.className = 'edit-match-panel';
+            panel.id = panelId;
+            panel.innerHTML =
+              '<p class="edit-match-title">✏️ Edit Match Slot</p>' +
+              '<p class="edit-match-note">Changing a team resets the winner and generates a new match code. Next round slot is also cleared.</p>' +
+              '<div class="edit-match-row">' +
+                '<label>Team 1' +
+                  '<select id="em-t1-' + panelId + '">' +
+                    allTeamNames.map(function(n) {
+                      return '<option value="' + n + '"' + (n === match.team1 ? ' selected' : '') + '>' + n + '</option>';
+                    }).join('') +
+                  '</select>' +
+                '</label>' +
+                '<span class="edit-match-vs">vs</span>' +
+                '<label>Team 2' +
+                  '<select id="em-t2-' + panelId + '">' +
+                    allTeamNames.map(function(n) {
+                      return '<option value="' + n + '"' + (n === match.team2 ? ' selected' : '') + '>' + n + '</option>';
+                    }).join('') +
+                  '</select>' +
+                '</label>' +
+              '</div>' +
+              '<div class="edit-match-actions">' +
+                '<button class="button" id="em-save-' + panelId + '">Save Changes</button>' +
+                '<button class="button delete" id="em-cancel-' + panelId + '">Cancel</button>' +
+              '</div>' +
+              '<p class="edit-match-status" id="em-status-' + panelId + '"></p>';
+
+            matchDiv.appendChild(panel);
+
+            document.getElementById('em-cancel-' + panelId).addEventListener('click', function() {
+              panel.remove();
+            });
+
+            document.getElementById('em-save-' + panelId).addEventListener('click', async function() {
+              const saveBtn = document.getElementById('em-save-' + panelId);
+              const statusEl = document.getElementById('em-status-' + panelId);
+              const newT1 = document.getElementById('em-t1-' + panelId).value;
+              const newT2 = document.getElementById('em-t2-' + panelId).value;
+
+              if (!newT1 || !newT2) { statusEl.textContent = 'Both slots required.'; return; }
+              if (newT1 === newT2 && newT1 !== 'BYE') {
+                statusEl.textContent = 'Team 1 and Team 2 cannot be the same.';
+                return;
+              }
+
+              saveBtn.disabled = true;
+              saveBtn.textContent = 'Saving...';
+
+              try {
+                let tournaments2 = loadTournaments();
+                const tIdx = tournaments2.findIndex(function(t) { return t.id === tournament.id; });
+                if (tIdx === -1) throw new Error('Tournament not found');
+                const bracket2 = tournaments2[tIdx].bracket;
+                const targetMatch = bracket2[rIndex][mIndex];
+                const oldWinner = targetMatch.winner;
+                const changed = newT1 !== targetMatch.team1 || newT2 !== targetMatch.team2;
+
+                // Update the match slot
+                targetMatch.team1 = newT1;
+                targetMatch.team2 = newT2;
+                // Reset winner and generate new code only if teams changed
+                if (changed) {
+                  targetMatch.winner = null;
+                  targetMatch.code = generateCode(null);
+                  // Clear propagated winner in next round if this match had a winner
+                  if (oldWinner && bracket2[rIndex + 1]) {
+                    const nextMatchIdx = Math.floor(mIndex / 2);
+                    const nextMatch = bracket2[rIndex + 1][nextMatchIdx];
+                    if (nextMatch) {
+                      if (mIndex % 2 === 0 && nextMatch.team1 === oldWinner) {
+                        nextMatch.team1 = 'TBD';
+                        nextMatch.winner = null;
+                      } else if (mIndex % 2 !== 0 && nextMatch.team2 === oldWinner) {
+                        nextMatch.team2 = 'TBD';
+                        nextMatch.winner = null;
+                      }
+                    }
+                  }
+                }
+
+                saveTournaments(tournaments2);
+
+                // Push to backend
+                const patchRes = await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ bracket: bracket2, status: tournaments2[tIdx].status }),
+                });
+                const patchData = await patchRes.json();
+                if (!patchData.ok) throw new Error('Backend save failed');
+
+                statusEl.style.color = '#22c55e';
+                statusEl.textContent = '✅ Match updated!';
+                saveBtn.textContent = 'Saved ✓';
+
+                setTimeout(function() {
+                  panel.remove();
+                  renderTournamentDetails(tournament.id);
+                }, 800);
+
+              } catch(err) {
+                statusEl.style.color = '#ff6b6b';
+                statusEl.textContent = 'Error: ' + err.message;
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+              }
+            });
+          });
+
+          matchDiv.appendChild(editMatchBtn);
+        }
         // Score submission — show for captains in this match (not admin, no winner yet)
         if (
           tournament.status === 'started' &&
