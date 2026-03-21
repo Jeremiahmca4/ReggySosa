@@ -958,15 +958,81 @@ function renderPastChampionsTab() {
     // Admin delete button on past champion cards
     const role = getCurrentUserRole();
     if (role === 'admin') {
+      const adminRow = document.createElement('div');
+      adminRow.style.cssText = 'display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap;';
+
+      // Edit champion name button
+      const editChampBtn = document.createElement('button');
+      editChampBtn.textContent = '✏️ Edit Champion';
+      editChampBtn.className = 'button';
+      editChampBtn.style.cssText = 'font-size:0.75rem;padding:0.25rem 0.6rem;';
+      editChampBtn.addEventListener('click', async function() {
+        // Toggle inline edit
+        const existingEdit = card.querySelector('.champ-edit-row');
+        if (existingEdit) { existingEdit.remove(); return; }
+        const editRow = document.createElement('div');
+        editRow.className = 'champ-edit-row';
+        editRow.style.cssText = 'margin-top:0.5rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = t.winner || '';
+        input.placeholder = 'Enter correct champion name';
+        input.style.cssText = 'flex:1;min-width:150px;padding:0.35rem 0.5rem;background:var(--surface);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--text);font-size:0.85rem;';
+        const saveBtn2 = document.createElement('button');
+        saveBtn2.textContent = 'Save';
+        saveBtn2.className = 'button';
+        saveBtn2.style.cssText = 'font-size:0.75rem;padding:0.25rem 0.6rem;';
+        const cancelBtn2 = document.createElement('button');
+        cancelBtn2.textContent = 'Cancel';
+        cancelBtn2.className = 'button delete';
+        cancelBtn2.style.cssText = 'font-size:0.75rem;padding:0.25rem 0.6rem;';
+        cancelBtn2.addEventListener('click', function() { editRow.remove(); });
+        saveBtn2.addEventListener('click', async function() {
+          const newWinner = input.value.trim();
+          if (!newWinner) { alert('Enter a champion name.'); return; }
+          saveBtn2.disabled = true;
+          saveBtn2.textContent = '...';
+          // Update in backend
+          try {
+            const res = await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(t.id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ winner: newWinner }),
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error('Backend failed');
+            // Update localStorage
+            const ts = loadTournaments();
+            const idx2 = ts.findIndex(x => x.id === t.id);
+            if (idx2 !== -1) { ts[idx2].winner = newWinner; saveTournaments(ts); }
+            editRow.remove();
+            champ.textContent = 'Champion: ' + newWinner;
+            t.winner = newWinner;
+          } catch(err) {
+            alert('Save failed: ' + err.message);
+            saveBtn2.disabled = false;
+            saveBtn2.textContent = 'Save';
+          }
+        });
+        editRow.appendChild(input);
+        editRow.appendChild(saveBtn2);
+        editRow.appendChild(cancelBtn2);
+        card.appendChild(editRow);
+        input.focus();
+        input.select();
+      });
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'Delete';
       deleteBtn.className = 'delete';
-      deleteBtn.style.marginTop = '0.5rem';
+      deleteBtn.style.cssText = 'font-size:0.75rem;padding:0.25rem 0.6rem;';
       deleteBtn.addEventListener('click', function() {
         deleteTournament(t.id);
         renderPastChampionsTab();
       });
-      card.appendChild(deleteBtn);
+      adminRow.appendChild(editChampBtn);
+      adminRow.appendChild(deleteBtn);
+      card.appendChild(adminRow);
     }
     pastList.appendChild(card);
   });

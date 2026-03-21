@@ -36,8 +36,6 @@
   <main class="container">
     <h1>CHEL Tournaments</h1>
     <p>Browse upcoming and ongoing tournaments below.</p>
-    <!-- Team management section separated from tournament listings -->
-    <div id="user-team-section" class="team-section"></div>
     <!-- Tournament navigation tabs -->
     <nav class="tournament-nav">
       <button type="button" class="tournament-nav-item" data-tab="active-tab">Active / Open</button>
@@ -46,6 +44,7 @@
       <button type="button" class="tournament-nav-item" data-tab="rules-tab">Rules</button>
       <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">Leaderboard</button>
       <button type="button" class="tournament-nav-item" data-tab="search-tab">Team Search</button>
+      <button type="button" class="tournament-nav-item" data-tab="myteam-tab">My Team</button>
     </nav>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
@@ -69,6 +68,11 @@
     <!-- Team Search tab -->
     <section id="search-tab" class="tournament-tab" style="display:none;">
       <div id="team-search-container"></div>
+    </section>
+
+    <!-- My Team tab -->
+    <section id="myteam-tab" class="tournament-tab" style="display:none;">
+      <div id="user-team-section" class="team-section"></div>
     </section>
 
     <!-- Rules tab: copy of the official tournament rules from rules.html -->
@@ -206,6 +210,9 @@
         }
         if (tabId === 'search-tab' && typeof renderTeamSearch === 'function') {
           renderTeamSearch();
+        }
+        if (tabId === 'myteam-tab' && typeof renderUserTeam === 'function') {
+          renderUserTeam();
         }
       }
       navItems.forEach((btn) => {
