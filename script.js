@@ -1651,6 +1651,90 @@ function startTournament(id) {
 }
 
 // Register the current user's team to a given tournament (by IDs)
+
+// ── Discord Gate ─────────────────────────────────────────────────────────────
+// Shows a modal asking if the user has joined the Discord before registration.
+// Stores discord_confirmed = true on their Supabase profile once they confirm.
+// Never shown again after first confirmation.
+
+async function checkDiscordGate(onConfirmed) {
+  // Check profile for existing confirmation
+  if (supabaseClient) {
+    try {
+      const email = getCurrentUser();
+      if (email) {
+        const { data } = await supabaseClient
+          .from('profiles')
+          .select('discord_confirmed')
+          .eq('email', email)
+          .single();
+        if (data && data.discord_confirmed) {
+          // Already confirmed — skip modal
+          onConfirmed();
+          return;
+        }
+      }
+    } catch(e) { /* ignore, show modal as fallback */ }
+  }
+
+  // Build modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'discord-gate-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--card);border:1px solid var(--gold);border-radius:var(--radius-lg);padding:2rem;max-width:420px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,199,44,0.15);';
+
+  const discordLogo = '<svg width="32" height="32" viewBox="0 0 24 24" fill="#5865F2" style="margin-bottom:0.75rem;"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.032.057a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>';
+
+  modal.innerHTML = discordLogo +
+    '<h2 style="font-family:Barlow Condensed,sans-serif;font-size:1.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin-bottom:0.5rem;">Join the Discord First</h2>' +
+    '<p style="color:var(--text-muted);font-size:0.9rem;line-height:1.5;margin-bottom:1.25rem;">To compete in Reggy Sosa tournaments you must be in the official Discord server. All match codes, announcements, and opponent communication happen there.</p>' +
+    '<a href="' + DISCORD_INVITE + '" target="_blank" id="discord-join-link" style="display:inline-flex;align-items:center;gap:0.5rem;background:#5865F2;color:#fff;padding:0.6rem 1.4rem;border-radius:var(--radius-sm);font-family:Barlow Condensed,sans-serif;font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;text-decoration:none;margin-bottom:1rem;transition:opacity 0.2s;">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.032.057a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>' +
+      'Join Discord Server' +
+    '</a>' +
+    '<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1.25rem;">Already a member? Click below to confirm and register.</p>' +
+    '<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">' +
+      '<button id="discord-confirm-btn" class="button" style="font-size:0.9rem;padding:0.5rem 1.25rem;">✅ Ive Joined — Register Me</button>' +
+      '<button id="discord-cancel-btn" class="button delete" style="font-size:0.9rem;padding:0.5rem 1rem;">Cancel</button>' +
+    '</div>';
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  document.getElementById('discord-cancel-btn').addEventListener('click', function() {
+    overlay.remove();
+  });
+
+  document.getElementById('discord-confirm-btn').addEventListener('click', async function() {
+    const confirmBtn = document.getElementById('discord-confirm-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Saving...';
+
+    // Save discord_confirmed to Supabase profile
+    if (supabaseClient) {
+      try {
+        const email = getCurrentUser();
+        if (email) {
+          await supabaseClient
+            .from('profiles')
+            .update({ discord_confirmed: true })
+            .eq('email', email);
+        }
+      } catch(e) { /* ignore — still proceed */ }
+    }
+
+    overlay.remove();
+    onConfirmed();
+  });
+
+  // Close on overlay click (outside modal)
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
 function registerTeamToTournament(tournamentId, teamId) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => t.id === tournamentId);
@@ -4585,9 +4669,10 @@ function renderTournamentDetails(id) {
         registerBtn.className = 'button';
         registerBtn.style.marginTop = '1rem';
         registerBtn.addEventListener('click', function () {
-          registerTeamToTournament(tournament.id, currentTeam.id);
-          // After registering, refresh the details view to show updated team list and hide button
-          renderTournamentDetails(tournament.id);
+          checkDiscordGate(function() {
+            registerTeamToTournament(tournament.id, currentTeam.id);
+            renderTournamentDetails(tournament.id);
+          });
         });
         detail.appendChild(registerBtn);
       }
