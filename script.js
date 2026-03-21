@@ -1852,6 +1852,7 @@ function computeAchievements(teamName) {
 
   if (entered.length > 0) earned.add('first_tournament');
 
+  const seenChampTournaments = new Set();
   entered.forEach(t => {
     if (!t.bracket) return;
 
@@ -1882,7 +1883,8 @@ function computeAchievements(teamName) {
 
     if (reachedFinal) earned.add('ice_cold');
 
-    if (t.status === 'completed' && t.winner === teamName) {
+    if (t.status === 'completed' && t.winner === teamName && !seenChampTournaments.has(t.id)) {
+      seenChampTournaments.add(t.id);
       champCount++;
       earned.add('champion');
       if (lastTournamentWon) {
@@ -1964,12 +1966,15 @@ async function renderTeamPage(teamId) {
       // Pull all matches this team was in from Supabase
       const { data: histRows } = await supabaseClient
         .from('match_history')
-        .select('winner, team1, team2, tournament_id')
+        .select('winner, team1, team2, tournament_id, tournament_name')
         .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
 
       if (histRows && histRows.length > 0) {
         const seenTournaments = new Set();
         histRows.forEach(function(m) {
+          // Skip admin-edit rows — these are manual leaderboard adjustments, not real matches
+          if (m.tournament_name === 'Admin Edit' || m.tournament_id === 'admin-edit') return;
+          if (m.team2 === 'Admin Edit' || m.team1 === 'Admin Edit') return;
           if (m.team1 === team.name || m.team2 === team.name) {
             seenTournaments.add(m.tournament_id);
             if (m.winner === team.name) wins++;
@@ -2022,10 +2027,7 @@ async function renderTeamPage(teamId) {
     });
   }
 
-  // Championships always from tournaments table
-  tournaments.forEach(t => {
-    if (t.status === 'completed' && t.winner === team.name) championships++;
-  });
+  // Championships — use Supabase as source of truth, deduplicated bracket scan as fallback
   if (supabaseClient) {
     try {
       const { data: champData } = await supabaseClient
@@ -2034,7 +2036,25 @@ async function renderTeamPage(teamId) {
         .eq('winner', team.name)
         .eq('status', 'completed');
       if (champData) championships = champData.length;
-    } catch(e) {}
+    } catch(e) {
+      // Fallback: scan bracket but deduplicate by tournament ID
+      const champIds = new Set();
+      tournaments.forEach(t => {
+        if (t.status === 'completed' && t.winner === team.name && t.id) {
+          champIds.add(t.id);
+        }
+      });
+      championships = champIds.size;
+    }
+  } else {
+    // No Supabase — deduplicate by tournament ID
+    const champIds = new Set();
+    tournaments.forEach(t => {
+      if (t.status === 'completed' && t.winner === team.name && t.id) {
+        champIds.add(t.id);
+      }
+    });
+    championships = champIds.size;
   }
 
   const winPct = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
@@ -3100,7 +3120,13 @@ async function loadTeamMatchHistory(teamName) {
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) return [];
-    return data || [];
+    // Filter out admin-edit adjustment rows — these are leaderboard corrections, not real matches
+    return (data || []).filter(function(m) {
+      return m.tournament_name !== 'Admin Edit'
+        && m.tournament_id !== 'admin-edit'
+        && m.team1 !== 'Admin Edit'
+        && m.team2 !== 'Admin Edit';
+    });
   } catch(e) { return []; }
 }
 
