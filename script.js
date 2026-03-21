@@ -3794,10 +3794,15 @@ async function renderLeaderboard() {
               });
 
               // Delete all existing admin-edit rows for this team
-              await supa.from('match_history')
-                .delete()
-                .eq('tournament_name', 'Admin Edit')
-                .or('team1.eq.' + team.name + ',team2.eq.' + team.name);
+              // Use separate queries (no .or()) to avoid PostgREST schema cache issues
+              try {
+                await supa.from('match_history').delete()
+                  .eq('tournament_name', 'Admin Edit').eq('team1', team.name);
+              } catch(delErr) { /* ignore */ }
+              try {
+                await supa.from('match_history').delete()
+                  .eq('tournament_name', 'Admin Edit').eq('team2', team.name);
+              } catch(delErr) { /* ignore */ }
 
               // Insert new admin-edit rows = target minus what bracket already provides
               const adjWins   = Math.max(0, newWins - bracketWins);
@@ -3836,10 +3841,11 @@ async function renderLeaderboard() {
               }
 
               // GF/GA: delete existing admin score_submission adjustments, insert fresh one
-              await supa.from('score_submissions')
-                .delete()
-                .eq('tournament_id', 'admin-edit')
-                .eq('admin_winner', team.name);
+              // Delete GF/GA adjustments
+              try {
+                await supa.from('score_submissions').delete()
+                  .eq('tournament_id', 'admin-edit').eq('admin_winner', team.name);
+              } catch(delErr) { /* ignore */ }
 
               // Calculate current real GF/GA from bracket score submissions
               const { data: realSubs } = await supa.from('score_submissions')
@@ -3978,6 +3984,7 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
   // Build email → discord_handle lookup map for all participants
   // Falls back to email if no handle is set
   const discordMap = {};
+  const captainTeamMap = {};
   if (supabaseClient) {
     try {
       const { data: profiles } = await supabaseClient
@@ -3991,14 +3998,25 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
           }
         });
       }
+      // Also build email -> team name map so chat shows team names
+      const { data: teamsData } = await supabaseClient
+        .from('teams')
+        .select('name, captain');
+      if (Array.isArray(teamsData)) {
+        teamsData.forEach(function(t) {
+          if (t.captain && t.name) {
+            captainTeamMap[t.captain.toLowerCase()] = t.name;
+          }
+        });
+      }
     } catch(e) { /* silently fall back to email */ }
   }
 
   function getDisplayName(senderEmail) {
     if (!senderEmail) return 'Unknown';
-    // Admin always shows as Admin
     if (senderEmail === ADMIN_EMAIL) return '⚙️ Admin';
-    return discordMap[senderEmail.toLowerCase()] || senderEmail;
+    // Show team name if available, fall back to discord handle, then email
+    return captainTeamMap[senderEmail.toLowerCase()] || discordMap[senderEmail.toLowerCase()] || senderEmail;
   }
 
   // Wrapper
@@ -4374,7 +4392,7 @@ function renderTournamentDetails(id) {
     teamsHeading.textContent = 'Registered Teams';
     const teamsList = document.createElement('ul');
       teamsList.className = 'teams-list';
-    tournament.teams.forEach((team) => {
+    tournament.teams.forEach((team, seedIdx) => {
       const li = document.createElement('li');
       let name;
       let idVal;
@@ -4385,6 +4403,7 @@ function renderTournamentDetails(id) {
         name = team.name;
         idVal = team.id;
       }
+      const seedLabel = (seedIdx + 1) + '. ';
       /*
        * We only display team names in the list to protect user privacy.  
        * Admins can still remove teams, but we avoid showing email or Discord
@@ -4394,7 +4413,7 @@ function renderTournamentDetails(id) {
       if (role === 'admin' && tournament.status !== 'started') {
         // For admins, still display remove button but no captain info
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = name;
+        nameSpan.textContent = seedLabel + name;
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove';
         removeBtn.className = 'delete';
@@ -4409,8 +4428,8 @@ function renderTournamentDetails(id) {
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);
       } else {
-        // Non-admin view: show only team name
-        li.textContent = name;
+        // Non-admin view: show seed + team name
+        li.textContent = seedLabel + name;
       }
       teamsList.appendChild(li);
     });
