@@ -4503,17 +4503,7 @@ function renderTournamentDetails(id) {
           matchDiv.appendChild(winnerEl);
         }
         // Determine whether to show code
-        let showCode = false;
-        const currentTeam = getUserTeam();
-        if (role === 'admin') {
-          showCode = true;
-        } else if (currentTeam) {
-          const teamName = currentTeam.name;
-          // Check if this user’s team is involved in the match
-          if (match.team1 === teamName || match.team2 === teamName) {
-            showCode = true;
-          }
-        }
+const showCode = role === 'admin' || isUserInMatch(match, tournament);
         const codeEl = document.createElement('p');
         if (showCode) {
           codeEl.textContent = 'Match code: ' + match.code;
