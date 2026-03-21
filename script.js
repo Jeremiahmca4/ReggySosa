@@ -3425,8 +3425,8 @@ async function buildLeaderboardData() {
     const enteredTeams = new Set();
     t.bracket.forEach(round => {
       round.forEach(match => {
-        if (match.team1 && match.team1 !== 'BYE') enteredTeams.add(match.team1);
-        if (match.team2 && match.team2 !== 'BYE') enteredTeams.add(match.team2);
+        if (match.team1 && match.team1 !== 'BYE' && match.team1 !== 'TBD') enteredTeams.add(match.team1);
+        if (match.team2 && match.team2 !== 'BYE' && match.team2 !== 'TBD') enteredTeams.add(match.team2);
       });
     });
     enteredTeams.forEach(name => {
@@ -3436,21 +3436,22 @@ async function buildLeaderboardData() {
         s.tournamentsEntered++;
       }
     });
-    if (t.status === 'completed' && t.winner) {
+    if (t.status === 'completed' && t.winner && t.winner !== 'TBD' && t.winner !== 'Admin Edit') {
       getOrCreate(t.winner).championships++;
     }
   }
 
   // Step 1: Count wins/losses from tournament brackets (real match results)
+  const SKIP = new Set(['BYE', 'TBD', 'Admin Edit', '']);
   for (const t of tournaments) {
     if (!t.bracket || !Array.isArray(t.bracket)) continue;
     t.bracket.forEach(round => {
       round.forEach(match => {
         if (!match.winner || !match.team1 || !match.team2) return;
-        if (match.team2 === 'BYE') return;
+        if (SKIP.has(match.team1) || SKIP.has(match.team2) || SKIP.has(match.winner)) return;
         getOrCreate(match.winner).wins++;
         const loser = match.team1 === match.winner ? match.team2 : match.team1;
-        getOrCreate(loser).losses++;
+        if (!SKIP.has(loser)) getOrCreate(loser).losses++;
       });
     });
   }
@@ -3466,9 +3467,9 @@ async function buildLeaderboardData() {
       if (adminEdits && adminEdits.length > 0) {
         adminEdits.forEach(function(m) {
           if (!m.team1 || !m.team2 || !m.winner) return;
-          if (m.winner !== 'Admin Edit') getOrCreate(m.winner).wins++;
+          if (m.winner && m.winner !== 'Admin Edit' && m.winner !== 'TBD') getOrCreate(m.winner).wins++;
           const loser = m.winner === m.team1 ? m.team2 : m.team1;
-          if (loser && loser !== 'Admin Edit') getOrCreate(loser).losses++;
+          if (loser && loser !== 'Admin Edit' && loser !== 'TBD' && loser !== 'BYE') getOrCreate(loser).losses++;
         });
       }
     } catch(e) { /* ignore — bracket data already counted above */ }
@@ -3517,17 +3518,20 @@ async function buildLeaderboardData() {
   }
 
   // Convert to array and compute win %
-  return Object.values(stats).map(s => ({
-    ...s,
-    tournamentIds: undefined,
-    teamId: s.teamId || null,
-    gf: s.gf || 0,
-    ga: s.ga || 0,
-    gd: (s.gf || 0) - (s.ga || 0),
-    winPct: s.wins + s.losses > 0
-      ? Math.round((s.wins / (s.wins + s.losses)) * 100)
-      : 0,
-  }));
+  const SKIP_FINAL = new Set(['BYE', 'TBD', 'Admin Edit', '']);
+  return Object.values(stats)
+    .filter(s => s.name && !SKIP_FINAL.has(s.name))
+    .map(s => ({
+      ...s,
+      tournamentIds: undefined,
+      teamId: s.teamId || null,
+      gf: s.gf || 0,
+      ga: s.ga || 0,
+      gd: (s.gf || 0) - (s.ga || 0),
+      winPct: s.wins + s.losses > 0
+        ? Math.round((s.wins / (s.wins + s.losses)) * 100)
+        : 0,
+    }));
 }
 
 async function renderLeaderboard() {
@@ -4478,7 +4482,7 @@ function renderTournamentDetails(id) {
     }
   }
   // Bracket
-  if (tournament.status === 'started' && tournament.bracket) {
+  if ((tournament.status === 'started' || tournament.status === 'completed') && tournament.bracket) {
     const bracketHeading = document.createElement('h3');
     bracketHeading.innerHTML = 'Bracket <span class="bracket-live-dot" title="Live — updates automatically"></span>';
     const bracketDiv = document.createElement('div');
@@ -4489,6 +4493,8 @@ function renderTournamentDetails(id) {
       const roundTitle = document.createElement('h4');
       roundTitle.textContent = 'Round ' + (rIndex + 1);
       roundDiv.appendChild(roundTitle);
+      const matchGrid = document.createElement('div');
+      matchGrid.className = 'match-grid';
       round.forEach((match, mIndex) => {
         const matchDiv = document.createElement('div');
         matchDiv.className = 'match';
@@ -4514,7 +4520,7 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         // Admin-only reporting controls
         if (
           role === 'admin' &&
-          tournament.status === 'started' &&
+          (tournament.status === 'started' || tournament.status === 'completed') &&
           match.team1 && match.team1 !== 'BYE' &&
           match.team2 && match.team2 !== 'BYE' &&
           !match.winner
@@ -4555,7 +4561,7 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         }
 
         // ── Admin: Edit Match slot (rearrange bracket) ──────────────────────
-        if (role === 'admin' && tournament.status === 'started') {
+        if (role === 'admin' && (tournament.status === 'started' || tournament.status === 'completed')) {
           const editMatchBtn = document.createElement('button');
           editMatchBtn.className = 'button';
           editMatchBtn.textContent = '✏️ Edit Match';
@@ -4582,22 +4588,24 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
             panel.id = panelId;
             panel.innerHTML =
               '<p class="edit-match-title">✏️ Edit Match Slot</p>' +
-              '<p class="edit-match-note">Changing a team resets the winner and generates a new match code. Next round slot is also cleared.</p>' +
+              '<p class="edit-match-note">Pick from the dropdown or type any team name in the custom field. Changing a team resets the winner and generates a new match code.</p>' +
               '<div class="edit-match-row">' +
-                '<label>Team 1' +
-                  '<select id="em-t1-' + panelId + '">' +
+                '<label>Team 1 <span style="color:var(--text-dim);font-size:0.65rem;">(select or type below)</span>' +
+                  '<select id="em-t1-' + panelId + '" style="margin-bottom:0.3rem;">' +
                     allTeamNames.map(function(n) {
                       return '<option value="' + n + '"' + (n === match.team1 ? ' selected' : '') + '>' + n + '</option>';
                     }).join('') +
                   '</select>' +
+                  '<input type="text" id="em-t1c-' + panelId + '" placeholder="Or type custom name..." style="padding:0.35rem 0.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.8rem;width:100%;" />' +
                 '</label>' +
                 '<span class="edit-match-vs">vs</span>' +
-                '<label>Team 2' +
-                  '<select id="em-t2-' + panelId + '">' +
+                '<label>Team 2 <span style="color:var(--text-dim);font-size:0.65rem;">(select or type below)</span>' +
+                  '<select id="em-t2-' + panelId + '" style="margin-bottom:0.3rem;">' +
                     allTeamNames.map(function(n) {
                       return '<option value="' + n + '"' + (n === match.team2 ? ' selected' : '') + '>' + n + '</option>';
                     }).join('') +
                   '</select>' +
+                  '<input type="text" id="em-t2c-' + panelId + '" placeholder="Or type custom name..." style="padding:0.35rem 0.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.8rem;width:100%;" />' +
                 '</label>' +
               '</div>' +
               '<div class="edit-match-actions">' +
@@ -4615,8 +4623,10 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
             document.getElementById('em-save-' + panelId).addEventListener('click', async function() {
               const saveBtn = document.getElementById('em-save-' + panelId);
               const statusEl = document.getElementById('em-status-' + panelId);
-              const newT1 = document.getElementById('em-t1-' + panelId).value;
-              const newT2 = document.getElementById('em-t2-' + panelId).value;
+              const t1Custom = (document.getElementById('em-t1c-' + panelId)?.value || '').trim();
+              const t2Custom = (document.getElementById('em-t2c-' + panelId)?.value || '').trim();
+              const newT1 = t1Custom || document.getElementById('em-t1-' + panelId).value;
+              const newT2 = t2Custom || document.getElementById('em-t2-' + panelId).value;
 
               if (!newT1 || !newT2) { statusEl.textContent = 'Both slots required.'; return; }
               if (newT1 === newT2 && newT1 !== 'BYE') {
@@ -4659,13 +4669,21 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
                   }
                 }
 
+                // If editing the final round match of a completed tournament,
+                // reset tournament winner and status back to started
+                const isFinalRound = rIndex === bracket2.length - 1;
+                if (isFinalRound && changed && tournaments2[tIdx].status === 'completed') {
+                  tournaments2[tIdx].winner = null;
+                  tournaments2[tIdx].status = 'started';
+                }
+
                 saveTournaments(tournaments2);
 
                 // Push to backend
                 const patchRes = await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ bracket: bracket2, status: tournaments2[tIdx].status }),
+                  body: JSON.stringify({ bracket: bracket2, status: tournaments2[tIdx].status, winner: tournaments2[tIdx].winner || null }),
                 });
                 const patchData = await patchRes.json();
                 if (!patchData.ok) throw new Error('Backend save failed');
@@ -4743,8 +4761,9 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
             renderMatchChat(match.code, tournament.id, matchDiv, isAdmin);
           }
         }
-        roundDiv.appendChild(matchDiv);
+        matchGrid.appendChild(matchDiv);
       });
+      roundDiv.appendChild(matchGrid);
       bracketDiv.appendChild(roundDiv);
     });
     detail.appendChild(bracketHeading);

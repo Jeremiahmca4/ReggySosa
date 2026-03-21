@@ -1235,7 +1235,7 @@ button.edit:hover {
   padding: 2rem;
   color: var(--text);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tournament-detail::before {
@@ -1274,14 +1274,49 @@ button.edit:hover {
 /* ── Bracket ── */
 .bracket {
   display: flex;
-  gap: 1.5rem;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0.5rem 0;
+  width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
-  padding: 1rem 0;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 .round {
-  min-width: 200px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 220px;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0.75rem 0.75rem;
+}
+.round:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.round h4 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.round .match-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .round h4 {
@@ -1295,12 +1330,16 @@ button.edit:hover {
 }
 
 .match {
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.75rem;
-  margin-bottom: 0.6rem;
   transition: border-color var(--transition);
+  overflow: visible;
+  min-width: 0;
+  margin-bottom: 0.6rem;
 }
 
 .match:hover {
@@ -2846,4 +2885,11 @@ a {
   font-size: 0.8rem;
   margin-top: 0.4rem;
   min-height: 1.1em;
+}
+
+/* Bracket mobile — single column on small screens */
+@media (max-width: 600px) {
+  .round .match-grid {
+    grid-template-columns: 1fr;
+  }
 }
