@@ -13,6 +13,7 @@
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
+const DISCORD_INVITE = 'https://discord.gg/reggysosa';
 // Discord webhook localStorage keys — declared here so all functions can access them
 // regardless of call order (const inside a module block would cause TDZ errors)
 var WEBHOOK_KEYS = {
