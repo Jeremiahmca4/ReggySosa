@@ -2895,53 +2895,7 @@ function buildTeamPane(container) {
     });
     membersCard.appendChild(membersList);
 
-    // Invite section (captain only)
-    if (isCaptain) {
-      const inviteTitle = document.createElement('h3');
-      inviteTitle.style.cssText = 'margin:0 0 0.5rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:1rem;';
-      inviteTitle.textContent = 'Invite a Player';
-      membersCard.appendChild(inviteTitle);
 
-      const inviteRow = document.createElement('div');
-      inviteRow.style.cssText = 'display:flex;gap:0.5rem;';
-
-      const inviteInput = document.createElement('input');
-      inviteInput.type = 'email';
-      inviteInput.placeholder = "Player's email address";
-      inviteInput.style.cssText = 'flex:1;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:0.9rem;';
-
-      const inviteBtn = document.createElement('button');
-      inviteBtn.type = 'button';
-      inviteBtn.className = 'button';
-      inviteBtn.style.cssText = 'font-size:0.85rem;padding:0.5rem 1rem;white-space:nowrap;';
-      inviteBtn.textContent = 'Send Invite';
-
-      inviteBtn.addEventListener('click', () => {
-        const email = inviteInput.value.trim().toLowerCase();
-        if (!email) { inviteInput.focus(); return; }
-        inviteToTeam(team.id, email);
-        inviteInput.value = '';
-        buildTeamPane(container);
-      });
-
-      inviteRow.appendChild(inviteInput);
-      inviteRow.appendChild(inviteBtn);
-      membersCard.appendChild(inviteRow);
-
-      // Pending invites
-      if (team.invites && team.invites.length > 0) {
-        const pendingTitle = document.createElement('p');
-        pendingTitle.style.cssText = 'color:var(--text-muted);font-size:0.8rem;margin:0.75rem 0 0.25rem;';
-        pendingTitle.textContent = 'Pending invites:';
-        membersCard.appendChild(pendingTitle);
-        team.invites.forEach(inv => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;font-size:0.85rem;color:var(--text-muted);';
-          row.textContent = inv;
-          membersCard.appendChild(row);
-        });
-      }
-    }
 
     container.appendChild(membersCard);
   }
