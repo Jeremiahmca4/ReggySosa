@@ -230,28 +230,6 @@ async function syncTeamsFromBackend() {
         invites: Array.isArray(row.invites) ? row.invites : [],
       }));
       saveTeams(transformed);
-
-      // Fix: wire up teamId in the users array for the current logged-in user.
-      // Without this, getUserTeam() returns null on a fresh browser/device
-      // because the users array never gets populated from the backend.
-      const currentEmail = getCurrentUser();
-      if (currentEmail) {
-        // Find any team where this user is captain or a member
-        const myTeam = transformed.find((t) =>
-          t.captain === currentEmail ||
-          (Array.isArray(t.members) && t.members.includes(currentEmail))
-        );
-        if (myTeam) {
-          const users = loadUsers();
-          const existingIdx = users.findIndex((u) => u.email === currentEmail);
-          if (existingIdx !== -1) {
-            users[existingIdx].teamId = myTeam.id;
-          } else {
-            users.push({ email: currentEmail, teamId: myTeam.id });
-          }
-          saveUsers(users);
-        }
-      }
     }
   } catch (err) {
     console.error('Failed to sync teams from backend:', err);
@@ -334,11 +312,24 @@ function saveTeams(teams) {
 function getUserTeam() {
   const currentEmail = getCurrentUser();
   if (!currentEmail) return null;
+  const teams = loadTeams();
+
+  // First: check localStorage users array (legacy path)
   const users = loadUsers();
   const user = users.find((u) => u.email === currentEmail);
-  if (!user || !user.teamId) return null;
-  const teams = loadTeams();
-  return teams.find((t) => t.id === user.teamId) || null;
+  if (user && user.teamId) {
+    const t = teams.find((t) => t.id === user.teamId);
+    if (t) return t;
+  }
+
+  // Second: find a team where this user is the captain or a member
+  // This covers users who registered via Supabase and have no localStorage user record
+  const found = teams.find((t) => {
+    if (t.captain && t.captain.toLowerCase() === currentEmail.toLowerCase()) return true;
+    if (Array.isArray(t.members) && t.members.some(m => (m.email || m).toLowerCase() === currentEmail.toLowerCase())) return true;
+    return false;
+  });
+  return found || null;
 }
 
 // Set the teamId for a given user in the users array
@@ -1760,7 +1751,18 @@ async function checkDiscordGate(onConfirmed) {
 function registerTeamToTournament(tournamentId, teamId) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => t.id === tournamentId);
-  if (idx === -1) return;
+  if (idx === -1) {
+    console.warn("Tournament not in localStorage, firing backend registration directly.");
+    try {
+      fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId }),
+      }).catch(() => {});
+    } catch (err) { console.error("Failed to register team on backend:", err); }
+    alert("Team registered successfully.");
+    return;
+  }
   const tournament = tournaments[idx];
   if (tournament.status === 'started') {
     alert('This tournament has already started and cannot accept new teams.');
@@ -4690,9 +4692,22 @@ function renderTournamentDetails(id) {
         registerBtn.textContent = 'Register Your Team';
         registerBtn.className = 'button';
         registerBtn.style.marginTop = '1rem';
-        registerBtn.addEventListener('click', function () {
-          checkDiscordGate(function() {
-            registerTeamToTournament(tournament.id, currentTeam.id);
+        registerBtn.addEventListener('click', async function () {
+          checkDiscordGate(async function() {
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Registering...';
+            try {
+              registerTeamToTournament(tournament.id, currentTeam.id);
+              // Wait for backend sync so the re-render has fresh data
+              if (typeof syncTournamentsFromBackend === 'function') {
+                await syncTournamentsFromBackend().catch(() => {});
+              }
+              if (typeof syncTeamsFromBackend === 'function') {
+                await syncTeamsFromBackend().catch(() => {});
+              }
+            } catch(e) {
+              console.error('Registration error:', e);
+            }
             renderTournamentDetails(tournament.id);
           });
         });
