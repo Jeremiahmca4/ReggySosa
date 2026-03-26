@@ -13,7 +13,7 @@
 // Define the single admin email. Only this email is treated as admin.
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
-const DISCORD_INVITE = 'https://discord.gg/reggysosa';
+const DISCORD_INVITE = 'https://discord.gg/XkCWmNEz5z';
 // Discord webhook localStorage keys — declared here so all functions can access them
 // regardless of call order (const inside a module block would cause TDZ errors)
 var WEBHOOK_KEYS = {
@@ -1943,57 +1943,26 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
 
 // ── EMOJI AVATARS ─────────────────────────────────────────────────────────────
 const AVATARS = [
-  // Animals
-  { id: 'wolf',      label: 'Wolf',      emoji: '🐺' },
-  { id: 'bear',      label: 'Bear',      emoji: '🐻' },
-  { id: 'eagle',     label: 'Eagle',     emoji: '🦅' },
-  { id: 'shark',     label: 'Shark',     emoji: '🦈' },
-  { id: 'lion',      label: 'Lion',      emoji: '🦁' },
-  { id: 'fox',       label: 'Fox',       emoji: '🦊' },
-  { id: 'tiger',     label: 'Tiger',     emoji: '🐯' },
-  { id: 'dragon',    label: 'Dragon',    emoji: '🐉' },
-  { id: 'rhino',     label: 'Rhino',     emoji: '🦏' },
-  { id: 'bull',      label: 'Bull',      emoji: '🐂' },
-  { id: 'gorilla',   label: 'Gorilla',   emoji: '🦍' },
-  { id: 'panther',   label: 'Panther',   emoji: '🐆' },
-  { id: 'cobra',     label: 'Cobra',     emoji: '🐍' },
-  { id: 'croc',      label: 'Croc',      emoji: '🐊' },
-  { id: 'boar',      label: 'Boar',      emoji: '🐗' },
-  { id: 'ram',       label: 'Ram',       emoji: '🐏' },
-  { id: 'bat',       label: 'Bat',       emoji: '🦇' },
-  { id: 'octopus',   label: 'Octopus',   emoji: '🐙' },
-  { id: 'scorpion',  label: 'Scorpion',  emoji: '🦂' },
-  { id: 'wolverine', label: 'Wolverine', emoji: '🦡' },
-  { id: 'mammoth',   label: 'Mammoth',   emoji: '🦣' },
-  { id: 'bison',     label: 'Bison',     emoji: '🦬' },
-  { id: 'moose',     label: 'Moose',     emoji: '🫎' },
-  { id: 'penguin',   label: 'Penguin',   emoji: '🐧' },
-  { id: 'polar',     label: 'Polar Bear',emoji: '🐻‍❄️' },
-  // Hockey & Sports
-  { id: 'stick',     label: 'Stick',     emoji: '🏒' },
-  { id: 'net',       label: 'Net',       emoji: '🥅' },
-  { id: 'trophy',    label: 'Trophy',    emoji: '🏆' },
-  { id: 'thunder',   label: 'Thunder',   emoji: '⚡' },
-  { id: 'skull',     label: 'Skull',     emoji: '💀' },
-  { id: 'flame',     label: 'Flame',     emoji: '🔥' },
-  { id: 'ice',       label: 'Ice',       emoji: '❄️' },
-  { id: 'target',    label: 'Target',    emoji: '🎯' },
-  { id: 'crown',     label: 'Crown',     emoji: '👑' },
-  { id: 'shield',    label: 'Shield',    emoji: '🛡️' },
-  { id: 'sword',     label: 'Sword',     emoji: '⚔️' },
-  { id: 'bomb',      label: 'Bomb',      emoji: '💣' },
-  { id: 'rocket',    label: 'Rocket',    emoji: '🚀' },
-  { id: 'diamond',   label: 'Diamond',   emoji: '💎' },
-  { id: 'fist',      label: 'Fist',      emoji: '👊' },
-  { id: 'ghost',     label: 'Ghost',     emoji: '👻' },
-  { id: 'alien',     label: 'Alien',     emoji: '👾' },
-  { id: 'robot',     label: 'Robot',     emoji: '🤖' },
-  { id: 'demon',     label: 'Demon',     emoji: '😈' },
-  { id: 'medalmilitary', label: 'Medal', emoji: '🎖️' },
-  { id: 'comet',     label: 'Comet',     emoji: '☄️' },
-  { id: 'trident',   label: 'Trident',   emoji: '🔱' },
-  { id: 'tornado',   label: 'Tornado',   emoji: '🌪️' },
-  { id: 'lightning', label: 'Lightning', emoji: '🌩️' },
+  { id: 'wolf',     label: 'Wolf',     emoji: '🐺' },
+  { id: 'lion',     label: 'Lion',     emoji: '🦁' },
+  { id: 'eagle',    label: 'Eagle',    emoji: '🦅' },
+  { id: 'shark',    label: 'Shark',    emoji: '🦈' },
+  { id: 'tiger',    label: 'Tiger',    emoji: '🐯' },
+  { id: 'dragon',   label: 'Dragon',   emoji: '🐉' },
+  { id: 'bear',     label: 'Bear',     emoji: '🐻' },
+  { id: 'gorilla',  label: 'Gorilla',  emoji: '🦍' },
+  { id: 'cobra',    label: 'Cobra',    emoji: '🐍' },
+  { id: 'scorpion', label: 'Scorpion', emoji: '🦂' },
+  { id: 'skull',    label: 'Skull',    emoji: '💀' },
+  { id: 'flame',    label: 'Flame',    emoji: '🔥' },
+  { id: 'crown',    label: 'Crown',    emoji: '👑' },
+  { id: 'sword',    label: 'Sword',    emoji: '⚔️' },
+  { id: 'shield',   label: 'Shield',   emoji: '🛡️' },
+  { id: 'diamond',  label: 'Diamond',  emoji: '💎' },
+  { id: 'trophy',   label: 'Trophy',   emoji: '🏆' },
+  { id: 'stick',    label: 'Stick',    emoji: '🏒' },
+  { id: 'thunder',  label: 'Thunder',  emoji: '⚡' },
+  { id: 'demon',    label: 'Demon',    emoji: '😈' },
 ];
 
 
@@ -2609,28 +2578,46 @@ function buildProfileEditor() {
   if (!main) return;
   main.innerHTML = '';
 
-  // Top row: heading + View Team Page button
-  const topRow = document.createElement('div');
-  topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.5rem;';
-  const heading = document.createElement('h1');
-  heading.textContent = 'Team Profile';
-  heading.style.margin = '0';
-  topRow.appendChild(heading);
+  // ── Tab bar ──────────────────────────────────────────────────────────────
+  const tabBar = document.createElement('div');
+  tabBar.className = 'profile-tab-bar';
+  tabBar.style.cssText = 'display:flex;gap:0;border-bottom:2px solid var(--gold);margin-bottom:1.75rem;';
 
-  const viewTeamBtn = document.createElement('a');
-  viewTeamBtn.className = 'button';
-  viewTeamBtn.style.cssText = 'font-size:0.85rem;padding:0.5rem 1rem;text-decoration:none;';
-  viewTeamBtn.textContent = '👁 View Team Page';
-  viewTeamBtn.href = '#'; // updated after team loads
-  viewTeamBtn.id = 'view-team-page-btn';
-  topRow.appendChild(viewTeamBtn);
-  main.appendChild(topRow);
+  const tabs = [
+    { id: 'tab-profile', label: 'My Profile' },
+    { id: 'tab-team',    label: 'My Team' },
+  ];
 
-  const sub = document.createElement('p');
-  sub.style.color = 'var(--text-muted)';
-  sub.style.marginBottom = '1.5rem';
-  sub.textContent = 'Your profile is your team page. Set up your avatar, banner, and gamertag.';
-  main.appendChild(sub);
+  tabs.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = t.id;
+    btn.textContent = t.label;
+    btn.style.cssText = 'background:none;border:none;padding:0.65rem 1.5rem;font-family:Barlow Condensed,sans-serif;font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color 0.15s,border-color 0.15s;color:var(--text-muted);';
+    if (i === 0) {
+      btn.style.color = 'var(--gold)';
+      btn.style.borderBottomColor = 'var(--gold)';
+    }
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.profile-tab-btn').forEach(b => {
+        b.style.color = 'var(--text-muted)';
+        b.style.borderBottomColor = 'transparent';
+      });
+      btn.style.color = 'var(--gold)';
+      btn.style.borderBottomColor = 'var(--gold)';
+      document.querySelectorAll('.profile-tab-pane').forEach(p => p.style.display = 'none');
+      document.getElementById('pane-' + t.id.replace('tab-', '')).style.display = 'block';
+    });
+    btn.className = 'profile-tab-btn';
+    tabBar.appendChild(btn);
+  });
+  main.appendChild(tabBar);
+
+  // ── Profile pane ─────────────────────────────────────────────────────────
+  const profilePane = document.createElement('div');
+  profilePane.id = 'pane-profile';
+  profilePane.className = 'profile-tab-pane';
+  profilePane.style.display = 'block';
 
   // Banner preview
   const preview = document.createElement('div');
@@ -2641,17 +2628,16 @@ function buildProfileEditor() {
   previewAvatar.id = 'preview-avatar';
   previewAvatar.innerHTML = renderAvatarSVG('wolf', 64);
   preview.appendChild(previewAvatar);
-  main.appendChild(preview);
+  profilePane.appendChild(preview);
 
   const form = document.createElement('form');
   form.id = 'profile-form';
   form.className = 'auth-form profile-editor-form';
 
-  // Basic info section
+  // Basic info
   const infoSection = document.createElement('div');
   infoSection.className = 'profile-section';
   infoSection.innerHTML = '<h3 class="profile-section-title">Basic Info</h3>';
-
   ['Discord Handle:discord:Discord#1234', 'Gamertag:gamertag:Your Gamertag'].forEach(field => {
     const [label, id, placeholder] = field.split(':');
     const lbl = document.createElement('label');
@@ -2707,7 +2693,6 @@ function buildProfileEditor() {
     });
     colorRow.appendChild(swatch);
   });
-  // Also a hidden color input for the actual value
   const colorInput = document.createElement('input');
   colorInput.type = 'hidden';
   colorInput.id = 'profile-banner-color';
@@ -2716,7 +2701,7 @@ function buildProfileEditor() {
   bannerSection.appendChild(colorRow);
   form.appendChild(bannerSection);
 
-  // Avatar color picker
+  // Avatar color
   const avatarColorSection = document.createElement('div');
   avatarColorSection.className = 'profile-section';
   avatarColorSection.innerHTML = '<h3 class="profile-section-title">Avatar Color</h3>';
@@ -2733,7 +2718,6 @@ function buildProfileEditor() {
       document.querySelectorAll('.avatar-color-swatch').forEach(s => s.classList.remove('active'));
       swatch.classList.add('active');
       document.getElementById('profile-avatar-color').value = color;
-      // Update preview
       const sel = document.querySelector('.avatar-option.selected');
       const previewAv = document.getElementById('preview-avatar');
       if (previewAv && sel) previewAv.innerHTML = renderAvatarSVG(sel.dataset.avatar, 64, color);
@@ -2767,7 +2751,6 @@ function buildProfileEditor() {
       const currentColor = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
       const previewAv = document.getElementById('preview-avatar');
       if (previewAv) previewAv.innerHTML = renderAvatarSVG(av.id, 64, currentColor);
-      // Refresh all option backgrounds to current color
       document.querySelectorAll('.avatar-option').forEach(o => {
         const c = document.getElementById('profile-avatar-color')?.value || '#1a1a2e';
         o.innerHTML = renderAvatarSVG(o.dataset.avatar, 44, c);
@@ -2789,7 +2772,179 @@ function buildProfileEditor() {
     await handleProfileSave();
   });
 
-  main.appendChild(form);
+  profilePane.appendChild(form);
+  main.appendChild(profilePane);
+
+  // ── My Team pane ──────────────────────────────────────────────────────────
+  const teamPane = document.createElement('div');
+  teamPane.id = 'pane-team';
+  teamPane.className = 'profile-tab-pane';
+  teamPane.style.display = 'none';
+
+  buildTeamPane(teamPane);
+  main.appendChild(teamPane);
+}
+
+// ── Build the My Team pane content ────────────────────────────────────────────
+function buildTeamPane(container) {
+  container.innerHTML = '';
+  const currentEmail = getCurrentUser();
+
+  if (!currentEmail) {
+    const msg = document.createElement('p');
+    msg.style.color = 'var(--text-muted)';
+    msg.textContent = 'Please log in to manage your team.';
+    container.appendChild(msg);
+    return;
+  }
+
+  const team = getUserTeam();
+
+  if (!team) {
+    // ── No team yet — show create form ──────────────────────────────────────
+    const heading = document.createElement('h2');
+    heading.textContent = 'Create Your Team';
+    heading.style.marginBottom = '0.25rem';
+    container.appendChild(heading);
+
+    const sub = document.createElement('p');
+    sub.style.cssText = 'color:var(--text-muted);margin-bottom:1.5rem;font-size:0.95rem;';
+    sub.textContent = 'Create a team to register for tournaments. You can only be on one team at a time.';
+    container.appendChild(sub);
+
+    const card = document.createElement('div');
+    card.className = 'rule-card';
+    card.style.maxWidth = '480px';
+
+    const nameLabel = document.createElement('label');
+    nameLabel.style.cssText = 'display:block;font-weight:700;margin-bottom:0.5rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:0.9rem;color:var(--text-muted);';
+    nameLabel.textContent = 'Team Name';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = 'e.g. Tim Packs HC';
+    nameInput.style.cssText = 'width:100%;padding:0.6rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:1rem;margin-bottom:1rem;box-sizing:border-box;';
+
+    const createBtn = document.createElement('button');
+    createBtn.type = 'button';
+    createBtn.className = 'button';
+    createBtn.style.cssText = 'width:100%;';
+    createBtn.textContent = 'Create Team';
+
+    createBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); return; }
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creating...';
+      const result = createTeam(name);
+      if (result) {
+        if (typeof syncTeamsFromBackend === 'function') {
+          await syncTeamsFromBackend().catch(() => {});
+        }
+        buildTeamPane(container);
+      } else {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Team';
+      }
+    });
+
+    card.appendChild(nameLabel);
+    card.appendChild(nameInput);
+    card.appendChild(createBtn);
+    container.appendChild(card);
+
+  } else {
+    // ── Has a team — show team details ──────────────────────────────────────
+    const isCaptain = team.captain === currentEmail;
+
+    const heading = document.createElement('h2');
+    heading.style.marginBottom = '0.25rem';
+    heading.textContent = team.name;
+    container.appendChild(heading);
+
+    const role = document.createElement('p');
+    role.style.cssText = 'color:var(--gold);font-family:Barlow Condensed,sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;font-size:0.85rem;margin-bottom:1.5rem;';
+    role.textContent = isCaptain ? '⭐ Captain' : 'Member';
+    container.appendChild(role);
+
+    // View team page button
+    const viewBtn = document.createElement('a');
+    viewBtn.className = 'button';
+    viewBtn.style.cssText = 'display:inline-block;text-decoration:none;margin-bottom:1.5rem;font-size:0.85rem;padding:0.5rem 1rem;';
+    viewBtn.textContent = '👁 View Team Page';
+    viewBtn.href = `team.html?id=${team.id}`;
+    container.appendChild(viewBtn);
+
+    // Members card
+    const membersCard = document.createElement('div');
+    membersCard.className = 'rule-card';
+    membersCard.style.maxWidth = '480px';
+
+    const membersTitle = document.createElement('h3');
+    membersTitle.style.cssText = 'margin:0 0 0.75rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:1rem;';
+    membersTitle.textContent = 'Members';
+    membersCard.appendChild(membersTitle);
+
+    const membersList = document.createElement('ul');
+    membersList.style.cssText = 'list-style:none;padding:0;margin:0 0 1rem;';
+    (team.members || []).forEach(m => {
+      const li = document.createElement('li');
+      li.style.cssText = 'padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.95rem;';
+      li.textContent = m + (m === team.captain ? ' ⭐' : '');
+      membersList.appendChild(li);
+    });
+    membersCard.appendChild(membersList);
+
+    // Invite section (captain only)
+    if (isCaptain) {
+      const inviteTitle = document.createElement('h3');
+      inviteTitle.style.cssText = 'margin:0 0 0.5rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:1rem;';
+      inviteTitle.textContent = 'Invite a Player';
+      membersCard.appendChild(inviteTitle);
+
+      const inviteRow = document.createElement('div');
+      inviteRow.style.cssText = 'display:flex;gap:0.5rem;';
+
+      const inviteInput = document.createElement('input');
+      inviteInput.type = 'email';
+      inviteInput.placeholder = "Player's email address";
+      inviteInput.style.cssText = 'flex:1;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:0.9rem;';
+
+      const inviteBtn = document.createElement('button');
+      inviteBtn.type = 'button';
+      inviteBtn.className = 'button';
+      inviteBtn.style.cssText = 'font-size:0.85rem;padding:0.5rem 1rem;white-space:nowrap;';
+      inviteBtn.textContent = 'Send Invite';
+
+      inviteBtn.addEventListener('click', () => {
+        const email = inviteInput.value.trim().toLowerCase();
+        if (!email) { inviteInput.focus(); return; }
+        inviteToTeam(team.id, email);
+        inviteInput.value = '';
+        buildTeamPane(container);
+      });
+
+      inviteRow.appendChild(inviteInput);
+      inviteRow.appendChild(inviteBtn);
+      membersCard.appendChild(inviteRow);
+
+      // Pending invites
+      if (team.invites && team.invites.length > 0) {
+        const pendingTitle = document.createElement('p');
+        pendingTitle.style.cssText = 'color:var(--text-muted);font-size:0.8rem;margin:0.75rem 0 0.25rem;';
+        pendingTitle.textContent = 'Pending invites:';
+        membersCard.appendChild(pendingTitle);
+        team.invites.forEach(inv => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;font-size:0.85rem;color:var(--text-muted);';
+          row.textContent = inv;
+          membersCard.appendChild(row);
+        });
+      }
+    }
+
+    container.appendChild(membersCard);
+  }
 }
 
 // ── TEAM SEARCH ──────────────────────────────────────────────────────────────
