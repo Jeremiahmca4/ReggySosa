@@ -230,6 +230,28 @@ async function syncTeamsFromBackend() {
         invites: Array.isArray(row.invites) ? row.invites : [],
       }));
       saveTeams(transformed);
+
+      // Fix: wire up teamId in the users array for the current logged-in user.
+      // Without this, getUserTeam() returns null on a fresh browser/device
+      // because the users array never gets populated from the backend.
+      const currentEmail = getCurrentUser();
+      if (currentEmail) {
+        // Find any team where this user is captain or a member
+        const myTeam = transformed.find((t) =>
+          t.captain === currentEmail ||
+          (Array.isArray(t.members) && t.members.includes(currentEmail))
+        );
+        if (myTeam) {
+          const users = loadUsers();
+          const existingIdx = users.findIndex((u) => u.email === currentEmail);
+          if (existingIdx !== -1) {
+            users[existingIdx].teamId = myTeam.id;
+          } else {
+            users.push({ email: currentEmail, teamId: myTeam.id });
+          }
+          saveUsers(users);
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to sync teams from backend:', err);
