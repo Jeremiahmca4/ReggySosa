@@ -791,6 +791,13 @@ function renderTournaments() {
     if (startP) {
       card.appendChild(startP);
     }
+    // Goalie required badge
+    if (t.goalieRequired) {
+      const goalieBadge = document.createElement('p');
+      goalieBadge.style.cssText = 'color:var(--gold);font-size:0.8rem;font-weight:600;margin-top:0.25rem;';
+      goalieBadge.textContent = '🥅 Goalie Required';
+      card.appendChild(goalieBadge);
+    }
     card.appendChild(link);
     listEl.appendChild(card);
   });
@@ -1507,7 +1514,7 @@ function createTournamentFromForm() {
   tournaments.push(newTournament);
   saveTournaments(tournaments);
   // Fire Discord webhook — new tournament announced
-  try { announceTournamentCreated(name, newTournament.startDate, maxVal); }
+  try { announceTournamentCreated(name, newTournament.startDate, maxVal, goalieRequired); }
   catch(e) { console.warn('[Webhook] Tournament created error:', e); }
   // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
   // any network errors will be logged to the console. The backend expects
@@ -3592,24 +3599,24 @@ function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail)
 }
 
 // 4. Team registered → #registrations
-function announceTournamentCreated(tournamentName, startDate, maxTeams) {
+function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRequired) {
   var dateStr = 'TBD';
   if (startDate) {
-    // Parse as local date by appending T00:00:00 — avoids UTC-to-local shift
-    // that causes YYYY-MM-DD strings to show one day behind in US timezones
     var parts = startDate.split('-');
     var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     dateStr = localDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
+  var fields = [
+    { name: 'Tournament', value: tournamentName || 'Unknown', inline: false },
+    { name: 'Start Date', value: dateStr,                     inline: true  },
+    { name: 'Max Teams',  value: String(maxTeams || '?'),     inline: true  },
+    { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No', inline: false },
+  ];
   sendToWebhook('created', [{
     title: '🏆 New Tournament — Registration Open!',
     description: 'A new tournament has been created. Sign up now before spots fill up!',
     color: 0xffc72c,
-    fields: [
-      { name: 'Tournament', value: tournamentName || 'Unknown', inline: false },
-      { name: 'Start Date', value: dateStr,                     inline: true  },
-      { name: 'Max Teams',  value: String(maxTeams || '?'),     inline: true  },
-    ],
+    fields: fields,
     footer: { text: 'Head to reggysosa.com/tournaments.html to register' },
     timestamp: new Date().toISOString(),
   }]);
@@ -5053,6 +5060,15 @@ function renderTournamentDetails(id) {
     const maxCount = tournament.maxTeams || null;
     const currentCount = tournament.teams ? tournament.teams.length : 0;
     const currentTeam = getUserTeam();
+
+    // Show goalie required notice if applicable
+    if (tournament.goalieRequired) {
+      const goalieNotice = document.createElement('div');
+      goalieNotice.style.cssText = 'background:rgba(255,199,44,0.1);border:1px solid var(--gold);border-radius:var(--radius-sm);padding:0.6rem 0.9rem;margin-bottom:1rem;font-size:0.88rem;color:var(--gold);font-weight:600;display:flex;align-items:center;gap:0.5rem;';
+      goalieNotice.innerHTML = '🥅 <span>Goalie Required — your team must have a goalie to compete in this tournament.</span>';
+      detail.appendChild(goalieNotice);
+    }
+
     // If tournament is full
     if (maxCount && currentCount >= maxCount) {
       const fullMsg = document.createElement('p');
