@@ -1890,23 +1890,26 @@ function removeTeamFromTournament(tournamentId, teamId) {
     tournament.teams = tournament.teams.filter((team) => team.id !== teamId);
   }
 
-  // If tournament has started, also scrub the team from the bracket
-  // Replace any bracket slot containing this team with BYE
+  // If tournament has started, scrub the team from ALL bracket slots
+  // Use case-insensitive match to handle manual edits via Edit Match panel
   if (tournament.status === 'started' && teamName && Array.isArray(tournament.bracket)) {
+    const nameLower = teamName.toLowerCase().trim();
     tournament.bracket.forEach(function(round) {
       round.forEach(function(match) {
-        if (match.team1 === teamName) {
+        const t1Lower = (match.team1 || '').toLowerCase().trim();
+        const t2Lower = (match.team2 || '').toLowerCase().trim();
+        const winLower = (match.winner || '').toLowerCase().trim();
+        if (t1Lower === nameLower) {
           match.team1 = 'BYE';
           match.winner = null;
           match.code = generateCode(null);
         }
-        if (match.team2 === teamName) {
+        if (t2Lower === nameLower) {
           match.team2 = 'BYE';
           match.winner = null;
           match.code = generateCode(null);
         }
-        // If the removed team had already won and propagated, clear that too
-        if (match.winner === teamName) {
+        if (winLower === nameLower) {
           match.winner = null;
         }
       });
@@ -5123,6 +5126,99 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
           });
 
           matchDiv.appendChild(editMatchBtn);
+
+          // ── Advance button (marks match as advanced, no score, no cascade) ─
+          if (!match.winner && !match.advanced) {
+            const advRow = document.createElement('div');
+            advRow.style.cssText = 'display:flex;gap:0.4rem;margin-top:0.35rem;flex-wrap:wrap;';
+
+            if (match.team1 && match.team1 !== 'BYE' && match.team1 !== 'TBD') {
+              const advBtn1 = document.createElement('button');
+              advBtn1.className = 'button';
+              advBtn1.textContent = '⏭ Advance ' + match.team1;
+              advBtn1.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;background:transparent;border-color:rgba(255,199,44,0.35);color:var(--text-muted);';
+              advBtn1.addEventListener('click', async function() {
+                if (!confirm('Mark "' + match.team1 + '" as advanced (no score recorded)?')) return;
+                let t2 = loadTournaments();
+                const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
+                if (tIdx === -1) return;
+                t2[tIdx].bracket[rIndex][mIndex].advanced = match.team1;
+                t2[tIdx].bracket[rIndex][mIndex].winner = null;
+                saveTournaments(t2);
+                try {
+                  await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                  });
+                } catch(e) { console.error('Advance save error:', e); }
+                renderTournamentDetails(tournament.id);
+              });
+              advRow.appendChild(advBtn1);
+            }
+
+            if (match.team2 && match.team2 !== 'BYE' && match.team2 !== 'TBD') {
+              const advBtn2 = document.createElement('button');
+              advBtn2.className = 'button';
+              advBtn2.textContent = '⏭ Advance ' + match.team2;
+              advBtn2.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;background:transparent;border-color:rgba(255,199,44,0.35);color:var(--text-muted);';
+              advBtn2.addEventListener('click', async function() {
+                if (!confirm('Mark "' + match.team2 + '" as advanced (no score recorded)?')) return;
+                let t2 = loadTournaments();
+                const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
+                if (tIdx === -1) return;
+                t2[tIdx].bracket[rIndex][mIndex].advanced = match.team2;
+                t2[tIdx].bracket[rIndex][mIndex].winner = null;
+                saveTournaments(t2);
+                try {
+                  await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                  });
+                } catch(e) { console.error('Advance save error:', e); }
+                renderTournamentDetails(tournament.id);
+              });
+              advRow.appendChild(advBtn2);
+            }
+
+            // ── Clear match button ──────────────────────────────────────────
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'button delete';
+            clearBtn.textContent = '✖ Clear Match';
+            clearBtn.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;';
+            clearBtn.addEventListener('click', async function() {
+              if (!confirm('Clear this match? Both slots will be set to TBD. Later rounds will NOT be affected.')) return;
+              let t2 = loadTournaments();
+              const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
+              if (tIdx === -1) return;
+              const m = t2[tIdx].bracket[rIndex][mIndex];
+              m.team1 = 'TBD';
+              m.team2 = 'TBD';
+              m.winner = null;
+              m.advanced = null;
+              m.code = generateCode(null);
+              saveTournaments(t2);
+              try {
+                await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                });
+              } catch(e) { console.error('Clear match save error:', e); }
+              renderTournamentDetails(tournament.id);
+            });
+            advRow.appendChild(clearBtn);
+            matchDiv.appendChild(advRow);
+          }
+
+          // Show advanced label if match was advanced
+          if (match.advanced) {
+            const advLabel = document.createElement('p');
+            advLabel.style.cssText = 'color:var(--gold);font-size:0.78rem;margin-top:0.3rem;font-style:italic;';
+            advLabel.textContent = '⏭ Advanced: ' + match.advanced + ' (no score)';
+            matchDiv.appendChild(advLabel);
+          }
         }
         // Score submission — show for captains in this match (not admin, no winner yet)
         if (
