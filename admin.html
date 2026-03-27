@@ -178,6 +178,8 @@
       }
       ensureAdminAccess();
       if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
+      if (typeof initGlobalRealtime === 'function') initGlobalRealtime();
 
       const navItems = document.querySelectorAll('.admin-nav-item');
       const tabs = document.querySelectorAll('.admin-tab');

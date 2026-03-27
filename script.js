@@ -614,6 +614,109 @@ async function handleRegister() {
   window.location.href = 'profile.html';
 }
 
+// ── Global real-time: listen to Supabase and re-render on any change ─────────
+// This runs once per page load and keeps every user's view in sync with the DB.
+function initGlobalRealtime() {
+  if (!supabaseClient) return;
+
+  // Helper: re-render whichever sections are visible on the current page
+  async function onTournamentsChange() {
+    try {
+      await syncTournamentsFromBackend();
+    } catch(e) { /* ignore */ }
+
+    // Tournaments page
+    if (typeof renderActiveTournaments === 'function' && document.getElementById('active-tab')) {
+      renderActiveTournaments();
+    }
+    if (typeof renderUpcomingTournaments === 'function' && document.getElementById('upcoming-tab')) {
+      renderUpcomingTournaments();
+    }
+    if (typeof renderPastChampionsTab === 'function' && document.getElementById('past-tab')) {
+      renderPastChampionsTab();
+    }
+    // Admin page
+    if (typeof renderAdminTournaments === 'function' && document.getElementById('admin-tournament-list')) {
+      renderAdminTournaments();
+    }
+    // Tournament detail page — re-render if open
+    const urlParams = new URLSearchParams(window.location.search);
+    const tid = urlParams.get('id');
+    if (tid && typeof renderTournamentDetails === 'function') {
+      renderTournamentDetails(tid);
+    }
+    // Index page past winners
+    if (typeof renderPastWinners === 'function' && document.getElementById('past-winners-section')) {
+      renderPastWinners();
+    }
+  }
+
+  async function onTeamsChange() {
+    try {
+      await syncTeamsFromBackend();
+    } catch(e) { /* ignore */ }
+    if (typeof renderAdminTeams === 'function' && document.getElementById('admin-teams-table-body')) {
+      renderAdminTeams();
+    }
+  }
+
+  async function onScoresChange() {
+    if (typeof renderPendingScores === 'function' && document.getElementById('pending-scores-container')) {
+      renderPendingScores();
+    }
+  }
+
+  async function onProfilesChange() {
+    if (typeof renderAdminUsers === 'function' && document.getElementById('admin-users-table-body')) {
+      renderAdminUsers();
+    }
+  }
+
+  // Subscribe to tournaments table
+  supabaseClient
+    .channel('global-tournaments')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, function() {
+      onTournamentsChange();
+    })
+    .subscribe();
+
+  // Subscribe to tournament_registrations table
+  supabaseClient
+    .channel('global-registrations')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, function() {
+      onTournamentsChange();
+    })
+    .subscribe();
+
+  // Subscribe to score_submissions table
+  supabaseClient
+    .channel('global-scores')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'score_submissions' }, function() {
+      onScoresChange();
+    })
+    .subscribe();
+
+  // Subscribe to teams table
+  supabaseClient
+    .channel('global-teams')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, function() {
+      onTeamsChange();
+    })
+    .subscribe();
+
+  // Subscribe to profiles table
+  supabaseClient
+    .channel('global-profiles')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, function() {
+      onProfilesChange();
+    })
+    .subscribe();
+
+  console.log('[Realtime] Global subscriptions active');
+}
+
+
+
 async function handleLogin() {
   ensureDefaultAdmin();
   const email = document.getElementById('login-email').value.trim().toLowerCase();
@@ -4598,18 +4701,16 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
 // Only shown when the current user is in an active match in the tournament being viewed.
 // Call this after bracket is rendered.
 async function initFloatingChat(tournament) {
-  // Clean up any existing panel
-  const existingPanel = document.getElementById('floating-chat-panel');
-  const existingBtn = document.getElementById('floating-chat-btn');
-  if (existingPanel) existingPanel.remove();
-  if (existingBtn) existingBtn.remove();
+  // Clean up any existing chat UI
+  document.getElementById('floating-chat-bar')?.remove();
+  document.getElementById('floating-chat-panel')?.remove();
+  document.getElementById('floating-chat-overlay')?.remove();
 
   if (!tournament || tournament.status !== 'started') return;
-
   const email = getCurrentUser();
   if (!email) return;
 
-  // Find which match(es) the user is in
+  // Find active matches the user is in
   const myMatches = [];
   if (Array.isArray(tournament.bracket)) {
     tournament.bracket.forEach(function(round, rIdx) {
@@ -4622,84 +4723,130 @@ async function initFloatingChat(tournament) {
       });
     });
   }
+  if (myMatches.length === 0) return;
 
-  if (myMatches.length === 0) return; // not in any active match
-
-  // ── Build the floating button ─────────────────────────────────────────────
-  const btn = document.createElement('button');
-  btn.id = 'floating-chat-btn';
-  btn.title = 'Open match chat';
-  btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-  btn.style.cssText = [
+  // ── Build the chat bar (prominent, hard to miss) ──────────────────────────
+  const bar = document.createElement('div');
+  bar.id = 'floating-chat-bar';
+  bar.style.cssText = [
     'position:fixed',
-    'right:18px',
-    'bottom:calc(72px + env(safe-area-inset-bottom))',
+    'left:0',
+    'right:0',
+    'bottom:calc(56px + env(safe-area-inset-bottom))',
     'z-index:1200',
-    'width:52px',
-    'height:52px',
-    'border-radius:50%',
     'background:var(--gold)',
     'color:#000',
-    'border:none',
-    'cursor:pointer',
     'display:flex',
     'align-items:center',
     'justify-content:center',
-    'box-shadow:0 4px 16px rgba(255,199,44,0.4)',
-    'transition:transform 0.15s',
+    'gap:0.6rem',
+    'padding:0.75rem 1.25rem',
+    'cursor:pointer',
+    'font-family:Barlow Condensed,sans-serif',
+    'font-weight:800',
+    'font-size:1rem',
+    'text-transform:uppercase',
+    'letter-spacing:0.08em',
+    'box-shadow:0 -2px 12px rgba(255,199,44,0.35)',
+    'transition:filter 0.15s',
+    'user-select:none',
+    '-webkit-tap-highlight-color:transparent',
   ].join(';');
+  bar.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
+    '<span>💬 Match Chat — Tap to Open</span>' +
+    '<span id="floating-chat-unread" style="background:#000;color:var(--gold);border-radius:999px;padding:0.1rem 0.5rem;font-size:0.75rem;display:none;">0</span>';
 
-  // Unread dot
-  const dot = document.createElement('span');
-  dot.id = 'floating-chat-dot';
-  dot.style.cssText = 'position:absolute;top:3px;right:3px;width:10px;height:10px;background:#ff4444;border-radius:50%;display:none;border:2px solid var(--bg);';
-  btn.appendChild(dot);
-  document.body.appendChild(btn);
+  document.body.appendChild(bar);
 
-  // ── Build the slide-in panel ──────────────────────────────────────────────
+  // On desktop: push bar above bottom of screen (no tab bar)
+  function adjustBarPosition() {
+    const isMobile = window.innerWidth <= 768;
+    bar.style.bottom = isMobile
+      ? 'calc(56px + env(safe-area-inset-bottom))'
+      : '0px';
+  }
+  adjustBarPosition();
+  window.addEventListener('resize', adjustBarPosition);
+
+  // ── Build the slide-up/slide-in panel ─────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.id = 'floating-chat-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1299;display:none;';
+  document.body.appendChild(overlay);
+
   const panel = document.createElement('div');
   panel.id = 'floating-chat-panel';
   panel.style.cssText = [
     'position:fixed',
-    'right:0',
-    'bottom:0',
-    'top:0',
-    'width:min(340px, 100vw)',
+    'z-index:1300',
     'background:var(--card)',
-    'border-left:1px solid var(--border)',
-    'z-index:1100',
     'display:flex',
     'flex-direction:column',
-    'transform:translateX(100%)',
-    'transition:transform 0.25s ease',
-    'box-shadow:-4px 0 24px rgba(0,0,0,0.4)',
+    'transition:transform 0.28s cubic-bezier(0.32,0.72,0,1)',
+    // Mobile: full-width sheet from bottom
+    'left:0',
+    'right:0',
+    'bottom:0',
+    'top:auto',
+    'height:85vh',
+    'border-radius:20px 20px 0 0',
+    'border-top:1px solid var(--border)',
+    'transform:translateY(100%)',
+    'box-shadow:0 -8px 32px rgba(0,0,0,0.4)',
   ].join(';');
+
+  // Adjust for desktop
+  function adjustPanel() {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      panel.style.left = '0';
+      panel.style.right = '0';
+      panel.style.top = 'auto';
+      panel.style.bottom = '0';
+      panel.style.width = 'auto';
+      panel.style.height = '85vh';
+      panel.style.borderRadius = '20px 20px 0 0';
+      panel.style.transform = isOpen ? 'translateY(0)' : 'translateY(100%)';
+    } else {
+      panel.style.left = 'auto';
+      panel.style.right = '0';
+      panel.style.top = '0';
+      panel.style.bottom = '0';
+      panel.style.width = 'min(380px, 100vw)';
+      panel.style.height = 'auto';
+      panel.style.borderRadius = '0';
+      panel.style.transform = isOpen ? 'translateX(0)' : 'translateX(100%)';
+    }
+  }
+
+  // Panel drag handle (mobile)
+  const handle = document.createElement('div');
+  handle.style.cssText = 'width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;flex-shrink:0;';
+  panel.appendChild(handle);
 
   // Panel header
   const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;';
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;';
   const headerTitle = document.createElement('span');
-  headerTitle.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);';
+  headerTitle.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1.15rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);';
   headerTitle.textContent = '💬 Match Chat';
   const closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '✕';
-  closeBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:0.25rem;';
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:0.25rem 0.5rem;line-height:1;';
   header.appendChild(headerTitle);
   header.appendChild(closeBtn);
   panel.appendChild(header);
 
-  // If multiple matches, show tabs
+  // Tabs if multiple matches
   let activeMatchIndex = 0;
-  const chatArea = document.createElement('div');
-  chatArea.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
-
   if (myMatches.length > 1) {
     const tabRow = document.createElement('div');
     tabRow.style.cssText = 'display:flex;border-bottom:1px solid var(--border);flex-shrink:0;';
     myMatches.forEach(function(m, i) {
       const tab = document.createElement('button');
-      tab.textContent = 'R' + (m.rIdx + 1) + ' M' + (m.mIdx + 1);
-      tab.style.cssText = 'flex:1;padding:0.5rem;background:none;border:none;border-bottom:2px solid ' + (i === 0 ? 'var(--gold)' : 'transparent') + ';color:' + (i === 0 ? 'var(--gold)' : 'var(--text-muted)') + ';font-size:0.8rem;cursor:pointer;';
+      tab.textContent = 'Round ' + (m.rIdx + 1);
+      tab.style.cssText = 'flex:1;padding:0.6rem;background:none;border:none;border-bottom:2px solid ' + (i === 0 ? 'var(--gold)' : 'transparent') + ';color:' + (i === 0 ? 'var(--gold)' : 'var(--text-muted)') + ';font-family:Barlow Condensed,sans-serif;font-weight:700;font-size:0.9rem;text-transform:uppercase;cursor:pointer;';
       tab.addEventListener('click', function() {
         activeMatchIndex = i;
         tabRow.querySelectorAll('button').forEach(function(b, bi) {
@@ -4713,29 +4860,32 @@ async function initFloatingChat(tournament) {
     panel.appendChild(tabRow);
   }
 
+  // Chat area (takes remaining space)
+  const chatArea = document.createElement('div');
+  chatArea.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;';
   panel.appendChild(chatArea);
+
   document.body.appendChild(panel);
 
-  // Load chat into panel
+  // Load chat for a match
   async function loadChatForMatch(matchEntry) {
     chatArea.innerHTML = '';
 
-    // Match code display
+    // Match code bar
     const codeBar = document.createElement('div');
-    codeBar.style.cssText = 'padding:0.6rem 1.25rem;background:rgba(255,199,44,0.08);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;';
+    codeBar.style.cssText = 'padding:0.55rem 1.25rem;background:rgba(255,199,44,0.1);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:0.75rem;';
     const codeLabel = document.createElement('span');
-    codeLabel.style.cssText = 'font-size:0.78rem;color:var(--text-muted);';
+    codeLabel.style.cssText = 'font-size:0.78rem;color:var(--text-muted);white-space:nowrap;';
     codeLabel.textContent = 'Match Code:';
     const codeVal = document.createElement('strong');
-    codeVal.style.cssText = 'font-family:monospace;font-size:1rem;color:var(--gold);letter-spacing:0.08em;';
+    codeVal.style.cssText = 'font-family:monospace;font-size:1.05rem;color:var(--gold);letter-spacing:0.1em;flex:1;';
     codeVal.textContent = matchEntry.match.code;
-    // Copy button
     const copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 Copy';
-    copyBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--text-muted);font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:var(--radius-sm);cursor:pointer;';
+    copyBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--text-muted);font-size:0.72rem;padding:0.2rem 0.55rem;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;flex-shrink:0;';
     copyBtn.addEventListener('click', function() {
       navigator.clipboard.writeText(matchEntry.match.code).then(function() {
-        copyBtn.textContent = '✅ Copied';
+        copyBtn.textContent = '✅ Copied!';
         setTimeout(function() { copyBtn.textContent = '📋 Copy'; }, 2000);
       });
     });
@@ -4746,54 +4896,56 @@ async function initFloatingChat(tournament) {
 
     // Matchup label
     const matchupBar = document.createElement('div');
-    matchupBar.style.cssText = 'padding:0.4rem 1.25rem;font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0;';
+    matchupBar.style.cssText = 'padding:0.35rem 1.25rem;font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0;';
     matchupBar.textContent = matchEntry.match.team1 + ' vs ' + matchEntry.match.team2;
     chatArea.appendChild(matchupBar);
 
-    // Chat wrapper - takes remaining space
+    // Chat container
     const chatContainer = document.createElement('div');
-    chatContainer.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
+    chatContainer.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;';
     chatArea.appendChild(chatContainer);
 
     await renderMatchChat(matchEntry.match.code, tournament.id, chatContainer, false);
 
-    // Override chat wrapper height to fill panel
+    // Style the chat wrapper to fill panel
     const chatWrapper = chatContainer.querySelector('.match-chat');
     if (chatWrapper) {
-      chatWrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;height:100%;padding:0;border:none;background:none;';
+      chatWrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;height:100%;padding:0;border:none;background:none;border-radius:0;min-height:0;';
       const msgs = chatWrapper.querySelector('.chat-messages');
-      if (msgs) msgs.style.cssText = 'flex:1;overflow-y:auto;padding:0.75rem 1.25rem;display:flex;flex-direction:column;gap:0.4rem;';
+      if (msgs) msgs.style.cssText = 'flex:1;overflow-y:auto;padding:0.75rem 1.25rem;display:flex;flex-direction:column;gap:0.4rem;-webkit-overflow-scrolling:touch;';
       const inputRow = chatWrapper.querySelector('.chat-input-row');
-      if (inputRow) inputRow.style.cssText = 'padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0;';
+      if (inputRow) {
+        inputRow.style.cssText = 'padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0;padding-bottom:calc(0.75rem + env(safe-area-inset-bottom));';
+      }
       const titleEl = chatWrapper.querySelector('.chat-title');
-      if (titleEl) titleEl.remove(); // already shown in panel header
+      if (titleEl) titleEl.remove();
     }
   }
 
-  // Open/close toggle
+  // Open / close
   let isOpen = false;
   function openPanel() {
     isOpen = true;
-    panel.style.transform = 'translateX(0)';
-    btn.style.transform = 'scale(0.9)';
-    dot.style.display = 'none';
+    overlay.style.display = 'block';
+    adjustPanel();
+    bar.style.filter = 'brightness(0.85)';
     loadChatForMatch(myMatches[activeMatchIndex]);
   }
   function closePanel() {
     isOpen = false;
-    panel.style.transform = 'translateX(100%)';
-    btn.style.transform = 'scale(1)';
+    const isMobile = window.innerWidth <= 768;
+    panel.style.transform = isMobile ? 'translateY(100%)' : 'translateX(100%)';
+    overlay.style.display = 'none';
+    bar.style.filter = 'brightness(1)';
   }
 
-  btn.addEventListener('click', function() { isOpen ? closePanel() : openPanel(); });
-  closeBtn.addEventListener('click', closePanel);
+  window.addEventListener('resize', function() {
+    if (isOpen) adjustPanel();
+  });
 
-  // Close on outside click
-  document.addEventListener('click', function(e) {
-    if (isOpen && !panel.contains(e.target) && e.target !== btn) {
-      closePanel();
-    }
-  }, { capture: false });
+  bar.addEventListener('click', function() { isOpen ? closePanel() : openPanel(); });
+  closeBtn.addEventListener('click', closePanel);
+  overlay.addEventListener('click', closePanel);
 }
 
 // ── Admin: view all active match chats ──────────────────────────────────────

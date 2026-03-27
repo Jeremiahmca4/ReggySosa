@@ -211,6 +211,7 @@
       if (typeof syncSession === 'function') await syncSession();
       populateAuthLinks();
       if (typeof syncTournamentsFromBackend === 'function') await syncTournamentsFromBackend();
+      if (typeof initGlobalRealtime === 'function') initGlobalRealtime();
       if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
       if (typeof renderNextTournament === 'function') renderNextTournament();
     });

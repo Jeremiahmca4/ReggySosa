@@ -169,6 +169,10 @@
       if (typeof syncTeamsFromBackend === 'function') {
         await syncTeamsFromBackend();
       }
+      // Start global real-time subscriptions
+      if (typeof initGlobalRealtime === 'function') {
+        initGlobalRealtime();
+      }
       // Render user team section
       renderUserTeam();
       // Render initial tab content
