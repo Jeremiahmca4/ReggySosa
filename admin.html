@@ -49,6 +49,14 @@
         <label>Maximum number of teams:<input type="number" id="tournament-max-teams" min="2" required /></label>
         <label>Start date:<input type="date" id="tournament-start-date" required /></label>
         <label>Password (optional — leave blank for open):<input type="text" id="tournament-password" placeholder="Leave blank for public" /></label>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;">
+          <span>Goalie Required:</span>
+          <div id="goalie-toggle" style="position:relative;width:48px;height:26px;background:var(--border);border-radius:13px;transition:background 0.2s;cursor:pointer;" data-on="false">
+            <div style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
+          </div>
+          <span id="goalie-toggle-label" style="color:var(--text-muted);font-size:0.85rem;">No</span>
+          <input type="hidden" id="tournament-goalie" value="false" />
+        </label>
         <button type="submit" class="button">Create Tournament</button>
       </form>
       <h2 style="margin-top:2rem;">Manage Tournaments</h2>
@@ -187,6 +195,23 @@
       }
 
       navItems.forEach(btn => btn.addEventListener('click', function () { switchTab(this.dataset.tab); }));
+
+      // Goalie toggle
+      const goalieToggle = document.getElementById('goalie-toggle');
+      const goalieInput = document.getElementById('tournament-goalie');
+      const goalieLabel = document.getElementById('goalie-toggle-label');
+      if (goalieToggle) {
+        goalieToggle.addEventListener('click', function() {
+          const isOn = goalieToggle.dataset.on === 'true';
+          const newVal = !isOn;
+          goalieToggle.dataset.on = String(newVal);
+          goalieToggle.style.background = newVal ? 'var(--gold)' : 'var(--border)';
+          goalieToggle.querySelector('div').style.transform = newVal ? 'translateX(22px)' : 'translateX(0)';
+          goalieInput.value = String(newVal);
+          goalieLabel.textContent = newVal ? 'Yes' : 'No';
+          goalieLabel.style.color = newVal ? 'var(--gold)' : 'var(--text-muted)';
+        });
+      }
 
       document.getElementById('refresh-scores-btn')?.addEventListener('click', () => {
         if (typeof renderPendingScores === 'function') renderPendingScores();

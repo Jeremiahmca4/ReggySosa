@@ -1231,6 +1231,37 @@ function renderAdminTournaments() {
     actions.appendChild(startBtn);
     actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
+
+    // Force Complete button — only show for started tournaments
+    if (t.status === 'started') {
+      const forceCompleteBtn = document.createElement('button');
+      forceCompleteBtn.className = 'button';
+      forceCompleteBtn.textContent = '🏆 Force Complete';
+      forceCompleteBtn.style.cssText = 'font-size:0.78rem;padding:0.3rem 0.7rem;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;';
+      forceCompleteBtn.addEventListener('click', async function() {
+        const winnerName = prompt('Enter the champion team name to mark this tournament as complete:');
+        if (!winnerName || !winnerName.trim()) return;
+        const confirmed = confirm('Mark "' + t.name + '" as complete with champion: ' + winnerName.trim() + '?');
+        if (!confirmed) return;
+        let tournaments2 = loadTournaments();
+        const tIdx2 = tournaments2.findIndex(function(x) { return x.id === t.id; });
+        if (tIdx2 === -1) return;
+        tournaments2[tIdx2].status = 'completed';
+        tournaments2[tIdx2].winner = winnerName.trim();
+        saveTournaments(tournaments2);
+        try {
+          await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(t.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'completed', winner: winnerName.trim(), bracket: tournaments2[tIdx2].bracket }),
+          });
+        } catch(e) { console.error('Force complete backend error:', e); }
+        try { announceTournamentComplete(t.name, winnerName.trim()); } catch(e) {}
+        renderAdminTournaments();
+        alert('Tournament marked as complete. Champion: ' + winnerName.trim());
+      });
+      actions.appendChild(forceCompleteBtn);
+    }
     card.appendChild(title);
     card.appendChild(status);
     card.appendChild(teamsCount);
@@ -1458,6 +1489,8 @@ function createTournamentFromForm() {
   // Create a new tournament object. Start date is optional; winner is initially null.
   const passwordInput = document.getElementById('tournament-password');
   const tournamentPassword = passwordInput && passwordInput.value.trim() ? passwordInput.value.trim() : null;
+  const goalieInput = document.getElementById('tournament-goalie');
+  const goalieRequired = goalieInput ? goalieInput.value === 'true' : false;
   const newTournament = {
     id,
     name,
@@ -1469,6 +1502,7 @@ function createTournamentFromForm() {
     bracket: [],
     winner: null,
     password: tournamentPassword,
+    goalieRequired: goalieRequired,
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
@@ -1503,6 +1537,18 @@ function createTournamentFromForm() {
   if (passwordInput) {
     passwordInput.value = '';
   }
+  // Reset goalie toggle
+  const goalieToggleEl = document.getElementById('goalie-toggle');
+  const goalieInputEl = document.getElementById('tournament-goalie');
+  const goalieLabelEl = document.getElementById('goalie-toggle-label');
+  if (goalieToggleEl) {
+    goalieToggleEl.dataset.on = 'false';
+    goalieToggleEl.style.background = 'var(--border)';
+    const thumb = goalieToggleEl.querySelector('div');
+    if (thumb) thumb.style.transform = 'translateX(0)';
+  }
+  if (goalieInputEl) goalieInputEl.value = 'false';
+  if (goalieLabelEl) { goalieLabelEl.textContent = 'No'; goalieLabelEl.style.color = 'var(--text-muted)'; }
   // Optionally refresh from the back‑end so the local list uses the
   // canonical data and avoids duplicates. This call is fire‑and‑forget;
   // failures are ignored.
@@ -1834,39 +1880,65 @@ function removeTeamFromTournament(tournamentId, teamId) {
   const idx = tournaments.findIndex((t) => t.id === tournamentId);
   if (idx === -1) return;
   const tournament = tournaments[idx];
-  if (tournament.status === 'started') {
-    alert('Cannot remove teams after the tournament has started.');
-    return;
-  }
+
+  // Find team name before removing
+  const teamObj = (tournament.teams || []).find((t) => t.id === teamId);
+  const teamName = teamObj ? teamObj.name : null;
+
+  // Remove from teams list
   if (tournament.teams) {
-    // Remove from local state
     tournament.teams = tournament.teams.filter((team) => team.id !== teamId);
-    tournaments[idx] = tournament;
-    saveTournaments(tournaments);
-    // Attempt to remove the registration on the back‑end so the change persists.
-    try {
-      fetch(
-        `${API_BASE_URL}/api/tournaments/${encodeURIComponent(
-          tournamentId
-        )}/register/${encodeURIComponent(teamId)}`,
-        {
-          method: 'DELETE',
-        }
-      )
-        .then(() => {
-          // After deletion, re‑sync tournaments from the server to ensure local state matches.
-          if (typeof syncTournamentsFromBackend === 'function') {
-            syncTournamentsFromBackend().catch(() => {});
-          }
-        })
-        .catch(() => {
-          /* ignore errors */
-        });
-    } catch (err) {
-      console.error('Failed to remove team registration on backend:', err);
-    }
-    alert('Team removed from tournament.');
   }
+
+  // If tournament has started, also scrub the team from the bracket
+  // Replace any bracket slot containing this team with BYE
+  if (tournament.status === 'started' && teamName && Array.isArray(tournament.bracket)) {
+    tournament.bracket.forEach(function(round) {
+      round.forEach(function(match) {
+        if (match.team1 === teamName) {
+          match.team1 = 'BYE';
+          match.winner = null;
+          match.code = generateCode(null);
+        }
+        if (match.team2 === teamName) {
+          match.team2 = 'BYE';
+          match.winner = null;
+          match.code = generateCode(null);
+        }
+        // If the removed team had already won and propagated, clear that too
+        if (match.winner === teamName) {
+          match.winner = null;
+        }
+      });
+    });
+  }
+
+  tournaments[idx] = tournament;
+  saveTournaments(tournaments);
+
+  // Persist to backend
+  try {
+    fetch(
+      `${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}/register/${encodeURIComponent(teamId)}`,
+      { method: 'DELETE' }
+    ).then(() => {
+      // Also patch bracket if tournament started
+      if (tournament.status === 'started') {
+        fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bracket: tournament.bracket }),
+        }).catch(() => {});
+      }
+      if (typeof syncTournamentsFromBackend === 'function') {
+        syncTournamentsFromBackend().catch(() => {});
+      }
+    }).catch(() => {});
+  } catch (err) {
+    console.error('Failed to remove team on backend:', err);
+  }
+
+  alert('Team removed from tournament.' + (tournament.status === 'started' ? ' Their bracket slots have been replaced with BYE.' : ''));
 }
 
 // Report a match result for a given tournament. Updates the winner and propagates
@@ -4744,8 +4816,8 @@ function renderTournamentDetails(id) {
        * information here.  When the admin dashboard needs detailed
        * information, it fetches directly from Supabase.
        */
-      if (role === 'admin' && tournament.status !== 'started') {
-        // For admins, still display remove button but no captain info
+      if (role === 'admin') {
+        // For admins, display remove button at all times (including after start)
         const nameSpan = document.createElement('span');
         nameSpan.textContent = seedLabel + name;
         const removeBtn = document.createElement('button');
