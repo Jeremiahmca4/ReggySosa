@@ -4948,6 +4948,231 @@ async function initFloatingChat(tournament) {
   overlay.addEventListener('click', closePanel);
 }
 
+// ── Admin floating chat bar — shows list of all active match chats ───────────
+async function initAdminChatBar(tournament) {
+  // Clean up existing
+  document.getElementById('floating-chat-bar')?.remove();
+  document.getElementById('floating-chat-panel')?.remove();
+  document.getElementById('floating-chat-overlay')?.remove();
+
+  if (!tournament || tournament.status !== 'started') return;
+  if (!supabaseClient) return;
+
+  // ── Build bar ─────────────────────────────────────────────────────────────
+  const bar = document.createElement('div');
+  bar.id = 'floating-chat-bar';
+  bar.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
+    '<span>⚙️ Admin Match Chats — View All</span>';
+  document.body.appendChild(bar);
+
+  // Adjust position same as player bar
+  function adjustBarPosition() {
+    const isMobile = window.innerWidth <= 768;
+    bar.style.bottom = isMobile ? 'calc(56px + env(safe-area-inset-bottom))' : '0px';
+  }
+  adjustBarPosition();
+  window.addEventListener('resize', adjustBarPosition);
+
+  // ── Build overlay + panel ─────────────────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.id = 'floating-chat-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1299;display:none;';
+  document.body.appendChild(overlay);
+
+  const panel = document.createElement('div');
+  panel.id = 'floating-chat-panel';
+  panel.style.cssText = [
+    'position:fixed','z-index:1300','background:var(--card)',
+    'display:flex','flex-direction:column',
+    'transition:transform 0.28s cubic-bezier(0.32,0.72,0,1)',
+    'left:0','right:0','bottom:0','top:auto','height:90vh',
+    'border-radius:20px 20px 0 0','border-top:1px solid var(--border)',
+    'transform:translateY(100%)','box-shadow:0 -8px 32px rgba(0,0,0,0.4)',
+  ].join(';');
+
+  function adjustPanel() {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      panel.style.left = '0'; panel.style.right = '0'; panel.style.top = 'auto';
+      panel.style.bottom = '0'; panel.style.width = 'auto'; panel.style.height = '90vh';
+      panel.style.borderRadius = '20px 20px 0 0';
+      panel.style.transform = isOpen ? 'translateY(0)' : 'translateY(100%)';
+    } else {
+      panel.style.left = 'auto'; panel.style.right = '0'; panel.style.top = '0';
+      panel.style.bottom = '0'; panel.style.width = 'min(480px, 100vw)';
+      panel.style.height = 'auto'; panel.style.borderRadius = '0';
+      panel.style.transform = isOpen ? 'translateX(0)' : 'translateX(100%)';
+    }
+  }
+
+  // Drag handle
+  const handle = document.createElement('div');
+  handle.style.cssText = 'width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;flex-shrink:0;';
+  panel.appendChild(handle);
+
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;';
+  const headerTitle = document.createElement('span');
+  headerTitle.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1.15rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);';
+  headerTitle.textContent = '⚙️ All Match Chats';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:0.25rem 0.5rem;';
+  header.appendChild(headerTitle);
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  // Scrollable content area
+  const body = document.createElement('div');
+  body.style.cssText = 'flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  panel.appendChild(body);
+
+  document.body.appendChild(panel);
+
+  // Load chat list
+  async function loadChatList() {
+    body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">Loading chats...</p>';
+
+    // Get all active match chats from messages table
+    try {
+      const { data, error } = await supabaseClient
+        .from('messages')
+        .select('match_code, tournament_id, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">No active match chats right now.</p>';
+        return;
+      }
+
+      // Deduplicate by match_code, keep latest
+      const seen = {};
+      data.forEach(function(m) {
+        if (!seen[m.match_code]) seen[m.match_code] = m;
+      });
+
+      body.innerHTML = '';
+
+      // Also build match code -> team names from bracket
+      const codeToTeams = {};
+      if (Array.isArray(tournament.bracket)) {
+        tournament.bracket.forEach(function(round) {
+          round.forEach(function(match) {
+            if (match.code) codeToTeams[match.code] = { team1: match.team1, team2: match.team2 };
+          });
+        });
+      }
+
+      Object.entries(seen).forEach(function([matchCode, row]) {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s;';
+        item.addEventListener('mouseenter', function() { item.style.background = 'rgba(255,199,44,0.06)'; });
+        item.addEventListener('mouseleave', function() { item.style.background = ''; });
+
+        const teams = codeToTeams[matchCode];
+        const left = document.createElement('div');
+        const matchLabel = document.createElement('p');
+        matchLabel.style.cssText = 'margin:0 0 0.2rem;font-weight:700;font-size:0.9rem;';
+        matchLabel.textContent = teams ? teams.team1 + ' vs ' + teams.team2 : 'Match Chat';
+        const codeLabel = document.createElement('p');
+        codeLabel.style.cssText = 'margin:0;font-family:monospace;font-size:0.78rem;color:var(--gold);';
+        codeLabel.textContent = 'Code: ' + matchCode;
+        left.appendChild(matchLabel);
+        left.appendChild(codeLabel);
+
+        const arrow = document.createElement('span');
+        arrow.style.cssText = 'color:var(--text-muted);font-size:1.1rem;';
+        arrow.textContent = '›';
+
+        item.appendChild(left);
+        item.appendChild(arrow);
+
+        item.addEventListener('click', function() {
+          openSingleChat(matchCode, row.tournament_id, teams);
+        });
+
+        body.appendChild(item);
+      });
+
+    } catch(e) {
+      body.innerHTML = '<p style="color:#ff6b6b;padding:1.25rem;font-size:0.9rem;">Error loading chats.</p>';
+    }
+  }
+
+  // Open a single match chat inside the panel
+  function openSingleChat(matchCode, tournamentId, teams) {
+    body.innerHTML = '';
+
+    // Back button
+    const backBtn = document.createElement('button');
+    backBtn.style.cssText = 'background:none;border:none;color:var(--gold);font-size:0.88rem;padding:0.75rem 1.25rem;cursor:pointer;display:flex;align-items:center;gap:0.4rem;font-family:Barlow Condensed,sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;';
+    backBtn.innerHTML = '← All Chats';
+    backBtn.addEventListener('click', loadChatList);
+    body.appendChild(backBtn);
+
+    // Match code bar
+    const codeBar = document.createElement('div');
+    codeBar.style.cssText = 'padding:0.55rem 1.25rem;background:rgba(255,199,44,0.1);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;';
+    const codeVal = document.createElement('strong');
+    codeVal.style.cssText = 'font-family:monospace;font-size:1rem;color:var(--gold);letter-spacing:0.1em;flex:1;';
+    codeVal.textContent = 'Code: ' + matchCode;
+    codeBar.appendChild(codeVal);
+    if (teams) {
+      const matchupLabel = document.createElement('span');
+      matchupLabel.style.cssText = 'font-size:0.8rem;color:var(--text-muted);';
+      matchupLabel.textContent = teams.team1 + ' vs ' + teams.team2;
+      codeBar.appendChild(matchupLabel);
+    }
+    body.appendChild(codeBar);
+
+    // Chat container
+    const chatContainer = document.createElement('div');
+    chatContainer.style.cssText = 'display:flex;flex-direction:column;height:calc(100% - 120px);';
+    body.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch;';
+    body.appendChild(chatContainer);
+
+    renderMatchChat(matchCode, tournamentId || tournament.id, chatContainer, true);
+
+    const chatWrapper = chatContainer.querySelector ? null : null;
+    setTimeout(function() {
+      const cw = chatContainer.querySelector('.match-chat');
+      if (cw) {
+        cw.style.cssText = 'display:flex;flex-direction:column;flex:1;padding:0;border:none;background:none;border-radius:0;';
+        const msgs = cw.querySelector('.chat-messages');
+        if (msgs) msgs.style.cssText = 'flex:1;overflow-y:auto;padding:0.75rem 1.25rem;display:flex;flex-direction:column;gap:0.4rem;';
+        const inputRow = cw.querySelector('.chat-input-row');
+        if (inputRow) inputRow.style.cssText = 'padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0;';
+        const titleEl = cw.querySelector('.chat-title');
+        if (titleEl) titleEl.remove();
+      }
+    }, 50);
+  }
+
+  // Open / close
+  let isOpen = false;
+  function openPanel() {
+    isOpen = true;
+    overlay.style.display = 'block';
+    adjustPanel();
+    bar.style.filter = 'brightness(0.85)';
+    loadChatList();
+  }
+  function closePanel() {
+    isOpen = false;
+    const isMobile = window.innerWidth <= 768;
+    panel.style.transform = isMobile ? 'translateY(100%)' : 'translateX(100%)';
+    overlay.style.display = 'none';
+    bar.style.filter = 'brightness(1)';
+  }
+
+  window.addEventListener('resize', function() { if (isOpen) adjustPanel(); });
+  bar.addEventListener('click', function() { isOpen ? closePanel() : openPanel(); });
+  closeBtn.addEventListener('click', closePanel);
+  overlay.addEventListener('click', closePanel);
+}
+
 // ── Admin: view all active match chats ──────────────────────────────────────
 async function renderAdminChats() {
   const container = document.getElementById('admin-chats-container');
@@ -5316,35 +5541,53 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         ) {
           const reportDiv = document.createElement('div');
           reportDiv.className = 'report-score';
+          reportDiv.style.cssText = 'display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem;';
+
+          // Winner select
           const select = document.createElement('select');
-          // default option
           const defOpt = document.createElement('option');
-          defOpt.value = '';
-          defOpt.textContent = 'Select winner';
+          defOpt.value = ''; defOpt.textContent = 'Select winner';
           select.appendChild(defOpt);
           const opt1 = document.createElement('option');
-          opt1.value = match.team1;
-          opt1.textContent = match.team1;
+          opt1.value = match.team1; opt1.textContent = match.team1;
           select.appendChild(opt1);
           const opt2 = document.createElement('option');
-          opt2.value = match.team2;
-          opt2.textContent = match.team2;
+          opt2.value = match.team2; opt2.textContent = match.team2;
           select.appendChild(opt2);
+          reportDiv.appendChild(select);
+
+          // Score inputs
+          const scoreRow = document.createElement('div');
+          scoreRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;';
+          const scoreT1 = document.createElement('input');
+          scoreT1.type = 'number'; scoreT1.min = '0'; scoreT1.max = '99';
+          scoreT1.placeholder = match.team1 + ' goals';
+          scoreT1.className = 'score-input score-admin-input';
+          scoreT1.style.cssText = 'flex:1;';
+          const scoreSep = document.createElement('span');
+          scoreSep.textContent = '—';
+          scoreSep.style.cssText = 'color:var(--text-muted);font-size:0.85rem;';
+          const scoreT2 = document.createElement('input');
+          scoreT2.type = 'number'; scoreT2.min = '0'; scoreT2.max = '99';
+          scoreT2.placeholder = match.team2 + ' goals';
+          scoreT2.className = 'score-input score-admin-input';
+          scoreT2.style.cssText = 'flex:1;';
+          scoreRow.appendChild(scoreT1);
+          scoreRow.appendChild(scoreSep);
+          scoreRow.appendChild(scoreT2);
+          reportDiv.appendChild(scoreRow);
+
           const reportBtn = document.createElement('button');
           reportBtn.textContent = 'Report Score';
           reportBtn.className = 'button';
-          reportBtn.style.marginTop = '0.5rem';
           reportBtn.addEventListener('click', function () {
             const winnerName = select.value;
-            if (!winnerName) {
-              alert('Please select a winner.');
-              return;
-            }
-            reportMatchResult(tournament.id, rIndex, mIndex, winnerName);
-            // After updating, re-render details
+            if (!winnerName) { alert('Please select a winner.'); return; }
+            const t1Score = scoreT1.value !== '' ? parseInt(scoreT1.value) : null;
+            const t2Score = scoreT2.value !== '' ? parseInt(scoreT2.value) : null;
+            reportMatchResult(tournament.id, rIndex, mIndex, winnerName, t1Score, t2Score);
             renderTournamentDetails(tournament.id);
           });
-          reportDiv.appendChild(select);
           reportDiv.appendChild(reportBtn);
           matchDiv.appendChild(reportDiv);
         }
@@ -5659,6 +5902,9 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
     // Init floating chat for players in an active match (non-admin only)
     if (role !== 'admin') {
       initFloatingChat(tournament);
+    } else {
+      // Admin gets chat bar showing all match chats
+      initAdminChatBar(tournament);
     }
   }
   // Admin controls for this tournament
