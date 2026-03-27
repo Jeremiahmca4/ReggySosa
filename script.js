@@ -4587,6 +4587,208 @@ async function renderMatchChat(matchCode, tournamentId, containerEl, isAdmin) {
   containerEl.appendChild(chatWrapper);
 }
 
+// ── Floating chat button + slide-in panel ────────────────────────────────────
+// Only shown when the current user is in an active match in the tournament being viewed.
+// Call this after bracket is rendered.
+async function initFloatingChat(tournament) {
+  // Clean up any existing panel
+  const existingPanel = document.getElementById('floating-chat-panel');
+  const existingBtn = document.getElementById('floating-chat-btn');
+  if (existingPanel) existingPanel.remove();
+  if (existingBtn) existingBtn.remove();
+
+  if (!tournament || tournament.status !== 'started') return;
+
+  const email = getCurrentUser();
+  if (!email) return;
+
+  // Find which match(es) the user is in
+  const myMatches = [];
+  if (Array.isArray(tournament.bracket)) {
+    tournament.bracket.forEach(function(round, rIdx) {
+      round.forEach(function(match, mIdx) {
+        if (!match.winner && match.team1 && match.team2 &&
+            match.team2 !== 'BYE' && match.team1 !== 'BYE' &&
+            match.code && isUserInMatch(match, tournament)) {
+          myMatches.push({ match, rIdx, mIdx });
+        }
+      });
+    });
+  }
+
+  if (myMatches.length === 0) return; // not in any active match
+
+  // ── Build the floating button ─────────────────────────────────────────────
+  const btn = document.createElement('button');
+  btn.id = 'floating-chat-btn';
+  btn.title = 'Open match chat';
+  btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+  btn.style.cssText = [
+    'position:fixed',
+    'right:18px',
+    'bottom:calc(72px + env(safe-area-inset-bottom))',
+    'z-index:1200',
+    'width:52px',
+    'height:52px',
+    'border-radius:50%',
+    'background:var(--gold)',
+    'color:#000',
+    'border:none',
+    'cursor:pointer',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'box-shadow:0 4px 16px rgba(255,199,44,0.4)',
+    'transition:transform 0.15s',
+  ].join(';');
+
+  // Unread dot
+  const dot = document.createElement('span');
+  dot.id = 'floating-chat-dot';
+  dot.style.cssText = 'position:absolute;top:3px;right:3px;width:10px;height:10px;background:#ff4444;border-radius:50%;display:none;border:2px solid var(--bg);';
+  btn.appendChild(dot);
+  document.body.appendChild(btn);
+
+  // ── Build the slide-in panel ──────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.id = 'floating-chat-panel';
+  panel.style.cssText = [
+    'position:fixed',
+    'right:0',
+    'bottom:0',
+    'top:0',
+    'width:min(340px, 100vw)',
+    'background:var(--card)',
+    'border-left:1px solid var(--border)',
+    'z-index:1100',
+    'display:flex',
+    'flex-direction:column',
+    'transform:translateX(100%)',
+    'transition:transform 0.25s ease',
+    'box-shadow:-4px 0 24px rgba(0,0,0,0.4)',
+  ].join(';');
+
+  // Panel header
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;';
+  const headerTitle = document.createElement('span');
+  headerTitle.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);';
+  headerTitle.textContent = '💬 Match Chat';
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:0.25rem;';
+  header.appendChild(headerTitle);
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  // If multiple matches, show tabs
+  let activeMatchIndex = 0;
+  const chatArea = document.createElement('div');
+  chatArea.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
+
+  if (myMatches.length > 1) {
+    const tabRow = document.createElement('div');
+    tabRow.style.cssText = 'display:flex;border-bottom:1px solid var(--border);flex-shrink:0;';
+    myMatches.forEach(function(m, i) {
+      const tab = document.createElement('button');
+      tab.textContent = 'R' + (m.rIdx + 1) + ' M' + (m.mIdx + 1);
+      tab.style.cssText = 'flex:1;padding:0.5rem;background:none;border:none;border-bottom:2px solid ' + (i === 0 ? 'var(--gold)' : 'transparent') + ';color:' + (i === 0 ? 'var(--gold)' : 'var(--text-muted)') + ';font-size:0.8rem;cursor:pointer;';
+      tab.addEventListener('click', function() {
+        activeMatchIndex = i;
+        tabRow.querySelectorAll('button').forEach(function(b, bi) {
+          b.style.borderBottomColor = bi === i ? 'var(--gold)' : 'transparent';
+          b.style.color = bi === i ? 'var(--gold)' : 'var(--text-muted)';
+        });
+        loadChatForMatch(myMatches[i]);
+      });
+      tabRow.appendChild(tab);
+    });
+    panel.appendChild(tabRow);
+  }
+
+  panel.appendChild(chatArea);
+  document.body.appendChild(panel);
+
+  // Load chat into panel
+  async function loadChatForMatch(matchEntry) {
+    chatArea.innerHTML = '';
+
+    // Match code display
+    const codeBar = document.createElement('div');
+    codeBar.style.cssText = 'padding:0.6rem 1.25rem;background:rgba(255,199,44,0.08);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;';
+    const codeLabel = document.createElement('span');
+    codeLabel.style.cssText = 'font-size:0.78rem;color:var(--text-muted);';
+    codeLabel.textContent = 'Match Code:';
+    const codeVal = document.createElement('strong');
+    codeVal.style.cssText = 'font-family:monospace;font-size:1rem;color:var(--gold);letter-spacing:0.08em;';
+    codeVal.textContent = matchEntry.match.code;
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 Copy';
+    copyBtn.style.cssText = 'background:none;border:1px solid var(--border);color:var(--text-muted);font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:var(--radius-sm);cursor:pointer;';
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(matchEntry.match.code).then(function() {
+        copyBtn.textContent = '✅ Copied';
+        setTimeout(function() { copyBtn.textContent = '📋 Copy'; }, 2000);
+      });
+    });
+    codeBar.appendChild(codeLabel);
+    codeBar.appendChild(codeVal);
+    codeBar.appendChild(copyBtn);
+    chatArea.appendChild(codeBar);
+
+    // Matchup label
+    const matchupBar = document.createElement('div');
+    matchupBar.style.cssText = 'padding:0.4rem 1.25rem;font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0;';
+    matchupBar.textContent = matchEntry.match.team1 + ' vs ' + matchEntry.match.team2;
+    chatArea.appendChild(matchupBar);
+
+    // Chat wrapper - takes remaining space
+    const chatContainer = document.createElement('div');
+    chatContainer.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
+    chatArea.appendChild(chatContainer);
+
+    await renderMatchChat(matchEntry.match.code, tournament.id, chatContainer, false);
+
+    // Override chat wrapper height to fill panel
+    const chatWrapper = chatContainer.querySelector('.match-chat');
+    if (chatWrapper) {
+      chatWrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;height:100%;padding:0;border:none;background:none;';
+      const msgs = chatWrapper.querySelector('.chat-messages');
+      if (msgs) msgs.style.cssText = 'flex:1;overflow-y:auto;padding:0.75rem 1.25rem;display:flex;flex-direction:column;gap:0.4rem;';
+      const inputRow = chatWrapper.querySelector('.chat-input-row');
+      if (inputRow) inputRow.style.cssText = 'padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-shrink:0;';
+      const titleEl = chatWrapper.querySelector('.chat-title');
+      if (titleEl) titleEl.remove(); // already shown in panel header
+    }
+  }
+
+  // Open/close toggle
+  let isOpen = false;
+  function openPanel() {
+    isOpen = true;
+    panel.style.transform = 'translateX(0)';
+    btn.style.transform = 'scale(0.9)';
+    dot.style.display = 'none';
+    loadChatForMatch(myMatches[activeMatchIndex]);
+  }
+  function closePanel() {
+    isOpen = false;
+    panel.style.transform = 'translateX(100%)';
+    btn.style.transform = 'scale(1)';
+  }
+
+  btn.addEventListener('click', function() { isOpen ? closePanel() : openPanel(); });
+  closeBtn.addEventListener('click', closePanel);
+
+  // Close on outside click
+  document.addEventListener('click', function(e) {
+    if (isOpen && !panel.contains(e.target) && e.target !== btn) {
+      closePanel();
+    }
+  }, { capture: false });
+}
+
 // ── Admin: view all active match chats ──────────────────────────────────────
 async function renderAdminChats() {
   const container = document.getElementById('admin-chats-container');
@@ -5257,29 +5459,39 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
             })();
           }
         }
-        // Match chat — show for admin (read-only) and the two captains in this match
-        if (
-          tournament.status === 'started' &&
-          match.team1 && match.team2 &&
-          match.team2 !== 'BYE' &&
-          !match.winner &&
-          match.code
-        ) {
-          const userRole = getCurrentUserRole();
-          const isAdmin = userRole === 'admin';
-          const isInMatch = isUserInMatch(match, tournament);
-          if (isAdmin || isInMatch) {
-            // Render chat async into matchDiv
-            renderMatchChat(match.code, tournament.id, matchDiv, isAdmin);
-          }
-        }
         matchGrid.appendChild(matchDiv);
       });
       roundDiv.appendChild(matchGrid);
       bracketDiv.appendChild(roundDiv);
     });
+    // ── Matchmaking settings card above bracket ─────────────────────────────
+    if (tournament.status === 'started' || tournament.status === 'completed') {
+      const settingsCard = document.createElement('div');
+      settingsCard.className = 'rule-card';
+      settingsCard.style.cssText = 'margin-bottom:1.25rem;padding:1rem 1.25rem;';
+      settingsCard.innerHTML =
+        '<h4 style="font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;font-size:0.9rem;color:var(--gold);margin:0 0 0.6rem;">⚙️ Match Setup (World of CHEL)</h4>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem;font-size:0.82rem;color:var(--text-muted);">' +
+          '<span>Game Type: <strong style="color:var(--text)">Private Game</strong></span>' +
+          '<span>Server: <strong style="color:var(--text)">NA‑East</strong></span>' +
+          '<span>Period Length: <strong style="color:var(--text)">3 Minutes</strong></span>' +
+          '<span>Replay Skipping: <strong style="color:var(--text)">Yes</strong></span>' +
+          '<span>Grudge Match: <strong style="color:var(--text)">OFF</strong></span>' +
+          '<span>Best Game Location: <strong style="color:var(--text)">Relaxed</strong></span>' +
+          '<span>Side Selection: <strong style="color:var(--text)">Highest seed = Home</strong></span>' +
+          '<span>Crossplay: <strong style="color:var(--text)">ON (PS5 + Xbox)</strong></span>' +
+        '</div>' +
+        '<p style="margin:0.6rem 0 0;font-size:0.78rem;color:#ff6b6b;font-weight:600;">⚠️ Lag‑outs = DQ (no exceptions) &nbsp;|&nbsp; No screenshot = no win</p>';
+      detail.appendChild(settingsCard);
+    }
+
     detail.appendChild(bracketHeading);
     detail.appendChild(bracketDiv);
+
+    // Init floating chat for players in an active match (non-admin only)
+    if (role !== 'admin') {
+      initFloatingChat(tournament);
+    }
   }
   // Admin controls for this tournament
   if (role === 'admin') {
