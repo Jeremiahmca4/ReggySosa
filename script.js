@@ -1604,7 +1604,7 @@ async function renderAdminTeams() {
   });
 }
 
-function createTournamentFromForm() {
+async function createTournamentFromForm() {
   const nameInput = document.getElementById('tournament-name');
   const maxTeamsInput = document.getElementById('tournament-max-teams');
   // Start date input (optional)
@@ -1696,14 +1696,11 @@ function createTournamentFromForm() {
   }
   if (goalieInputEl) goalieInputEl.value = 'false';
   if (goalieLabelEl) { goalieLabelEl.textContent = 'No'; goalieLabelEl.style.color = 'var(--text-muted)'; }
-  // Optionally refresh from the back‑end so the local list uses the
-  // canonical data and avoids duplicates. This call is fire‑and‑forget;
-  // failures are ignored.
+  // Sync from backend so the canonical ID is used and no duplicates appear.
+  // Wait for sync to complete before re-rendering so the new tournament shows.
   if (typeof syncTournamentsFromBackend === 'function') {
     try {
-      syncTournamentsFromBackend().catch(() => {
-        /* ignore errors */
-      });
+      await syncTournamentsFromBackend();
     } catch (_) {
       /* ignore */
     }
