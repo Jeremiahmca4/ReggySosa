@@ -3834,16 +3834,13 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRe
     dateStr = localDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
   var feeVal = parseFloat(entryFee) || 0;
-  var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free';
-  var pct = getPrizePoolPct();
-  var prizePool = feeVal > 0 ? '🏆 ~$' + (feeVal * (pct / 100)).toFixed(2) + ' per team registered (grows as teams join)' : 'N/A';
+  var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
   var fields = [
-    { name: 'Tournament',      value: tournamentName || 'Unknown', inline: false },
-    { name: 'Start Date',      value: dateStr,                     inline: true  },
-    { name: 'Max Teams',       value: String(maxTeams || '?'),     inline: true  },
-    { name: 'Entry Fee',       value: feeStr,                      inline: true  },
-    { name: 'Prize Pool',      value: prizePool,                   inline: false },
-    { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No', inline: false },
+    { name: 'Tournament',      value: tournamentName || 'Unknown',                                              inline: false },
+    { name: 'Start Date',      value: dateStr,                                                                  inline: true  },
+    { name: 'Max Teams',       value: String(maxTeams || '?'),                                                  inline: true  },
+    { name: 'Entry Fee',       value: feeStr,                                                                   inline: true  },
+    { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No',               inline: false },
   ];
   sendToWebhook('created', [{
     title: '🏆 New Tournament — Registration Open!',
