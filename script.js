@@ -93,6 +93,19 @@ window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
     if (typeof syncTeamsFromBackend === 'function') {
       await syncTeamsFromBackend().catch(() => {});
     }
+    // Fire Discord registration webhook for paid registration
+    try {
+      const tournaments = loadTournaments();
+      const t = tournaments.find(x => String(x.id) === String(tournamentId));
+      const teams = loadTeams();
+      const team = teams.find(x => String(x.id) === String(teamId));
+      if (t && team) {
+        const _total = t.teams ? t.teams.length : 1;
+        const _max = t.maxTeams || t.max_teams || null;
+        const _fee = t.entry_fee || t.entryFee || 0;
+        announceTeamRegistration(team.name, t.name, _total, _max, _fee);
+      }
+    } catch(e) { console.warn('[Webhook] Paid registration announce error:', e); }
     if (typeof renderTournamentDetails === 'function' && tournamentId) {
       renderTournamentDetails(tournamentId);
     }
@@ -1724,7 +1737,7 @@ async function createTournamentFromForm() {
   tournaments.push(newTournament);
   saveTournaments(tournaments);
   // Fire Discord webhook — new tournament announced
-  try { announceTournamentCreated(name, newTournament.startDate, maxVal, goalieRequired); }
+  try { announceTournamentCreated(name, newTournament.startDate, maxVal, goalieRequired, entryFee); }
   catch(e) { console.warn('[Webhook] Tournament created error:', e); }
   // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
   // any network errors will be logged to the console. The backend expects
@@ -2070,7 +2083,8 @@ function registerTeamToTournament(tournamentId, teamId) {
     var _tName = tournament.name || String(tournamentId);
     var _total = tournament.teams.length;
     var _max = tournament.max_teams || tournament.maxTeams || null;
-    announceTeamRegistration(teamObj.name, _tName, _total, _max);
+    var _fee = tournament.entry_fee || tournament.entryFee || 0;
+    announceTeamRegistration(teamObj.name, _tName, _total, _max, _fee);
   } catch(e) { console.warn('[Webhook] Registration error:', e); }
 
   // Persist the registration to the back‑end.
@@ -3812,17 +3826,23 @@ function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail)
 }
 
 // 4. Team registered → #registrations
-function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRequired) {
+function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRequired, entryFee) {
   var dateStr = 'TBD';
   if (startDate) {
     var parts = startDate.split('-');
     var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     dateStr = localDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
+  var feeVal = parseFloat(entryFee) || 0;
+  var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free';
+  var pct = getPrizePoolPct();
+  var prizePool = feeVal > 0 ? '🏆 ~$' + (feeVal * (pct / 100)).toFixed(2) + ' per team registered (grows as teams join)' : 'N/A';
   var fields = [
-    { name: 'Tournament', value: tournamentName || 'Unknown', inline: false },
-    { name: 'Start Date', value: dateStr,                     inline: true  },
-    { name: 'Max Teams',  value: String(maxTeams || '?'),     inline: true  },
+    { name: 'Tournament',      value: tournamentName || 'Unknown', inline: false },
+    { name: 'Start Date',      value: dateStr,                     inline: true  },
+    { name: 'Max Teams',       value: String(maxTeams || '?'),     inline: true  },
+    { name: 'Entry Fee',       value: feeStr,                      inline: true  },
+    { name: 'Prize Pool',      value: prizePool,                   inline: false },
     { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No', inline: false },
   ];
   sendToWebhook('created', [{
@@ -3880,15 +3900,24 @@ function announceRegistrationUpdate(tournament) {
   }]);
 }
 
-function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams) {
+function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams, entryFee) {
+  var feeVal = parseFloat(entryFee) || 0;
+  var fields = [
+    { name: 'Tournament',   value: tournamentName || 'Unknown',                          inline: true },
+    { name: 'Spots Filled', value: (totalTeams || '?') + ' / ' + (maxTeams || '∞'),     inline: true },
+    { name: 'Entry Fee',    value: feeVal > 0 ? '💰 $' + feeVal.toFixed(2) : '🆓 Free', inline: true },
+  ];
+  // Add prize pool if applicable
+  if (feeVal > 0) {
+    var pct = getPrizePoolPct();
+    var pool = Math.round(feeVal * (totalTeams || 1) * (pct / 100) * 100) / 100;
+    fields.push({ name: '🏆 Current Prize Pool', value: '$' + pool.toFixed(2), inline: false });
+  }
   sendToWebhook('registrations', [{
     title: '👥 New Team Registered',
     description: '**' + teamName + '** has entered **' + tournamentName + '**!',
     color: 0x00c9a7,
-    fields: [
-      { name: 'Tournament', value: tournamentName || 'Unknown', inline: true },
-      { name: 'Spots Filled', value: (totalTeams || '?') + ' / ' + (maxTeams || '∞'), inline: true },
-    ],
+    fields: fields,
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
