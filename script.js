@@ -16,16 +16,33 @@ const ADMIN_EMAIL = '93pacc93@gmail.com';
 const DISCORD_INVITE = 'https://discord.gg/XkCWmNEz5z';
 
 // Called by stripe-payment.js after a successful payment.
-// Refreshes tournament data so the newly registered team appears immediately.
+// Registers team directly (faster than waiting for webhook) then refreshes UI.
 window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
   try {
+    // Register directly in Supabase — don't rely on webhook timing
+    if (supabaseClient) {
+      try {
+        const { data: existing } = await supabaseClient
+          .from('tournament_registrations')
+          .select('id')
+          .eq('tournament_id', tournamentId)
+          .eq('team_id', teamId)
+          .maybeSingle();
+        if (!existing) {
+          await supabaseClient
+            .from('tournament_registrations')
+            .insert({ tournament_id: tournamentId, team_id: teamId, paid: true });
+        }
+      } catch(e) {
+        console.error('Direct registration after payment failed:', e);
+      }
+    }
     if (typeof syncTournamentsFromBackend === 'function') {
       await syncTournamentsFromBackend().catch(() => {});
     }
     if (typeof syncTeamsFromBackend === 'function') {
       await syncTeamsFromBackend().catch(() => {});
     }
-    // Re-render the tournament detail view if we're on that page
     if (typeof renderTournamentDetails === 'function' && tournamentId) {
       renderTournamentDetails(tournamentId);
     }
