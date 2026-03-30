@@ -3835,11 +3835,14 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRe
   }
   var feeVal = parseFloat(entryFee) || 0;
   var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
+  var pct = getPrizePoolPct();
+  var prizePool = feeVal > 0 ? '~$' + (feeVal * maxTeams * (pct / 100)).toFixed(2) + ' if full (' + pct + '% of fees)' : 'N/A';
   var fields = [
     { name: 'Tournament',      value: tournamentName || 'Unknown',                                              inline: false },
     { name: 'Start Date',      value: dateStr,                                                                  inline: true  },
     { name: 'Max Teams',       value: String(maxTeams || '?'),                                                  inline: true  },
     { name: 'Entry Fee',       value: feeStr,                                                                   inline: true  },
+    { name: '🏆 Prize Pool',   value: prizePool,                                                               inline: true  },
     { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No',               inline: false },
   ];
   sendToWebhook('created', [{
@@ -3872,6 +3875,17 @@ function announceRegistrationUpdate(tournament) {
     });
   }
 
+  // Entry fee
+  var feeVal = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+  var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
+
+  // Prize pool
+  var pct = getPrizePoolPct();
+  var prizePool = feeVal > 0 ? '$' + (Math.round(feeVal * teams * (pct / 100) * 100) / 100).toFixed(2) + ' (grows as teams join)' : 'N/A';
+
+  // Goalie required
+  var goalieStr = tournament.goalieRequired || tournament.goalie_required ? '✅ Yes — a goalie is required' : '❌ No';
+
   // Current time in EST for the footer
   var estTime = new Date().toLocaleString('en-US', {
     timeZone: 'America/New_York',
@@ -3886,11 +3900,14 @@ function announceRegistrationUpdate(tournament) {
       : '📣 Spots are still available — register now before it fills up!',
     color: spotsLeft === 0 ? 0xff4e1a : 0xffc72c,
     fields: [
-      { name: 'Tournament',     value: name,                                      inline: false },
+      { name: 'Tournament',      value: name,                                      inline: false },
       { name: 'Teams Signed Up', value: String(teams) + (max ? ' / ' + max : ''), inline: true  },
-      { name: 'Spots Left',     value: spotsStr,                                  inline: true  },
-      { name: 'Start Date',     value: dateStr,                                   inline: false },
-      { name: 'Status',         value: statusStr,                                 inline: false },
+      { name: 'Spots Left',      value: spotsStr,                                  inline: true  },
+      { name: 'Entry Fee',       value: feeStr,                                    inline: true  },
+      { name: '🏆 Prize Pool',   value: prizePool,                                 inline: true  },
+      { name: 'Start Date',      value: dateStr,                                   inline: false },
+      { name: 'Goalie Required', value: goalieStr,                                 inline: true  },
+      { name: 'Status',          value: statusStr,                                 inline: true  },
     ],
     footer: { text: 'reggysosa.com/tournaments.html • Posted ' + estTime },
     timestamp: new Date().toISOString(),
