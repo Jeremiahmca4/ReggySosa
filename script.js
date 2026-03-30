@@ -3836,14 +3836,14 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRe
   var feeVal = parseFloat(entryFee) || 0;
   var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
   var pct = getPrizePoolPct();
-  var prizePool = feeVal > 0 ? '~$' + (feeVal * maxTeams * (pct / 100)).toFixed(2) + ' if full (' + pct + '% of fees)' : 'N/A';
+  var maxPrizePool = feeVal > 0 ? '$' + (Math.round(feeVal * maxTeams * (pct / 100) * 100) / 100).toFixed(2) + ' (' + pct + '% of total entry fees)' : 'N/A';
   var fields = [
-    { name: 'Tournament',      value: tournamentName || 'Unknown',                                              inline: false },
-    { name: 'Start Date',      value: dateStr,                                                                  inline: true  },
-    { name: 'Max Teams',       value: String(maxTeams || '?'),                                                  inline: true  },
-    { name: 'Entry Fee',       value: feeStr,                                                                   inline: true  },
-    { name: '🏆 Prize Pool',   value: prizePool,                                                               inline: true  },
-    { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No',               inline: false },
+    { name: 'Tournament',      value: tournamentName || 'Unknown',                                        inline: false },
+    { name: 'Start Date',      value: dateStr,                                                            inline: true  },
+    { name: 'Max Teams',       value: String(maxTeams || '?'),                                            inline: true  },
+    { name: 'Entry Fee',       value: feeStr,                                                             inline: true  },
+    { name: '🏆 Prize Pool',   value: maxPrizePool,                                                      inline: true  },
+    { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No',         inline: false },
   ];
   sendToWebhook('created', [{
     title: '🏆 New Tournament — Registration Open!',
@@ -3879,9 +3879,10 @@ function announceRegistrationUpdate(tournament) {
   var feeVal = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
   var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
 
-  // Prize pool
+  // Prize pool — show max potential (full tournament)
   var pct = getPrizePoolPct();
-  var prizePool = feeVal > 0 ? '$' + (Math.round(feeVal * teams * (pct / 100) * 100) / 100).toFixed(2) + ' (grows as teams join)' : 'N/A';
+  var maxTeamsCount = max || teams;
+  var prizePool = feeVal > 0 ? '$' + (Math.round(feeVal * maxTeamsCount * (pct / 100) * 100) / 100).toFixed(2) + ' (' + pct + '% of total entry fees)' : 'N/A';
 
   // Goalie required
   var goalieStr = tournament.goalieRequired || tournament.goalie_required ? '✅ Yes — a goalie is required' : '❌ No';
