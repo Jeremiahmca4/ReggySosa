@@ -3,7 +3,7 @@
 // Loaded on tournaments.html alongside script.js.
 //
 // Publishable key — safe to be in frontend code.
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SszQXRsx4YWSD6Uxti9gYnc1qrUizylKorx0LLiuRt7iYkebJvEaFsJmNbszeI6PcYmbQxbSyLdGv06W4mhUPTv00xJHBzkUu';
+const STRIPE_PUBLISHABLE_KEY = 'pk_live_51SszQNRs4pL76Ew3hynTNA3ohO3joHOZfPXkY2rPUHvtIXWyRgod753hkrfUOYC5weI8EOQr8MysE0TSHzrEUGal00MuZxojww';
 const BACKEND_URL = 'https://reggysosa-backend.vercel.app';
 
 // ─── Inject modal HTML into the page ────────────────────────────────────────
