@@ -15,7 +15,57 @@ const ADMIN_EMAIL = '93pacc93@gmail.com';
 
 const DISCORD_INVITE = 'https://discord.gg/XkCWmNEz5z';
 
-// Called by stripe-payment.js after a successful payment.
+// ── PRIZE POOL HELPERS ────────────────────────────────────────────────────────
+
+function getPrizePoolPct() {
+  const saved = localStorage.getItem('prize_pool_pct');
+  const pct = parseFloat(saved);
+  return (!isNaN(pct) && pct >= 0 && pct <= 100) ? pct : 70; // default 70%
+}
+
+function savePrizePoolPct(pct) {
+  localStorage.setItem('prize_pool_pct', pct);
+  // Also push to Supabase so it persists across devices
+  if (supabaseClient) {
+    supabaseClient.from('profiles')
+      .update({ prize_pool_pct: pct })
+      .eq('email', ADMIN_EMAIL)
+      .then(() => {})
+      .catch(() => {});
+  }
+}
+
+async function loadPrizePoolPct() {
+  // Try to load from Supabase first (admin's profile)
+  if (supabaseClient) {
+    try {
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select('prize_pool_pct')
+        .eq('email', ADMIN_EMAIL)
+        .single();
+      if (data && data.prize_pool_pct != null) {
+        localStorage.setItem('prize_pool_pct', data.prize_pool_pct);
+        return parseFloat(data.prize_pool_pct);
+      }
+    } catch(e) { /* fall back to localStorage */ }
+  }
+  return getPrizePoolPct();
+}
+
+function calcPrizePool(tournament) {
+  const fee = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+  if (fee === 0) return 0;
+  const teams = tournament.teams ? tournament.teams.length : 0;
+  const pct = getPrizePoolPct();
+  return Math.round(fee * teams * (pct / 100) * 100) / 100;
+}
+
+function formatPrizePool(tournament) {
+  const pool = calcPrizePool(tournament);
+  if (pool === 0) return null;
+  return `$${pool.toFixed(2)}`;
+}
 // Registers team directly (faster than waiting for webhook) then refreshes UI.
 window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
   try {
@@ -284,8 +334,9 @@ async function syncSession() {
   if (!supabaseClient) {
     return;
   }
-  // Load webhook URLs from Supabase so all pages/users have them
+  // Load webhook URLs and prize pool % from Supabase so all pages have them
   fetchAndCacheWebhookUrls();
+  loadPrizePoolPct();
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user && session.user.email) {
@@ -1012,6 +1063,14 @@ function renderActiveTournaments() {
     feeBadge.style.cssText = 'display:inline-block;padding:0.15rem 0.6rem;border-radius:20px;font-size:0.78rem;font-weight:600;margin-bottom:0.35rem;' + (fee > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
     feeBadge.textContent = fee > 0 ? `💰 $${fee.toFixed(2)} Entry Fee` : '🆓 Free Entry';
     card.appendChild(feeBadge);
+    // Prize pool badge
+    const prizePool = formatPrizePool(t);
+    if (prizePool) {
+      const poolBadge = document.createElement('span');
+      poolBadge.style.cssText = 'display:inline-block;padding:0.15rem 0.6rem;border-radius:20px;font-size:0.78rem;font-weight:700;margin-bottom:0.35rem;margin-left:0.4rem;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#ffd700;';
+      poolBadge.textContent = `🏆 ${prizePool} Prize Pool`;
+      card.appendChild(poolBadge);
+    }
     // Start date
     if (t.startDate) {
       // Parse the start date as a local date to avoid timezone offsets.
@@ -5424,6 +5483,14 @@ function renderTournamentDetails(id) {
     const champTitle = document.createElement('h3');
     champTitle.textContent = 'Champion: ' + tournament.winner;
     detail.appendChild(champTitle);
+    // Show prize pool payout info
+    const prizePool = formatPrizePool(tournament);
+    if (prizePool) {
+      const prizeMsg = document.createElement('div');
+      prizeMsg.style.cssText = 'background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.4);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-top:0.5rem;font-size:0.9rem;color:#ffd700;font-weight:600;';
+      prizeMsg.innerHTML = `🏆 Prize: <strong>${prizePool}</strong> — Winner, check your Discord DMs from the admin to claim your prize!`;
+      detail.appendChild(prizeMsg);
+    }
   }
   // Show current and maximum team slots if available
   if (tournament.maxTeams) {
@@ -5431,6 +5498,14 @@ function renderTournamentDetails(id) {
     const currentCount = tournament.teams ? tournament.teams.length : 0;
     maxInfo.textContent = 'Teams: ' + currentCount + ' / ' + tournament.maxTeams;
     detail.appendChild(maxInfo);
+  }
+  // Prize pool display
+  const prizePool = formatPrizePool(tournament);
+  if (prizePool && tournament.status !== 'completed') {
+    const poolEl = document.createElement('div');
+    poolEl.style.cssText = 'display:inline-flex;align-items:center;gap:0.5rem;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.4);border-radius:var(--radius-sm);padding:0.5rem 1rem;margin:0.5rem 0;font-weight:700;color:#ffd700;font-size:1rem;';
+    poolEl.innerHTML = `🏆 Current Prize Pool: <strong>${prizePool}</strong>`;
+    detail.appendChild(poolEl);
   }
   // Teams list
   if (tournament.teams && tournament.teams.length > 0) {
