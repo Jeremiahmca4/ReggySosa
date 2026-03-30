@@ -14,6 +14,25 @@
 const ADMIN_EMAIL = '93pacc93@gmail.com';
 
 const DISCORD_INVITE = 'https://discord.gg/XkCWmNEz5z';
+
+// Called by stripe-payment.js after a successful payment.
+// Refreshes tournament data so the newly registered team appears immediately.
+window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
+  try {
+    if (typeof syncTournamentsFromBackend === 'function') {
+      await syncTournamentsFromBackend().catch(() => {});
+    }
+    if (typeof syncTeamsFromBackend === 'function') {
+      await syncTeamsFromBackend().catch(() => {});
+    }
+    // Re-render the tournament detail view if we're on that page
+    if (typeof renderTournamentDetails === 'function' && tournamentId) {
+      renderTournamentDetails(tournamentId);
+    }
+  } catch(e) {
+    console.error('onStripePaymentSuccess error:', e);
+  }
+};
 // Discord webhook localStorage keys — declared here so all functions can access them
 // regardless of call order (const inside a module block would cause TDZ errors)
 var WEBHOOK_KEYS = {
@@ -173,6 +192,8 @@ async function syncTournamentsFromBackend() {
           bracket: Array.isArray(row.bracket) ? row.bracket : (row.bracket && typeof row.bracket === 'object' ? Object.values(row.bracket) : []),
           winner: row.winner || null,
           password: row.password || null,
+          entry_fee: parseFloat(row.entry_fee) || 0,
+          goalieRequired: row.goalie_required || false,
         };
         // If we have a Supabase client, fetch registered teams for this tournament.
         if (supabaseClient) {
@@ -968,6 +989,12 @@ function renderActiveTournaments() {
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
     card.appendChild(teamsCount);
+    // Entry fee badge
+    const fee = parseFloat(t.entry_fee || t.entryFee) || 0;
+    const feeBadge = document.createElement('span');
+    feeBadge.style.cssText = 'display:inline-block;padding:0.15rem 0.6rem;border-radius:20px;font-size:0.78rem;font-weight:600;margin-bottom:0.35rem;' + (fee > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
+    feeBadge.textContent = fee > 0 ? `💰 $${fee.toFixed(2)} Entry Fee` : '🆓 Free Entry';
+    card.appendChild(feeBadge);
     // Start date
     if (t.startDate) {
       // Parse the start date as a local date to avoid timezone offsets.
@@ -1601,6 +1628,9 @@ function createTournamentFromForm() {
   const tournamentPassword = passwordInput && passwordInput.value.trim() ? passwordInput.value.trim() : null;
   const goalieInput = document.getElementById('tournament-goalie');
   const goalieRequired = goalieInput ? goalieInput.value === 'true' : false;
+  // Entry fee — read from admin form input, default to 0 (free)
+  const entryFeeInput = document.getElementById('entry-fee-input');
+  const entryFee = entryFeeInput && entryFeeInput.value ? parseFloat(entryFeeInput.value) || 0 : 0;
   const newTournament = {
     id,
     name,
@@ -1613,6 +1643,7 @@ function createTournamentFromForm() {
     winner: null,
     password: tournamentPassword,
     goalieRequired: goalieRequired,
+    entryFee: entryFee,
   };
   tournaments.push(newTournament);
   saveTournaments(tournaments);
@@ -1631,6 +1662,8 @@ function createTournamentFromForm() {
         maxTeams: maxVal,
         startDate: newTournament.startDate,
         password: newTournament.password || null,
+        entryFee: entryFee,
+        goalieRequired: goalieRequired,
       }),
     }).catch(() => {
       /* ignore errors */
@@ -1646,6 +1679,10 @@ function createTournamentFromForm() {
   }
   if (passwordInput) {
     passwordInput.value = '';
+  }
+  // Reset entry fee
+  if (entryFeeInput) {
+    entryFeeInput.value = '';
   }
   // Reset goalie toggle
   const goalieToggleEl = document.getElementById('goalie-toggle');
@@ -5469,26 +5506,48 @@ function renderTournamentDetails(id) {
         detail.appendChild(registeredMsg);
       } else {
       const registerBtn = document.createElement('button');
-        registerBtn.textContent = 'Register Your Team';
+        // Show entry fee on button if applicable
+        const entryFee = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+        registerBtn.textContent = entryFee > 0
+          ? `💳 Pay $${entryFee.toFixed(2)} & Register`
+          : 'Register Your Team';
         registerBtn.className = 'button';
         registerBtn.style.marginTop = '1rem';
         registerBtn.addEventListener('click', async function () {
           checkDiscordGate(async function() {
             registerBtn.disabled = true;
-            registerBtn.textContent = 'Registering...';
+            registerBtn.textContent = 'Loading...';
             try {
-              registerTeamToTournament(tournament.id, currentTeam.id);
-              // Wait for backend sync so the re-render has fresh data
-              if (typeof syncTournamentsFromBackend === 'function') {
-                await syncTournamentsFromBackend().catch(() => {});
-              }
-              if (typeof syncTeamsFromBackend === 'function') {
-                await syncTeamsFromBackend().catch(() => {});
+              if (entryFee > 0) {
+                // Paid tournament — open Stripe payment modal
+                if (typeof window.openStripeModal === 'function') {
+                  window.openStripeModal({
+                    tournamentId: tournament.id,
+                    teamId: currentTeam.id,
+                    amount: entryFee,
+                    tournamentName: tournament.name,
+                  });
+                } else {
+                  alert('Payment system not loaded. Please refresh the page.');
+                }
+                registerBtn.disabled = false;
+                registerBtn.textContent = `💳 Pay $${entryFee.toFixed(2)} & Register`;
+              } else {
+                // Free tournament — register directly as before
+                registerTeamToTournament(tournament.id, currentTeam.id);
+                if (typeof syncTournamentsFromBackend === 'function') {
+                  await syncTournamentsFromBackend().catch(() => {});
+                }
+                if (typeof syncTeamsFromBackend === 'function') {
+                  await syncTeamsFromBackend().catch(() => {});
+                }
+                renderTournamentDetails(tournament.id);
               }
             } catch(e) {
               console.error('Registration error:', e);
+              registerBtn.disabled = false;
+              registerBtn.textContent = entryFee > 0 ? `💳 Pay $${entryFee.toFixed(2)} & Register` : 'Register Your Team';
             }
-            renderTournamentDetails(tournament.id);
           });
         });
         detail.appendChild(registerBtn);
