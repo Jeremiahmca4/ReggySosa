@@ -3346,3 +3346,177 @@ a {
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN COLLAPSIBLE CARDS (Teams & Users)
+   ═══════════════════════════════════════════════════════════ */
+
+.admin-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.admin-card--open {
+  border-color: rgba(212,160,23,0.4);
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  gap: 0.5rem;
+}
+
+.admin-card-header:active {
+  background: rgba(255,255,255,0.03);
+}
+
+.admin-card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-card-chevron {
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.admin-card--open .admin-card-chevron {
+  transform: rotate(90deg);
+}
+
+.admin-card-details {
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.02);
+}
+
+.admin-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-card-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  padding-top: 0.05rem;
+}
+
+.admin-card-value {
+  color: var(--text);
+  text-align: right;
+  word-break: break-all;
+  font-size: 0.82rem;
+}
+
+.admin-card-delete {
+  margin-top: 0.5rem;
+  width: 100%;
+  font-size: 0.82rem;
+  padding: 0.5rem;
+}
+
+/* On desktop — keep table for wider screens */
+@media (min-width: 769px) {
+  .admin-cards-list {
+    /* Still show as cards on desktop but wider */
+    gap: 0.4rem;
+  }
+
+  .admin-card-name {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Mobile global overflow fixes ── */
+@media (max-width: 768px) {
+  /* Prevent any element from causing horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* All tables scroll horizontally within their container */
+  .admin-table {
+    display: none; /* replaced by cards */
+  }
+
+  /* Search inputs full width on mobile */
+  #teams-search,
+  #users-search {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* Tournament detail page — score form */
+  .score-submit-form input,
+  .score-submit-form button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Profile page — avatar grid */
+  .avatar-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  /* Leaderboard table — scroll horizontally */
+  #leaderboard-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #leaderboard-container table {
+    min-width: 500px;
+  }
+
+  /* Rule cards */
+  .rule-card {
+    padding: 1rem;
+  }
+
+  /* Bracket */
+  .bracket {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Settings webhook inputs */
+  .webhook-row input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}

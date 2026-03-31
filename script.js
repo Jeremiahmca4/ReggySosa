@@ -1718,71 +1718,71 @@ function renderUsersRows(usersArray, query) {
       )
     : usersArray;
 
-  // Render table rows
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 6;
-    td.textContent = query ? 'No users match your search.' : 'No users found.';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:1rem;color:var(--text-muted);font-size:0.9rem;';
+    row.textContent = query ? 'No users match your search.' : 'No users found.';
+    tbody.appendChild(row);
     return;
   }
+
   filtered.forEach((u) => {
-    const tr = document.createElement('tr');
-    const emailTd = document.createElement('td');
-    emailTd.textContent = u.email;
-    const discordTd = document.createElement('td');
-    discordTd.textContent = u.discord || 'Not set';
-    const nameTd = document.createElement('td');
-    nameTd.textContent = u.display_name || '-';
-    const gamertagTd = document.createElement('td');
-    gamertagTd.textContent = u.gamertag || '-';
-    const dateTd = document.createElement('td');
-    if (u.created_at) {
-      const d = new Date(u.created_at);
-      dateTd.textContent = d.toLocaleDateString();
-    } else {
-      dateTd.textContent = '-';
-    }
-    // Delete user button
-    const deleteTd = document.createElement('td');
+    const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+
+    // Header — always visible: show email + chevron
+    const header = document.createElement('div');
+    header.className = 'admin-card-header';
+    header.innerHTML = '<span class="admin-card-name">' + u.email + '</span><span class="admin-card-chevron">&#8250;</span>';
+    card.appendChild(header);
+
+    // Details — collapsed by default
+    const details = document.createElement('div');
+    details.className = 'admin-card-details';
+    details.style.display = 'none';
+    details.innerHTML =
+      '<div class="admin-card-row"><span class="admin-card-label">Discord</span><span class="admin-card-value">' + (u.discord || 'Not set') + '</span></div>' +
+      '<div class="admin-card-row"><span class="admin-card-label">Gamertag</span><span class="admin-card-value">' + (u.gamertag || '—') + '</span></div>' +
+      '<div class="admin-card-row"><span class="admin-card-label">Joined</span><span class="admin-card-value">' + dateStr + '</span></div>';
+
     const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.className = 'delete';
-    deleteBtn.style.fontSize = '0.75rem';
-    deleteBtn.addEventListener('click', async function() {
-      if (!confirm('Delete user ' + u.email + '?\n\nThis removes their profile and team from the platform. Their login account remains active in Supabase Auth.')) return;
+    deleteBtn.textContent = '🗑 Delete User';
+    deleteBtn.className = 'delete admin-card-delete';
+    deleteBtn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      if (!confirm('Delete user ' + u.email + '?
+
+This removes their profile and team from the platform.')) return;
       if (supabaseClient) {
-        // Delete their profile
         await supabaseClient.from('profiles').delete().eq('email', u.email);
-        // Delete their team (if they are captain) and clean up registrations
-        const { data: captainTeams } = await supabaseClient
-          .from('teams').select('id').eq('captain', u.email);
+        const { data: captainTeams } = await supabaseClient.from('teams').select('id').eq('captain', u.email);
         if (captainTeams && captainTeams.length > 0) {
           for (const t of captainTeams) {
             await supabaseClient.from('tournament_registrations').delete().eq('team_id', t.id);
             await supabaseClient.from('teams').delete().eq('id', t.id);
           }
-          // Sync local teams
           const localTeams = loadTeams().filter(lt => lt.captain !== u.email);
           saveTeams(localTeams);
         }
       }
-      // Remove from local users
       const localUsers = loadUsers().filter(lu => lu.email !== u.email);
       saveUsers(localUsers);
       renderAdminUsers();
     });
-    deleteTd.appendChild(deleteBtn);
-    tr.appendChild(emailTd);
-    tr.appendChild(discordTd);
-    tr.appendChild(nameTd);
-    tr.appendChild(gamertagTd);
-    tr.appendChild(dateTd);
-    tr.appendChild(deleteTd);
-    tbody.appendChild(tr);
+    details.appendChild(deleteBtn);
+    card.appendChild(details);
+
+    // Toggle expand on header click
+    header.addEventListener('click', function() {
+      const isOpen = details.style.display !== 'none';
+      details.style.display = isOpen ? 'none' : 'block';
+      card.classList.toggle('admin-card--open', !isOpen);
+    });
+
+    tbody.appendChild(card);
   });
 }
 
@@ -1852,57 +1852,64 @@ function renderTeamsRows(teamsArray, discordMap, query) {
       )
     : teamsArray;
 
-  // Render table rows
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 4;
-    td.textContent = query ? 'No teams match your search.' : 'No teams found.';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:1rem;color:var(--text-muted);font-size:0.9rem;';
+    row.textContent = query ? 'No teams match your search.' : 'No teams found.';
+    tbody.appendChild(row);
     return;
   }
+
   filtered.forEach((team) => {
-    const tr = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.textContent = team.name;
-    const captainTd = document.createElement('td');
-    captainTd.textContent = team.captain || '';
-    const discordTd = document.createElement('td');
     const emailKey = (team.captain || '').toLowerCase();
-    const discordVal = discordMap[emailKey] || '';
-    discordTd.textContent = discordVal || '—';
-    // Delete team button
-    const deleteTd = document.createElement('td');
+    const discordVal = discordMap[emailKey] || '—';
+
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+
+    // Header row — always visible
+    const header = document.createElement('div');
+    header.className = 'admin-card-header';
+    header.innerHTML = '<span class="admin-card-name">' + team.name + '</span><span class="admin-card-chevron">&#8250;</span>';
+    card.appendChild(header);
+
+    // Details — hidden by default, expand on click
+    const details = document.createElement('div');
+    details.className = 'admin-card-details';
+    details.style.display = 'none';
+    details.innerHTML =
+      '<div class="admin-card-row"><span class="admin-card-label">Captain</span><span class="admin-card-value">' + (team.captain || '—') + '</span></div>' +
+      '<div class="admin-card-row"><span class="admin-card-label">Discord</span><span class="admin-card-value">' + discordVal + '</span></div>';
+
     const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.className = 'delete';
-    deleteBtn.style.fontSize = '0.75rem';
-    deleteBtn.addEventListener('click', async function() {
+    deleteBtn.textContent = '🗑 Delete Team';
+    deleteBtn.className = 'delete admin-card-delete';
+    deleteBtn.addEventListener('click', async function(e) {
+      e.stopPropagation();
       if (!confirm('Delete team "' + team.name + '"? This cannot be undone.')) return;
       try {
-        // Delete team via backend (handles Supabase deletion)
-        await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' })
-          .catch(() => {});
+        await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' }).catch(() => {});
         if (supabaseClient) {
-          // Delete team record
           await supabaseClient.from('teams').delete().eq('id', team.id);
-          // Clean up tournament registrations for this team
           await supabaseClient.from('tournament_registrations').delete().eq('team_id', team.id);
         }
-        // Also remove from local teams list
         const localTeams = loadTeams().filter(t => t.id !== team.id);
         saveTeams(localTeams);
       } catch(e) { console.error(e); }
       renderAdminTeams();
     });
-    deleteTd.appendChild(deleteBtn);
-    tr.appendChild(nameTd);
-    tr.appendChild(captainTd);
-    tr.appendChild(discordTd);
-    tr.appendChild(deleteTd);
-    tbody.appendChild(tr);
+    details.appendChild(deleteBtn);
+    card.appendChild(details);
+
+    // Toggle expand
+    header.addEventListener('click', function() {
+      const isOpen = details.style.display !== 'none';
+      details.style.display = isOpen ? 'none' : 'block';
+      card.classList.toggle('admin-card--open', !isOpen);
+    });
+
+    tbody.appendChild(card);
   });
 }
 
