@@ -2606,7 +2606,7 @@ a {
   }
 
   .tournament-sidebar {
-    display: none !important;
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -2618,8 +2618,6 @@ a {
     padding: 1rem 0.5rem;
     box-shadow: 4px 0 24px rgba(0,0,0,0.5);
     flex-direction: column;
-    background: #0d0d1a;
-    border-right: 1px solid var(--border);
   }
 
   .tournament-sidebar.mobile-open {
@@ -2729,12 +2727,10 @@ a {
     inset: 0;
     background: rgba(0,0,0,0.6);
     z-index: 1399;
-    pointer-events: none;
   }
 
   .admin-sidebar-overlay.mobile-open {
     display: block;
-    pointer-events: auto;
   }
 
   .admin-sidebar-title {
@@ -3348,12 +3344,9 @@ a {
     cursor: pointer;
     margin-bottom: 1rem;
     width: 100%;
-    position: relative;
-    z-index: 10;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
   }
 }
+
 
 /* ═══════════════════════════════════════════════════════════
    ADMIN COLLAPSIBLE CARDS (Teams & Users)
@@ -3385,6 +3378,7 @@ a {
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   gap: 0.5rem;
 }
 
@@ -3439,7 +3433,6 @@ a {
   font-size: 0.72rem;
   letter-spacing: 0.05em;
   flex-shrink: 0;
-  padding-top: 0.05rem;
 }
 
 .admin-card-value {
@@ -3454,194 +3447,4 @@ a {
   width: 100%;
   font-size: 0.82rem;
   padding: 0.5rem;
-}
-
-/* On desktop — keep table for wider screens */
-@media (min-width: 769px) {
-  .admin-cards-list {
-    /* Still show as cards on desktop but wider */
-    gap: 0.4rem;
-  }
-
-  .admin-card-name {
-    font-size: 0.95rem;
-  }
-}
-
-/* ── Mobile global overflow fixes ── */
-@media (max-width: 768px) {
-  /* Prevent any element from causing horizontal scroll */
-  body {
-    overflow-x: hidden;
-  }
-
-  /* All tables scroll horizontally within their container */
-  .admin-table {
-    display: none; /* replaced by cards */
-  }
-
-  /* Search inputs full width on mobile */
-  #teams-search,
-  #users-search {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box;
-  }
-
-  /* Tournament detail page — score form */
-  .score-submit-form input,
-  .score-submit-form button {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Profile page — avatar grid */
-  .avatar-grid {
-    grid-template-columns: repeat(5, 1fr) !important;
-  }
-
-  /* Leaderboard table — scroll horizontally */
-  #leaderboard-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #leaderboard-container table {
-    min-width: 500px;
-  }
-
-  /* Rule cards */
-  .rule-card {
-    padding: 1rem;
-  }
-
-  /* Bracket */
-  .bracket {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Settings webhook inputs */
-  .webhook-row input {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   LEADERBOARD — MOBILE CARD VIEW
-   ═══════════════════════════════════════════════════════════ */
-
-/* Mobile leaderboard card (replaces grid row) */
-.lb-mobile-card {
-  display: none;
-}
-
-.lb-mobile-card-details {
-  display: none;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.lb-mobile-card.lb-open .lb-mobile-card-details {
-  display: flex;
-}
-
-.lb-detail-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.82rem;
-}
-
-.lb-detail-label {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-.lb-detail-val {
-  color: var(--text);
-  font-weight: 600;
-}
-
-@media (max-width: 768px) {
-  /* Hide desktop rows, show mobile cards */
-  .leaderboard-row {
-    display: none !important;
-  }
-
-  .lb-mobile-card {
-    display: flex;
-    flex-direction: column;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.4rem;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-
-  .lb-mobile-card.top-1 { border-color: var(--gold); background: rgba(255,199,44,0.07); }
-  .lb-mobile-card.top-2 { border-color: rgba(192,192,192,0.4); }
-  .lb-mobile-card.top-3 { border-color: rgba(205,127,50,0.4); }
-
-  .lb-mobile-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .lb-mobile-rank {
-    font-size: 1.2rem;
-    width: 2rem;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .lb-mobile-name {
-    flex: 1;
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text);
-  }
-
-  .lb-mobile-champ {
-    font-weight: 700;
-    color: var(--gold);
-    font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .lb-mobile-chevron {
-    color: var(--text-muted);
-    font-size: 1.2rem;
-    transition: transform 0.2s;
-    flex-shrink: 0;
-  }
-
-  .lb-mobile-card.lb-open .lb-mobile-chevron {
-    transform: rotate(90deg);
-  }
-
-  /* Hide leaderboard col header on mobile */
-  .leaderboard-col-header {
-    display: none !important;
-  }
-
-  .lb-team {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 0.95rem;
-  }
 }

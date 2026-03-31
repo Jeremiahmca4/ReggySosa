@@ -446,8 +446,9 @@ async function syncSession() {
   if (!supabaseClient) {
     return;
   }
-  // Load webhook URLs and prize pool % in background — don't block session
-  setTimeout(() => { fetchAndCacheWebhookUrls(); loadPrizePoolPct(); }, 0);
+  // Load webhook URLs and prize pool % from Supabase so all pages have them
+  fetchAndCacheWebhookUrls();
+  loadPrizePoolPct();
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user && session.user.email) {
@@ -1710,81 +1711,64 @@ function renderUsersRows(usersArray, query) {
   const tbody = document.getElementById('admin-users-table-body');
   if (!tbody) return;
   const filtered = query
-    ? usersArray.filter(u =>
-        u.email.includes(query) ||
-        u.discord.toLowerCase().includes(query) ||
-        u.gamertag.toLowerCase().includes(query)
-      )
+    ? usersArray.filter(function(u) {
+        return u.email.includes(query) ||
+          u.discord.toLowerCase().includes(query) ||
+          u.gamertag.toLowerCase().includes(query);
+      })
     : usersArray;
-
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    const row = document.createElement('div');
-    row.style.cssText = 'padding:1rem;color:var(--text-muted);font-size:0.9rem;';
-    row.textContent = query ? 'No users match your search.' : 'No users found.';
-    tbody.appendChild(row);
+    tbody.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">' + (query ? 'No users match.' : 'No users found.') + '</p>';
     return;
   }
-
-  filtered.forEach((u) => {
-    const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
-
-    const card = document.createElement('div');
+  filtered.forEach(function(u) {
+    var dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+    var card = document.createElement('div');
     card.className = 'admin-card';
-
-    // Header — always visible: show email + chevron
-    const header = document.createElement('div');
+    var header = document.createElement('div');
     header.className = 'admin-card-header';
     header.innerHTML = '<span class="admin-card-name">' + u.email + '</span><span class="admin-card-chevron">&#8250;</span>';
-    card.appendChild(header);
-
-    // Details — collapsed by default
-    const details = document.createElement('div');
+    var details = document.createElement('div');
     details.className = 'admin-card-details';
     details.style.display = 'none';
     details.innerHTML =
       '<div class="admin-card-row"><span class="admin-card-label">Discord</span><span class="admin-card-value">' + (u.discord || 'Not set') + '</span></div>' +
       '<div class="admin-card-row"><span class="admin-card-label">Gamertag</span><span class="admin-card-value">' + (u.gamertag || '—') + '</span></div>' +
       '<div class="admin-card-row"><span class="admin-card-label">Joined</span><span class="admin-card-value">' + dateStr + '</span></div>';
-
-    const deleteBtn = document.createElement('button');
+    var deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑 Delete User';
     deleteBtn.className = 'delete admin-card-delete';
     deleteBtn.addEventListener('click', async function(e) {
       e.stopPropagation();
-      if (!confirm('Delete user ' + u.email + '?
-
-This removes their profile and team from the platform.')) return;
+      if (!confirm('Delete user ' + u.email + '?')) return;
       if (supabaseClient) {
         await supabaseClient.from('profiles').delete().eq('email', u.email);
-        const { data: captainTeams } = await supabaseClient.from('teams').select('id').eq('captain', u.email);
-        if (captainTeams && captainTeams.length > 0) {
-          for (const t of captainTeams) {
+        var captainTeams = await supabaseClient.from('teams').select('id').eq('captain', u.email);
+        if (captainTeams.data && captainTeams.data.length > 0) {
+          for (var t of captainTeams.data) {
             await supabaseClient.from('tournament_registrations').delete().eq('team_id', t.id);
             await supabaseClient.from('teams').delete().eq('id', t.id);
           }
-          const localTeams = loadTeams().filter(lt => lt.captain !== u.email);
+          var localTeams = loadTeams().filter(function(lt) { return lt.captain !== u.email; });
           saveTeams(localTeams);
         }
       }
-      const localUsers = loadUsers().filter(lu => lu.email !== u.email);
+      var localUsers = loadUsers().filter(function(lu) { return lu.email !== u.email; });
       saveUsers(localUsers);
       renderAdminUsers();
     });
     details.appendChild(deleteBtn);
+    card.appendChild(header);
     card.appendChild(details);
-
-    // Toggle expand on header click
     header.addEventListener('click', function() {
-      const isOpen = details.style.display !== 'none';
-      details.style.display = isOpen ? 'none' : 'block';
-      card.classList.toggle('admin-card--open', !isOpen);
+      var open = details.style.display !== 'none';
+      details.style.display = open ? 'none' : 'block';
+      card.classList.toggle('admin-card--open', !open);
     });
-
     tbody.appendChild(card);
   });
 }
-
 /**
  * Render a list of all registered teams for the admin dashboard, including
  * the Discord handle of each team captain if available. This function
@@ -1844,74 +1828,59 @@ function renderTeamsRows(teamsArray, discordMap, query) {
   const tbody = document.getElementById('admin-teams-table-body');
   if (!tbody) return;
   const filtered = query
-    ? teamsArray.filter(t =>
-        t.name.toLowerCase().includes(query) ||
-        (t.captain || '').toLowerCase().includes(query) ||
-        (discordMap[(t.captain || '').toLowerCase()] || '').toLowerCase().includes(query)
-      )
+    ? teamsArray.filter(function(t) {
+        return t.name.toLowerCase().includes(query) ||
+          (t.captain || '').toLowerCase().includes(query) ||
+          (discordMap[(t.captain || '').toLowerCase()] || '').toLowerCase().includes(query);
+      })
     : teamsArray;
-
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    const row = document.createElement('div');
-    row.style.cssText = 'padding:1rem;color:var(--text-muted);font-size:0.9rem;';
-    row.textContent = query ? 'No teams match your search.' : 'No teams found.';
-    tbody.appendChild(row);
+    tbody.innerHTML = '<p style="padding:1rem;color:var(--text-muted);">' + (query ? 'No teams match.' : 'No teams found.') + '</p>';
     return;
   }
-
-  filtered.forEach((team) => {
-    const emailKey = (team.captain || '').toLowerCase();
-    const discordVal = discordMap[emailKey] || '—';
-
-    const card = document.createElement('div');
+  filtered.forEach(function(team) {
+    var emailKey = (team.captain || '').toLowerCase();
+    var discordVal = discordMap[emailKey] || '—';
+    var card = document.createElement('div');
     card.className = 'admin-card';
-
-    // Header row — always visible
-    const header = document.createElement('div');
+    var header = document.createElement('div');
     header.className = 'admin-card-header';
     header.innerHTML = '<span class="admin-card-name">' + team.name + '</span><span class="admin-card-chevron">&#8250;</span>';
-    card.appendChild(header);
-
-    // Details — hidden by default, expand on click
-    const details = document.createElement('div');
+    var details = document.createElement('div');
     details.className = 'admin-card-details';
     details.style.display = 'none';
     details.innerHTML =
       '<div class="admin-card-row"><span class="admin-card-label">Captain</span><span class="admin-card-value">' + (team.captain || '—') + '</span></div>' +
       '<div class="admin-card-row"><span class="admin-card-label">Discord</span><span class="admin-card-value">' + discordVal + '</span></div>';
-
-    const deleteBtn = document.createElement('button');
+    var deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑 Delete Team';
     deleteBtn.className = 'delete admin-card-delete';
     deleteBtn.addEventListener('click', async function(e) {
       e.stopPropagation();
-      if (!confirm('Delete team "' + team.name + '"? This cannot be undone.')) return;
+      if (!confirm('Delete team "' + team.name + '"?')) return;
       try {
-        await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' }).catch(() => {});
+        await fetch(API_BASE_URL + '/api/teams/' + encodeURIComponent(team.id), { method: 'DELETE' }).catch(function(){});
         if (supabaseClient) {
           await supabaseClient.from('teams').delete().eq('id', team.id);
           await supabaseClient.from('tournament_registrations').delete().eq('team_id', team.id);
         }
-        const localTeams = loadTeams().filter(t => t.id !== team.id);
+        var localTeams = loadTeams().filter(function(t) { return t.id !== team.id; });
         saveTeams(localTeams);
       } catch(e) { console.error(e); }
       renderAdminTeams();
     });
     details.appendChild(deleteBtn);
+    card.appendChild(header);
     card.appendChild(details);
-
-    // Toggle expand
     header.addEventListener('click', function() {
-      const isOpen = details.style.display !== 'none';
-      details.style.display = isOpen ? 'none' : 'block';
-      card.classList.toggle('admin-card--open', !isOpen);
+      var open = details.style.display !== 'none';
+      details.style.display = open ? 'none' : 'block';
+      card.classList.toggle('admin-card--open', !open);
     });
-
     tbody.appendChild(card);
   });
 }
-
 async function createTournamentFromForm() {
   const nameInput = document.getElementById('tournament-name');
   const maxTeamsInput = document.getElementById('tournament-max-teams');
@@ -4591,33 +4560,6 @@ async function renderLeaderboard() {
       row.appendChild(gaEl);
       row.appendChild(gdEl);
       row.appendChild(playedEl);
-
-      // Build a separate mobile card (desktop row stays untouched)
-      const mobileCard = document.createElement('div');
-      mobileCard.className = 'lb-mobile-card' + (i === 0 ? ' top-1' : i === 1 ? ' top-2' : i === 2 ? ' top-3' : '');
-      const gdColor = gdVal > 0 ? 'var(--gold)' : gdVal < 0 ? '#ff6b6b' : 'inherit';
-      mobileCard.innerHTML =
-        '<div class="lb-mobile-card-header">' +
-          '<span class="lb-mobile-rank">' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)) + '</span>' +
-          '<span class="lb-mobile-name">' + team.name + (team.championships > 0 ? ' <span style="background:var(--gold);color:#000;font-size:0.6rem;padding:0.1rem 0.3rem;border-radius:10px;font-weight:800;">' + team.championships + '×</span>' : '') + '</span>' +
-          '<span class="lb-mobile-champ">🏆 ' + team.championships + '</span>' +
-          '<span class="lb-mobile-chevron">›</span>' +
-        '</div>' +
-        '<div class="lb-mobile-card-details">' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Wins</span><span class="lb-detail-val">' + team.wins + '</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Losses</span><span class="lb-detail-val">' + team.losses + '</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Win %</span><span class="lb-detail-val">' + team.winPct + '%</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Goals For</span><span class="lb-detail-val">' + (team.gf||0) + '</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Goals Against</span><span class="lb-detail-val">' + (team.ga||0) + '</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Goal Diff</span><span class="lb-detail-val" style="color:' + gdColor + '">' + (gdVal>0?'+':'') + gdVal + '</span></div>' +
-          '<div class="lb-detail-row"><span class="lb-detail-label">Tournaments</span><span class="lb-detail-val">' + team.tournamentsEntered + '</span></div>' +
-        '</div>';
-
-      mobileCard.addEventListener('click', function() {
-        mobileCard.classList.toggle('lb-open');
-      });
-
-      table.appendChild(mobileCard);
 
       // Admin-only three-dot edit button
       if (isAdmin) {

@@ -42,41 +42,15 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      // Helper: run with timeout
-      function withTimeout(promise, ms) {
-        return Promise.race([promise, new Promise(r => setTimeout(r, ms))]);
-      }
-
-      function showEditor() {
-        const loading = document.getElementById('profile-loading');
-        if (loading) loading.remove();
-        if (typeof buildProfileEditor === 'function') buildProfileEditor();
-      }
-
-      try {
-        // Sync session with 4s timeout so mobile never hangs
-        if (typeof syncSession === 'function') {
-          await withTimeout(syncSession(), 4000).catch(() => {});
-        }
-        populateAuthLinks();
-      } catch(e) {}
-
-      // Always show the editor regardless of sync outcome
-      try {
-        showEditor();
-      } catch(e) {
-        console.error('buildProfileEditor error:', e);
-      }
-
-      // Load profile data
-      try {
-        if (typeof loadProfile === 'function') {
-          await withTimeout(loadProfile(), 5000).catch(e => console.error('loadProfile error:', e));
-        }
-      } catch(e) {}
-
-      // Sync teams in background
-      if (typeof syncTeamsFromBackend === 'function') syncTeamsFromBackend().catch(() => {});
+      if (typeof syncSession === 'function') await syncSession();
+      populateAuthLinks();
+      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
+      // Build the editor UI
+      const loading = document.getElementById('profile-loading');
+      if (loading) loading.remove();
+      if (typeof buildProfileEditor === 'function') buildProfileEditor();
+      // Load existing values into the editor
+      if (typeof loadProfile === 'function') await loadProfile();
     });
   </script>
 
