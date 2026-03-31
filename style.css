@@ -3533,79 +3533,109 @@ a {
    LEADERBOARD — MOBILE CARD VIEW
    ═══════════════════════════════════════════════════════════ */
 
+/* Mobile leaderboard card (replaces grid row) */
+.lb-mobile-card {
+  display: none;
+}
+
+.lb-mobile-card-details {
+  display: none;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.lb-mobile-card.lb-open .lb-mobile-card-details {
+  display: flex;
+}
+
+.lb-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.lb-detail-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.lb-detail-val {
+  color: var(--text);
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
-  /* Hide the desktop column header on mobile */
-  .leaderboard-col-header {
+  /* Hide desktop rows, show mobile cards */
+  .leaderboard-row {
     display: none !important;
   }
 
-  /* Each row becomes a card with just rank + name + champ visible */
-  .leaderboard-row {
-    grid-template-columns: 2rem 1fr auto;
-    grid-template-rows: auto auto;
+  .lb-mobile-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     padding: 0.75rem 1rem;
-    position: relative;
+    margin-bottom: 0.4rem;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
-  /* Hide all stat columns by default on mobile */
-  .lb-stat,
-  .lb-edit-btn {
-    display: none;
+  .lb-mobile-card.top-1 { border-color: var(--gold); background: rgba(255,199,44,0.07); }
+  .lb-mobile-card.top-2 { border-color: rgba(192,192,192,0.4); }
+  .lb-mobile-card.top-3 { border-color: rgba(205,127,50,0.4); }
+
+  .lb-mobile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 
-  /* Show a summary stat (championships) in collapsed view */
-  .lb-stat.lb-champ-col {
-    display: block;
-    font-size: 0.85rem;
+  .lb-mobile-rank {
+    font-size: 1.2rem;
+    width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .lb-mobile-name {
+    flex: 1;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .lb-mobile-champ {
     font-weight: 700;
     color: var(--gold);
-    text-align: right;
+    font-size: 0.9rem;
+    flex-shrink: 0;
   }
 
-  /* When card is expanded, show all stats as a detail block */
-  .lb-expanded-details {
-    grid-column: 1 / -1;
-    display: none;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
-    gap: 0.4rem;
-    flex-direction: column;
-  }
-
-  .leaderboard-row.lb-open .lb-expanded-details {
-    display: flex;
-  }
-
-  .lb-detail-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.82rem;
-  }
-
-  .lb-detail-label {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-  }
-
-  .lb-detail-val {
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .lb-chevron {
+  .lb-mobile-chevron {
     color: var(--text-muted);
     font-size: 1.2rem;
     transition: transform 0.2s;
-    display: block !important;
+    flex-shrink: 0;
   }
 
-  .leaderboard-row.lb-open .lb-chevron {
+  .lb-mobile-card.lb-open .lb-mobile-chevron {
     transform: rotate(90deg);
+  }
+
+  /* Hide leaderboard col header on mobile */
+  .leaderboard-col-header {
+    display: none !important;
   }
 
   .lb-team {
