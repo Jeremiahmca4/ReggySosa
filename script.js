@@ -1659,6 +1659,11 @@ function renderAdminTournaments() {
  * list stored in the browser. The list is rendered into the element with
  * ID `users-list` on admin.html.
  */
+// Cached data for search filtering
+let _cachedUsersArray = [];
+let _cachedTeamsArray = [];
+let _cachedDiscordMap = {};
+
 async function renderAdminUsers() {
   const tbody = document.getElementById('admin-users-table-body');
   if (!tbody) return;
@@ -1680,20 +1685,45 @@ async function renderAdminUsers() {
       console.error('Failed to fetch profiles from Supabase:', err);
     }
   }
-  // Sort by email
+  // Sort alphabetically by email
   usersArray.sort((a, b) => (a.email < b.email ? -1 : a.email > b.email ? 1 : 0));
+  _cachedUsersArray = usersArray;
+
+  // Wire up search
+  const searchInput = document.getElementById('users-search');
+  if (searchInput && !searchInput._wired) {
+    searchInput._wired = true;
+    searchInput.addEventListener('input', function() {
+      renderUsersRows(_cachedUsersArray, this.value.toLowerCase().trim());
+    });
+  }
+
+  renderUsersRows(usersArray, searchInput ? searchInput.value.toLowerCase().trim() : '');
+}
+
+function renderUsersRows(usersArray, query) {
+  const tbody = document.getElementById('admin-users-table-body');
+  if (!tbody) return;
+  const filtered = query
+    ? usersArray.filter(u =>
+        u.email.includes(query) ||
+        u.discord.toLowerCase().includes(query) ||
+        u.gamertag.toLowerCase().includes(query)
+      )
+    : usersArray;
+
   // Render table rows
   tbody.innerHTML = '';
-  if (usersArray.length === 0) {
+  if (filtered.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 3;
-    td.textContent = 'No users found.';
+    td.colSpan = 6;
+    td.textContent = query ? 'No users match your search.' : 'No users found.';
     tr.appendChild(td);
     tbody.appendChild(tr);
     return;
   }
-  usersArray.forEach((u) => {
+  filtered.forEach((u) => {
     const tr = document.createElement('tr');
     const emailTd = document.createElement('td');
     emailTd.textContent = u.email;
@@ -1788,20 +1818,46 @@ async function renderAdminTeams() {
       console.error('Failed to fetch profiles from Supabase:', err);
     }
   }
+  // Sort alphabetically by name
+  teamsArray.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  _cachedTeamsArray = teamsArray;
+  _cachedDiscordMap = discordMap;
+
+  // Wire up search
+  const searchInput = document.getElementById('teams-search');
+  if (searchInput && !searchInput._wired) {
+    searchInput._wired = true;
+    searchInput.addEventListener('input', function() {
+      renderTeamsRows(_cachedTeamsArray, _cachedDiscordMap, this.value.toLowerCase().trim());
+    });
+  }
+
+  renderTeamsRows(teamsArray, discordMap, searchInput ? searchInput.value.toLowerCase().trim() : '');
+}
+
+function renderTeamsRows(teamsArray, discordMap, query) {
+  const tbody = document.getElementById('admin-teams-table-body');
+  if (!tbody) return;
+  const filtered = query
+    ? teamsArray.filter(t =>
+        t.name.toLowerCase().includes(query) ||
+        (t.captain || '').toLowerCase().includes(query) ||
+        (discordMap[(t.captain || '').toLowerCase()] || '').toLowerCase().includes(query)
+      )
+    : teamsArray;
+
   // Render table rows
   tbody.innerHTML = '';
-  if (teamsArray.length === 0) {
+  if (filtered.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 4; // Team Name, Email, Discord, Actions
-    td.textContent = 'No teams found.';
+    td.colSpan = 4;
+    td.textContent = query ? 'No teams match your search.' : 'No teams found.';
     tr.appendChild(td);
     tbody.appendChild(tr);
     return;
   }
-  // Sort by name
-  teamsArray.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  teamsArray.forEach((team) => {
+  filtered.forEach((team) => {
     const tr = document.createElement('tr');
     const nameTd = document.createElement('td');
     nameTd.textContent = team.name;

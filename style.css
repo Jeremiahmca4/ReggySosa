@@ -680,15 +680,54 @@ h3 {
 }
 
 /* ── Tournament Tabs ── */
-.tournament-nav {
+/* ── Tournament Layout: sidebar on desktop ── */
+.tournament-main {
+  max-width: 1200px;
+}
+
+.tournament-layout {
   display: flex;
   gap: 0;
-  margin: 1.5rem 0;
+  align-items: flex-start;
+  min-height: 70vh;
+}
+
+.tournament-sidebar {
+  width: 200px;
+  flex-shrink: 0;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.3rem;
-  flex-wrap: wrap;
+  padding: 0.5rem;
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tournament-sidebar-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+
+.tournament-content {
+  flex: 1;
+  min-width: 0;
+  padding-left: 1.5rem;
+}
+
+.tournament-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .tournament-nav-item {
@@ -697,26 +736,27 @@ h3 {
   color: var(--text-muted);
   cursor: pointer;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 0.5rem 1.2rem;
+  padding: 0.65rem 0.75rem;
   border-radius: var(--radius-sm);
   transition: color var(--transition), background var(--transition);
-  flex: 1;
-  min-width: fit-content;
+  text-align: left;
+  width: 100%;
 }
 
 .tournament-nav-item:hover {
   color: var(--text);
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.05);
 }
 
 .tournament-nav-item.active {
-  background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(0,210,255,0.2));
-  color: #fff;
-  box-shadow: 0 0 12px rgba(0,210,255,0.1);
+  background: rgba(212,160,23,0.15);
+  color: var(--gold);
+  border-left: 3px solid var(--gold);
+  padding-left: calc(0.75rem - 3px);
 }
 
 .tournament-tab {
@@ -2558,28 +2598,65 @@ a {
     padding: 1.25rem 1rem;
   }
 
-  /* ── Tournament tabs — 4 tabs + More on mobile ── */
-  .tournament-nav {
-    overflow: visible;
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
+  /* ── Tournament: collapse sidebar to top tabs on mobile ── */
+  .tournament-layout {
+    flex-direction: column;
+    gap: 0;
   }
+
+  .tournament-sidebar {
+    width: 100%;
+    position: static;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding: 0.3rem;
+  }
+
+  .tournament-sidebar-title {
+    display: none;
+  }
+
+  .tournament-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+  }
+
+  .tournament-nav::-webkit-scrollbar { display: none; }
 
   .tournament-nav-item {
     white-space: nowrap;
     flex-shrink: 0;
-    font-size: 0.85rem;
-    padding: 0.45rem 0.7rem;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.65rem;
+    border-left: none !important;
+    padding-left: 0.65rem !important;
+    text-align: center;
   }
 
-  /* Show More dropdown on mobile */
+  .tournament-nav-item.active {
+    border-left: none;
+    border-bottom: 3px solid var(--gold);
+    border-radius: 0;
+    padding-left: 0.65rem !important;
+  }
+
+  .tournament-content {
+    padding-left: 0;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: 1.25rem 1rem;
+  }
+
   .tournament-nav-more {
-    display: block;
+    display: none;
   }
 
-  /* Hide desktop-only tabs on mobile */
   .desktop-only-tab {
-    display: none !important;
+    display: flex !important;
   }
 
   /* ── Tournament cards ── */
@@ -3148,4 +3225,44 @@ a {
 
 #floating-chat-panel .chat-title {
   display: none;
+}
+
+/* ── Tournament Sidebar Layout ── */
+.tourn-sidebar {
+  width: 190px;
+}
+
+.mobile-tourn-nav {
+  display: none; /* hidden on desktop */
+}
+
+.tourn-content {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .tourn-sidebar {
+    display: none; /* hide sidebar on mobile */
+  }
+
+  .mobile-tourn-nav {
+    display: flex !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    margin-bottom: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.3rem;
+    position: relative;
+  }
+
+  .mobile-tourn-nav::-webkit-scrollbar { display: none; }
+
+  .tourn-content {
+    padding-left: 0 !important;
+  }
 }

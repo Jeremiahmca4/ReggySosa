@@ -33,29 +33,23 @@
       </div>
     </nav>
   </header>
-  <main class="container">
-    <h1>CHEL Tournaments</h1>
-    <p>Browse upcoming and ongoing tournaments below.</p>
-    <!-- Tournament navigation tabs -->
-    <nav class="tournament-nav">
-      <button type="button" class="tournament-nav-item" data-tab="active-tab">Active / Open</button>
-      <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">Upcoming</button>
-      <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
-      <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">Leaderboard</button>
-      <!-- More dropdown: mobile only -->
-      <div class="tournament-nav-more">
-        <button type="button" class="tournament-nav-item more-btn" id="more-btn">More &#9662;</button>
-        <div class="more-dropdown" id="more-dropdown" style="display:none;">
-          <button type="button" class="more-dropdown-item" data-tab="rules-tab">&#128203; Rules</button>
-          <button type="button" class="more-dropdown-item" data-tab="search-tab">&#128269; Team Search</button>
-          <button type="button" class="more-dropdown-item" data-tab="myteam-tab">&#128101; My Team</button>
-        </div>
-      </div>
-      <!-- Desktop only tabs -->
-      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="rules-tab">Rules</button>
-      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="search-tab">Team Search</button>
-      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="myteam-tab">My Team</button>
-    </nav>
+  <main class="container tournament-main">
+    <div class="tournament-layout">
+      <aside class="tournament-sidebar">
+        <div class="tournament-sidebar-title">🏒 Tournaments</div>
+        <nav class="tournament-nav">
+          <button type="button" class="tournament-nav-item" data-tab="active-tab">🟢 Active / Open</button>
+          <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">📅 Upcoming</button>
+          <button type="button" class="tournament-nav-item" data-tab="past-tab">🏆 Past Champions</button>
+          <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">📊 Leaderboard</button>
+          <button type="button" class="tournament-nav-item" data-tab="rules-tab">📋 Rules</button>
+          <button type="button" class="tournament-nav-item" data-tab="search-tab">🔍 Team Search</button>
+          <button type="button" class="tournament-nav-item" data-tab="myteam-tab">👥 My Team</button>
+        </nav>
+      </aside>
+      <div class="tournament-content">
+        <h1>CHEL Tournaments</h1>
+        <p style="color:var(--text-muted);margin-bottom:1.25rem;">Browse upcoming and ongoing tournaments below.</p>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
       <div id="active-tournaments-list" class="tournament-list"></div>
@@ -149,6 +143,10 @@
         </div>
       </div>
     </section>
+      </div>
+    </div>
+      </div>
+    </div>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>
@@ -202,7 +200,8 @@
         tabs.forEach((sec) => {
           sec.style.display = sec.id === tabId ? 'block' : 'none';
         });
-        navItems.forEach((btn) => {
+        // Update active state on both sidebar and mobile nav
+        document.querySelectorAll('.tournament-nav-item, .admin-nav-item').forEach((btn) => {
           if (btn.dataset.tab === tabId) {
             btn.classList.add('active');
           } else {
