@@ -34,9 +34,13 @@
     </nav>
   </header>
   <main class="container tournament-main">
+    <!-- Mobile hamburger button -->
+    <button class="tourn-hamburger" id="tourn-hamburger">&#9776; Browse Sections</button>
+    <!-- Overlay -->
+    <div class="admin-sidebar-overlay" id="tourn-sidebar-overlay"></div>
     <div class="tournament-layout">
-      <aside class="tournament-sidebar">
-        <div class="tournament-sidebar-title">🏒 Tournaments</div>
+      <aside class="tournament-sidebar" id="tourn-mobile-sidebar">
+        <div class="tournament-sidebar-title">🏒 Tournaments <button class="admin-sidebar-close" id="tourn-sidebar-close">&#x2715;</button></div>
         <nav class="tournament-nav">
           <button type="button" class="tournament-nav-item" data-tab="active-tab">🟢 Active / Open</button>
           <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">📅 Upcoming</button>
