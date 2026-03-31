@@ -66,6 +66,105 @@ function formatPrizePool(tournament) {
   if (pool === 0) return null;
   return `$${pool.toFixed(2)}`;
 }
+// ── PRE-PAYMENT INFO MODAL ────────────────────────────────────────────────────
+function openEntryInfoModal({ tournament, teamId, entryFee, onConfirm }) {
+  document.getElementById('entry-info-modal')?.remove();
+
+  const pct = getPrizePoolPct();
+  const hostingPct = 100 - pct;
+  const maxTeams = tournament.maxTeams || 8;
+  const currentTeams = tournament.teams ? tournament.teams.length : 0;
+  const stripeFee = Math.round((entryFee * 0.029 + 0.30) * 100) / 100;
+  const netPerEntry = Math.round((entryFee - stripeFee) * 100) / 100;
+  const currentPrizePool = Math.round(currentTeams * entryFee * (pct / 100) * 100) / 100;
+  const maxPrizePool = Math.round(maxTeams * entryFee * (pct / 100) * 100) / 100;
+  const maxHostingFee = Math.round(maxTeams * entryFee * (hostingPct / 100) * 100) / 100;
+
+  const modal = document.createElement('div');
+  modal.id = 'entry-info-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9998;display:flex;align-items:center;justify-content:center;padding:1rem;';
+
+  modal.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid #d4a017;border-radius:12px;padding:2rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
+      <button id="entry-info-close" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#aaa;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
+
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-size:2rem;display:block;margin-bottom:0.5rem;">🏆</span>
+        <h2 style="color:#d4a017;font-size:1.3rem;margin:0 0 0.25rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;">${tournament.name}</h2>
+        <p style="color:#ccc;margin:0;font-size:0.9rem;">Tournament Entry — Read before paying</p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <p style="color:#d4a017;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;font-size:0.85rem;margin:0 0 0.75rem;font-weight:700;">💳 Entry Fee Breakdown</p>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;font-size:0.9rem;">
+          <span style="color:#ccc;">Entry Fee</span>
+          <span style="color:#fff;font-weight:600;">$${entryFee.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;font-size:0.9rem;gap:1rem;">
+          <span style="color:#ccc;">Stripe Processing Fee <span style="font-size:0.75rem;color:#888;">(goes directly to Stripe — not us)</span></span>
+          <span style="color:#ff6b6b;white-space:nowrap;">-$${stripeFee.toFixed(2)}</span>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:0.4rem;display:flex;justify-content:space-between;font-size:0.9rem;">
+          <span style="color:#ccc;">Net per entry</span>
+          <span style="color:#50c878;font-weight:700;">$${netPerEntry.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div style="background:rgba(212,160,23,0.08);border:1px solid rgba(212,160,23,0.3);border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <p style="color:#d4a017;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;font-size:0.85rem;margin:0 0 0.75rem;font-weight:700;">🏆 Prize Pool</p>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;font-size:0.9rem;gap:1rem;">
+          <span style="color:#ccc;">Winner receives <span style="font-size:0.75rem;color:#888;">(${pct}% of net entries)</span></span>
+          <span style="color:#d4a017;font-weight:700;white-space:nowrap;">$${maxPrizePool.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;font-size:0.9rem;gap:1rem;">
+          <span style="color:#ccc;">Hosting fee <span style="font-size:0.75rem;color:#888;">(${hostingPct}% — keeps the platform running)</span></span>
+          <span style="color:#aaa;white-space:nowrap;">$${maxHostingFee.toFixed(2)}</span>
+        </div>
+        <div style="border-top:1px solid rgba(212,160,23,0.2);padding-top:0.4rem;font-size:0.8rem;color:#888;margin-top:0.25rem;">
+          Based on ${maxTeams} teams max. Current prize pool: <strong style="color:#d4a017;">$${currentPrizePool.toFixed(2)}</strong> (${currentTeams}/${maxTeams} teams registered)
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:1rem;margin-bottom:1.25rem;">
+        <p style="color:#d4a017;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;font-size:0.85rem;margin:0 0 0.75rem;font-weight:700;">💸 How Payouts Work</p>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem;color:#ccc;"><span>🏆</span><span>Win the tournament</span></div>
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem;color:#ccc;"><span>📩</span><span>Admin DMs you on Discord within 24 hours</span></div>
+          <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.88rem;color:#ccc;"><span>💸</span><span>Receive your prize via Venmo, PayPal, or Cash App</span></div>
+        </div>
+      </div>
+
+      <p style="color:#666;font-size:0.75rem;text-align:center;margin-bottom:1.25rem;">All payments processed securely by Stripe. Entry fees are non-refundable once paid.</p>
+
+      <button id="entry-info-confirm" style="width:100%;background:linear-gradient(135deg,#d4a017,#f0c040);color:#1a1a2e;border:none;border-radius:8px;padding:0.85rem;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:0.5rem;font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;">
+        ✅ I Understand — Pay $${entryFee.toFixed(2)} & Register
+      </button>
+      <button id="entry-info-cancel" style="width:100%;background:transparent;color:#aaa;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem;font-size:0.9rem;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+
+  function closeInfoModal() {
+    modal.remove();
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('entry-info-close').addEventListener('click', closeInfoModal);
+  document.getElementById('entry-info-cancel').addEventListener('click', closeInfoModal);
+  modal.addEventListener('click', function(e) { if (e.target === modal) closeInfoModal(); });
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { closeInfoModal(); document.removeEventListener('keydown', escHandler); }
+  });
+  document.getElementById('entry-info-confirm').addEventListener('click', function() {
+    closeInfoModal();
+    onConfirm();
+  });
+}
+
 // Registers team directly (faster than waiting for webhook) then refreshes UI.
 window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
   try {
@@ -5652,17 +5751,24 @@ function renderTournamentDetails(id) {
             registerBtn.textContent = 'Loading...';
             try {
               if (entryFee > 0) {
-                // Paid tournament — open Stripe payment modal
-                if (typeof window.openStripeModal === 'function') {
-                  window.openStripeModal({
-                    tournamentId: tournament.id,
-                    teamId: currentTeam.id,
-                    amount: entryFee,
-                    tournamentName: tournament.name,
-                  });
-                } else {
-                  alert('Payment system not loaded. Please refresh the page.');
-                }
+                // Paid tournament — show info modal first, then Stripe
+                openEntryInfoModal({
+                  tournament,
+                  teamId: currentTeam.id,
+                  entryFee,
+                  onConfirm: function() {
+                    if (typeof window.openStripeModal === 'function') {
+                      window.openStripeModal({
+                        tournamentId: tournament.id,
+                        teamId: currentTeam.id,
+                        amount: entryFee,
+                        tournamentName: tournament.name,
+                      });
+                    } else {
+                      alert('Payment system not loaded. Please refresh the page.');
+                    }
+                  }
+                });
                 registerBtn.disabled = false;
                 registerBtn.textContent = `💳 Pay $${entryFee.toFixed(2)} & Register`;
               } else {
