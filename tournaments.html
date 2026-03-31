@@ -241,9 +241,9 @@
 
       // Tournament mobile hamburger sidebar
       const tournHamburger = document.getElementById('tourn-hamburger');
-      const tournSidebar = document.getElementById('tournament-sidebar-nav')?.closest('aside');
+      const tournSidebar = document.getElementById('tourn-mobile-sidebar');
       const tournOverlay = document.getElementById('tourn-sidebar-overlay');
-      const tournCurrent = document.getElementById('tourn-mobile-current');
+      const tournClose = document.getElementById('tourn-sidebar-close');
 
       // Tab label map
       const tabLabels = {
@@ -269,13 +269,13 @@
 
       if (tournHamburger) tournHamburger.addEventListener('click', openTournSidebar);
       if (tournOverlay) tournOverlay.addEventListener('click', closeTournSidebar);
+      if (tournClose) tournClose.addEventListener('click', closeTournSidebar);
 
-      // Close sidebar and update label when tab clicked on mobile
-      document.querySelectorAll('#tournament-sidebar-nav .admin-nav-item').forEach(function(btn) {
+      // Close sidebar when tab clicked on mobile
+      document.querySelectorAll('.tournament-nav-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
           if (window.innerWidth <= 768) {
             closeTournSidebar();
-            if (tournCurrent) tournCurrent.textContent = tabLabels[this.dataset.tab] || '';
           }
         });
       });
