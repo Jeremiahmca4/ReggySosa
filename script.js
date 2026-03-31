@@ -1164,38 +1164,56 @@ function renderActiveTournaments() {
     const title = document.createElement('h3');
     title.textContent = t.name;
     card.appendChild(title);
-    const teamsCount = document.createElement('p');
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
-    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
-    card.appendChild(teamsCount);
-    // Entry fee badge
+
+    // Meta row: teams count
+    const metaRow = document.createElement('div');
+    metaRow.className = 'card-meta-row';
+    const teamsLabel = document.createElement('span');
+    teamsLabel.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    metaRow.appendChild(teamsLabel);
+    if (t.startDate) {
+      const sd = new Date(t.startDate + 'T00:00:00');
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      metaRow.appendChild(dateSpan);
+    }
+    card.appendChild(metaRow);
+
+    // Progress bar
+    if (maxCount) {
+      const pct = Math.min(100, Math.round((currentCount / maxCount) * 100));
+      const barWrap = document.createElement('div');
+      barWrap.className = 'team-progress-bar';
+      const barFill = document.createElement('div');
+      barFill.className = 'team-progress-fill' + (pct >= 100 ? ' full' : '');
+      barFill.style.width = pct + '%';
+      barWrap.appendChild(barFill);
+      card.appendChild(barWrap);
+    }
+
+    // Entry fee + prize pool row
     const fee = parseFloat(t.entry_fee || t.entryFee) || 0;
+    const badgeRow = document.createElement('div');
+    badgeRow.style.cssText = 'display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.1rem;';
     const feeBadge = document.createElement('span');
-    feeBadge.style.cssText = 'display:inline-block;padding:0.15rem 0.6rem;border-radius:20px;font-size:0.78rem;font-weight:600;margin-bottom:0.35rem;' + (fee > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
-    feeBadge.textContent = fee > 0 ? `💰 $${fee.toFixed(2)} Entry Fee` : '🆓 Free Entry';
-    card.appendChild(feeBadge);
-    // Prize pool badge
+    feeBadge.style.cssText = 'display:inline-block;padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;' + (fee > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
+    feeBadge.textContent = fee > 0 ? '💰 $' + fee.toFixed(2) + ' Entry' : '🆓 Free Entry';
+    badgeRow.appendChild(feeBadge);
     const prizePool = formatPrizePool(t);
     if (prizePool) {
       const poolBadge = document.createElement('span');
-      poolBadge.style.cssText = 'display:inline-block;padding:0.15rem 0.6rem;border-radius:20px;font-size:0.78rem;font-weight:700;margin-bottom:0.35rem;margin-left:0.4rem;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#ffd700;';
-      poolBadge.textContent = `🏆 ${prizePool} Prize Pool`;
-      card.appendChild(poolBadge);
+      poolBadge.style.cssText = 'display:inline-block;padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:700;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.4);color:#ffd700;';
+      poolBadge.textContent = '🏆 ' + prizePool + ' Prize';
+      badgeRow.appendChild(poolBadge);
     }
-    // Start date
-    if (t.startDate) {
-      // Parse the start date as a local date to avoid timezone offsets.
-      // Append a time portion so the browser interprets it in the local timezone.
-      const sd = new Date(t.startDate + 'T00:00:00');
-      const startP = document.createElement('p');
-      startP.textContent = 'Starts: ' + sd.toLocaleDateString();
-      card.appendChild(startP);
-    }
+    card.appendChild(badgeRow);
+
     const link = document.createElement('a');
     link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
     link.className = 'button';
-    link.textContent = 'View';
+    link.textContent = 'View Tournament';
     card.appendChild(link);
     listEl.appendChild(card);
   });
@@ -1247,20 +1265,54 @@ function renderUpcomingTournaments() {
     const title = document.createElement('h3');
     title.textContent = t.name;
     card.appendChild(title);
-    const teamsCount = document.createElement('p');
-    teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
-    card.appendChild(teamsCount);
+
+    // Meta row
+    const metaRow2 = document.createElement('div');
+    metaRow2.className = 'card-meta-row';
+    const teamsLabel2 = document.createElement('span');
+    teamsLabel2.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
+    metaRow2.appendChild(teamsLabel2);
     if (t.startDate) {
-      // Use local parsing for the date.
       const sd = new Date(t.startDate + 'T00:00:00');
-      const startP = document.createElement('p');
-      startP.textContent = 'Starts: ' + sd.toLocaleDateString();
-      card.appendChild(startP);
+      const dateSpan2 = document.createElement('span');
+      dateSpan2.textContent = sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      metaRow2.appendChild(dateSpan2);
     }
+    card.appendChild(metaRow2);
+
+    // Progress bar
+    if (maxCount) {
+      const pct2 = Math.min(100, Math.round((currentCount / maxCount) * 100));
+      const barWrap2 = document.createElement('div');
+      barWrap2.className = 'team-progress-bar';
+      const barFill2 = document.createElement('div');
+      barFill2.className = 'team-progress-fill' + (pct2 >= 100 ? ' full' : '');
+      barFill2.style.width = pct2 + '%';
+      barWrap2.appendChild(barFill2);
+      card.appendChild(barWrap2);
+    }
+
+    // Fee + prize badges
+    const fee2 = parseFloat(t.entry_fee || t.entryFee) || 0;
+    const badgeRow2 = document.createElement('div');
+    badgeRow2.style.cssText = 'display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.1rem;';
+    const feeBadge2 = document.createElement('span');
+    feeBadge2.style.cssText = 'display:inline-block;padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;' + (fee2 > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
+    feeBadge2.textContent = fee2 > 0 ? '💰 $' + fee2.toFixed(2) + ' Entry' : '🆓 Free Entry';
+    badgeRow2.appendChild(feeBadge2);
+    const prizePool2 = formatPrizePool(t);
+    if (prizePool2) {
+      const poolBadge2 = document.createElement('span');
+      poolBadge2.style.cssText = 'display:inline-block;padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:700;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.4);color:#ffd700;';
+      poolBadge2.textContent = '🏆 ' + prizePool2 + ' Prize';
+      badgeRow2.appendChild(poolBadge2);
+    }
+    card.appendChild(badgeRow2);
+
     const link = document.createElement('a');
     link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
     link.className = 'button';
-    link.textContent = 'View';
+    link.textContent = 'View Tournament';
     card.appendChild(link);
     listEl.appendChild(card);
   });
@@ -4156,11 +4208,8 @@ async function testWebhook(type) {
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 
 async function buildLeaderboardData() {
-  // Pull latest data from backend before computing
-  if (supabaseClient) {
-    await syncTournamentsFromBackend();
-    await syncTeamsFromBackend();
-  }
+  // Data already synced on page load — no need to re-sync here
+  // This was causing slow/stuck loading on mobile
 
   const tournaments = loadTournaments();
   const teams = loadTeams();

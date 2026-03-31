@@ -31,15 +31,20 @@
   </header>
   <main class="container admin-container">
     <h1>Admin Dashboard</h1>
-    <nav class="admin-nav">
-      <button type="button" class="admin-nav-item" data-tab="tournaments-tab">Tournaments</button>
-      <button type="button" class="admin-nav-item" data-tab="scores-tab">Score Queue</button>
-      <button type="button" class="admin-nav-item" data-tab="chats-tab">Match Chats</button>
-      <button type="button" class="admin-nav-item" data-tab="teams-tab">Teams</button>
-      <button type="button" class="admin-nav-item" data-tab="users-tab">Users</button>
-      <button type="button" class="admin-nav-item" data-tab="settings-tab">Settings</button>
-      <button type="button" class="admin-nav-item" data-tab="history-tab">Match History</button>
-    </nav>
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-title">⚙️ Dashboard</div>
+        <nav class="admin-nav">
+          <button type="button" class="admin-nav-item" data-tab="tournaments-tab">🏆 Tournaments</button>
+          <button type="button" class="admin-nav-item" data-tab="scores-tab">📋 Score Queue</button>
+          <button type="button" class="admin-nav-item" data-tab="chats-tab">💬 Match Chats</button>
+          <button type="button" class="admin-nav-item" data-tab="teams-tab">👥 Teams</button>
+          <button type="button" class="admin-nav-item" data-tab="users-tab">👤 Users</button>
+          <button type="button" class="admin-nav-item" data-tab="settings-tab">⚙️ Settings</button>
+          <button type="button" class="admin-nav-item" data-tab="history-tab">📜 Match History</button>
+        </nav>
+      </aside>
+      <div class="admin-content">
 
     <!-- Tournaments tab -->
     <section id="tournaments-tab" class="admin-tab">
@@ -176,6 +181,8 @@
       <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1.5rem;">View and delete match history entries. Use this to remove results from no-shows or incorrectly advanced players. Deleting a match removes it from leaderboard stats.</p>
       <div id="admin-history-container"><p style="color:var(--text-muted);">Loading...</p></div>
     </section>
+      </div>
+    </div>
   </main>
   <footer>
     <p>&copy; <span id="year"></span> Reggy Sosa. All rights reserved.</p>

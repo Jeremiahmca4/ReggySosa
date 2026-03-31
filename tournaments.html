@@ -41,10 +41,20 @@
       <button type="button" class="tournament-nav-item" data-tab="active-tab">Active / Open</button>
       <button type="button" class="tournament-nav-item" data-tab="upcoming-tab">Upcoming</button>
       <button type="button" class="tournament-nav-item" data-tab="past-tab">Past Champions</button>
-      <button type="button" class="tournament-nav-item" data-tab="rules-tab">Rules</button>
       <button type="button" class="tournament-nav-item" data-tab="leaderboard-tab">Leaderboard</button>
-      <button type="button" class="tournament-nav-item" data-tab="search-tab">Team Search</button>
-      <button type="button" class="tournament-nav-item" data-tab="myteam-tab">My Team</button>
+      <!-- More dropdown: mobile only -->
+      <div class="tournament-nav-more">
+        <button type="button" class="tournament-nav-item more-btn" id="more-btn">More &#9662;</button>
+        <div class="more-dropdown" id="more-dropdown" style="display:none;">
+          <button type="button" class="more-dropdown-item" data-tab="rules-tab">&#128203; Rules</button>
+          <button type="button" class="more-dropdown-item" data-tab="search-tab">&#128269; Team Search</button>
+          <button type="button" class="more-dropdown-item" data-tab="myteam-tab">&#128101; My Team</button>
+        </div>
+      </div>
+      <!-- Desktop only tabs -->
+      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="rules-tab">Rules</button>
+      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="search-tab">Team Search</button>
+      <button type="button" class="tournament-nav-item desktop-only-tab" data-tab="myteam-tab">My Team</button>
     </nav>
     <!-- Active/Open tournaments tab -->
     <section id="active-tab" class="tournament-tab">
@@ -225,6 +235,33 @@
           switchTab(tab);
         });
       });
+
+      // More dropdown logic (mobile)
+      const moreBtn = document.getElementById('more-btn');
+      const moreDropdown = document.getElementById('more-dropdown');
+      if (moreBtn && moreDropdown) {
+        moreBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const isOpen = moreDropdown.style.display !== 'none';
+          moreDropdown.style.display = isOpen ? 'none' : 'block';
+          moreBtn.textContent = isOpen ? 'More ▾' : 'Less ▴';
+        });
+        document.addEventListener('click', function() {
+          moreDropdown.style.display = 'none';
+          moreBtn.textContent = 'More ▾';
+        });
+        document.querySelectorAll('.more-dropdown-item').forEach(function(item) {
+          item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const tab = this.dataset.tab;
+            moreDropdown.style.display = 'none';
+            moreBtn.textContent = 'More ▾';
+            moreBtn.classList.add('active');
+            switchTab(tab);
+          });
+        });
+      }
+
       // Default to active tab
       switchTab('active-tab');
     });

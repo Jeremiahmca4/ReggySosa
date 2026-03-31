@@ -723,11 +723,61 @@ h3 {
   display: none;
 }
 
+/* More dropdown */
+.tournament-nav-more {
+  position: relative;
+  display: none; /* hidden on desktop */
+}
+
+.more-btn {
+  white-space: nowrap;
+}
+
+.more-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 200;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+
+.more-dropdown-item {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.7rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-bottom: 1px solid var(--border);
+}
+
+.more-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.more-dropdown-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--gold);
+}
+
 /* ── Tournament Cards ── */
 .tournament-list {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   margin-top: 1rem;
 }
 
@@ -738,7 +788,7 @@ h3 {
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
   color: var(--text);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   position: relative;
@@ -756,15 +806,15 @@ h3 {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--ice), var(--purple));
-  opacity: 0.4;
+  background: linear-gradient(90deg, var(--gold), #f0c040);
+  opacity: 0.6;
   transition: opacity 0.2s ease;
 }
 
 .tournament-card:hover {
-  border-color: rgba(0,210,255,0.4);
-  box-shadow: 0 0 30px rgba(0,210,255,0.12), 0 8px 24px rgba(0,0,0,0.5);
-  transform: translateY(-4px);
+  border-color: rgba(212,160,23,0.4);
+  box-shadow: 0 0 30px rgba(212,160,23,0.1), 0 8px 24px rgba(0,0,0,0.5);
+  transform: translateY(-3px);
 }
 
 .tournament-card:hover::before {
@@ -778,7 +828,8 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: #fff;
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.1rem;
+  line-height: 1.2;
 }
 
 .tournament-card p {
@@ -787,10 +838,51 @@ h3 {
   line-height: 1.4;
 }
 
-.tournament-card a.button {
+.tournament-card a.button,
+.tournament-card button.button {
   margin-top: auto;
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  width: 100%;
+  text-align: center;
+}
+
+/* Team registration progress bar */
+.team-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0.25rem 0;
+}
+
+.team-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold), #f0c040);
+  transition: width 0.4s ease;
+}
+
+.team-progress-fill.full {
+  background: linear-gradient(90deg, #ff6b35, #ff4e1a);
+}
+
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.card-prize-highlight {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--gold);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.04em;
 }
 
 /* ── Status Badges ── */
@@ -1097,17 +1189,53 @@ main > p a {
 
 /* ── Admin ── */
 .admin-container {
-  max-width: 1100px;
+  max-width: 1200px;
+}
+
+/* ── Admin Layout: sidebar on desktop, tabs on mobile ── */
+.admin-layout {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  min-height: 70vh;
+}
+
+.admin-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-sidebar-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  padding-left: 1.5rem;
 }
 
 .admin-nav {
   display: flex;
+  flex-direction: column;
   gap: 0;
-  margin-bottom: 2rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.3rem;
 }
 
 .admin-nav-item {
@@ -1116,24 +1244,27 @@ main > p a {
   color: var(--text-muted);
   cursor: pointer;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 0.5rem 1.4rem;
+  padding: 0.65rem 0.75rem;
   border-radius: var(--radius-sm);
   transition: color var(--transition), background var(--transition);
-  flex: 1;
+  text-align: left;
+  width: 100%;
 }
 
 .admin-nav-item:hover {
   color: var(--text);
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.05);
 }
 
 .admin-nav-item.active {
-  background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(0,210,255,0.15));
-  color: #fff;
+  background: rgba(212,160,23,0.15);
+  color: var(--gold);
+  border-left: 3px solid var(--gold);
+  padding-left: calc(0.75rem - 3px);
 }
 
 .admin-tab {
@@ -2427,23 +2558,28 @@ a {
     padding: 1.25rem 1rem;
   }
 
-  /* ── Tournament tabs — scrollable row ── */
+  /* ── Tournament tabs — 4 tabs + More on mobile ── */
   .tournament-nav {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    overflow: visible;
     flex-wrap: nowrap;
     padding-bottom: 2px;
-  }
-
-  .tournament-nav::-webkit-scrollbar {
-    display: none;
   }
 
   .tournament-nav-item {
     white-space: nowrap;
     flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.7rem;
+  }
+
+  /* Show More dropdown on mobile */
+  .tournament-nav-more {
+    display: block;
+  }
+
+  /* Hide desktop-only tabs on mobile */
+  .desktop-only-tab {
+    display: none !important;
   }
 
   /* ── Tournament cards ── */
@@ -2468,12 +2604,30 @@ a {
     padding: 1rem;
   }
 
-  /* ── Admin tabs — scrollable ── */
+  /* ── Admin: collapse sidebar to top tabs on mobile ── */
+  .admin-layout {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    position: static;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding: 0.3rem;
+  }
+
+  .admin-sidebar-title {
+    display: none;
+  }
+
   .admin-nav {
+    flex-direction: row;
     overflow-x: auto;
     flex-wrap: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    gap: 0;
   }
 
   .admin-nav::-webkit-scrollbar { display: none; }
@@ -2481,6 +2635,27 @@ a {
   .admin-nav-item {
     white-space: nowrap;
     flex-shrink: 0;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.7rem;
+    border-left: none !important;
+    padding-left: 0.7rem !important;
+    text-align: center;
+  }
+
+  .admin-nav-item.active {
+    border-left: none;
+    border-bottom: 3px solid var(--gold);
+    border-radius: 0;
+    padding-left: 0.7rem !important;
+  }
+
+  .admin-content {
+    padding-left: 0;
+    padding-top: 1.25rem;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: 1.25rem 1rem;
   }
 }
 
