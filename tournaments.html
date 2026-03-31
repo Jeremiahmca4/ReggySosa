@@ -35,7 +35,7 @@
   </header>
   <main class="container tournament-main">
     <!-- Mobile hamburger button -->
-    <button class="tourn-hamburger" id="tourn-hamburger">&#9776; Browse Sections</button>
+    <button class="tourn-hamburger" id="tourn-hamburger" onclick="var s=document.getElementById('tourn-mobile-sidebar');var o=document.getElementById('tourn-sidebar-overlay');if(s){s.classList.add('mobile-open');document.body.style.overflow='hidden';}if(o){o.classList.add('mobile-open');}">&#9776; Browse Sections</button>
     <!-- Overlay -->
     <div class="admin-sidebar-overlay" id="tourn-sidebar-overlay"></div>
     <div class="tournament-layout">

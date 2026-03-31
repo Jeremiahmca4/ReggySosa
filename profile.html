@@ -42,24 +42,41 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      try {
-        if (typeof syncSession === 'function') await syncSession();
-        populateAuthLinks();
-        // Build UI immediately — don't wait for team sync
-        const loading = document.getElementById('profile-loading');
-        if (loading) loading.remove();
-        if (typeof buildProfileEditor === 'function') buildProfileEditor();
-        // Load profile data
-        if (typeof loadProfile === 'function') await loadProfile().catch(e => console.error('loadProfile error:', e));
-        // Sync teams in background after profile is shown
-        if (typeof syncTeamsFromBackend === 'function') syncTeamsFromBackend().catch(() => {});
-      } catch(e) {
-        console.error('Profile init error:', e);
-        // Last resort — try to show the editor anyway
+      // Helper: run with timeout
+      function withTimeout(promise, ms) {
+        return Promise.race([promise, new Promise(r => setTimeout(r, ms))]);
+      }
+
+      function showEditor() {
         const loading = document.getElementById('profile-loading');
         if (loading) loading.remove();
         if (typeof buildProfileEditor === 'function') buildProfileEditor();
       }
+
+      try {
+        // Sync session with 4s timeout so mobile never hangs
+        if (typeof syncSession === 'function') {
+          await withTimeout(syncSession(), 4000).catch(() => {});
+        }
+        populateAuthLinks();
+      } catch(e) {}
+
+      // Always show the editor regardless of sync outcome
+      try {
+        showEditor();
+      } catch(e) {
+        console.error('buildProfileEditor error:', e);
+      }
+
+      // Load profile data
+      try {
+        if (typeof loadProfile === 'function') {
+          await withTimeout(loadProfile(), 5000).catch(e => console.error('loadProfile error:', e));
+        }
+      } catch(e) {}
+
+      // Sync teams in background
+      if (typeof syncTeamsFromBackend === 'function') syncTeamsFromBackend().catch(() => {});
     });
   </script>
 

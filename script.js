@@ -446,9 +446,8 @@ async function syncSession() {
   if (!supabaseClient) {
     return;
   }
-  // Load webhook URLs and prize pool % from Supabase so all pages have them
-  fetchAndCacheWebhookUrls();
-  loadPrizePoolPct();
+  // Load webhook URLs and prize pool % in background — don't block session
+  setTimeout(() => { fetchAndCacheWebhookUrls(); loadPrizePoolPct(); }, 0);
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session && session.user && session.user.email) {
