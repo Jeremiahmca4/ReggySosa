@@ -1035,6 +1035,12 @@ function populateAuthLinks() {
   // Sync mobile bottom tab bar profile tab
   const tabProfile = document.getElementById('tab-profile');
   if (tabProfile) tabProfile.style.display = userEmail ? 'flex' : 'none';
+  // Show admin tab on mobile for admins
+  const tabAdmin = document.getElementById('tab-admin');
+  if (tabAdmin) tabAdmin.style.display = (userEmail && userEmail === ADMIN_EMAIL) ? 'flex' : 'none';
+  // Show hamburger on admin page for admins
+  const hamburger = document.getElementById('admin-hamburger');
+  if (hamburger) hamburger.style.display = (userEmail && userEmail === ADMIN_EMAIL) ? 'flex' : 'none';
   // Show admin tab if admin (reuse existing admin-nav logic)
 }
 

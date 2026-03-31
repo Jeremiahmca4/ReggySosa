@@ -30,10 +30,16 @@
     </nav>
   </header>
   <main class="container admin-container">
-    <h1>Admin Dashboard</h1>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+      <h1 style="margin:0;">Admin Dashboard</h1>
+      <!-- Hamburger: mobile only -->
+      <button class="admin-hamburger" id="admin-hamburger" style="display:none;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.4rem 0.6rem;color:var(--gold);cursor:pointer;font-size:1.2rem;line-height:1;">&#9776;</button>
+    </div>
+    <!-- Overlay for mobile sidebar -->
+    <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
     <div class="admin-layout">
-      <aside class="admin-sidebar">
-        <div class="admin-sidebar-title">⚙️ Dashboard</div>
+      <aside class="admin-sidebar" id="admin-sidebar">
+        <div class="admin-sidebar-title">⚙️ Dashboard <button class="admin-sidebar-close" id="admin-sidebar-close">&#x2715;</button></div>
         <nav class="admin-nav">
           <button type="button" class="admin-nav-item" data-tab="tournaments-tab">🏆 Tournaments</button>
           <button type="button" class="admin-nav-item" data-tab="scores-tab">📋 Score Queue</button>
@@ -256,6 +262,34 @@
 
       document.getElementById('save-webhooks-btn')?.addEventListener('click', () => {
         if (typeof saveAllWebhooks === 'function') saveAllWebhooks();
+      });
+
+      // Mobile hamburger sidebar
+      const hamburger = document.getElementById('admin-hamburger');
+      const sidebar = document.getElementById('admin-sidebar');
+      const overlay = document.getElementById('admin-sidebar-overlay');
+      const closeBtn = document.getElementById('admin-sidebar-close');
+
+      function openSidebar() {
+        sidebar.classList.add('mobile-open');
+        overlay.classList.add('mobile-open');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeSidebar() {
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('mobile-open');
+        document.body.style.overflow = '';
+      }
+
+      if (hamburger) hamburger.addEventListener('click', openSidebar);
+      if (overlay) overlay.addEventListener('click', closeSidebar);
+      if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+
+      // Close sidebar when a nav item is clicked on mobile
+      document.querySelectorAll('.admin-nav-item').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          if (window.innerWidth <= 768) closeSidebar();
+        });
       });
 
       document.getElementById('save-prize-pool-btn')?.addEventListener('click', () => {
