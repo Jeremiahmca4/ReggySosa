@@ -235,31 +235,46 @@
         });
       });
 
-      // More dropdown logic (mobile)
-      const moreBtn = document.getElementById('more-btn');
-      const moreDropdown = document.getElementById('more-dropdown');
-      if (moreBtn && moreDropdown) {
-        moreBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          const isOpen = moreDropdown.style.display !== 'none';
-          moreDropdown.style.display = isOpen ? 'none' : 'block';
-          moreBtn.textContent = isOpen ? 'More ▾' : 'Less ▴';
-        });
-        document.addEventListener('click', function() {
-          moreDropdown.style.display = 'none';
-          moreBtn.textContent = 'More ▾';
-        });
-        document.querySelectorAll('.more-dropdown-item').forEach(function(item) {
-          item.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const tab = this.dataset.tab;
-            moreDropdown.style.display = 'none';
-            moreBtn.textContent = 'More ▾';
-            moreBtn.classList.add('active');
-            switchTab(tab);
-          });
-        });
+      // Tournament mobile hamburger sidebar
+      const tournHamburger = document.getElementById('tourn-hamburger');
+      const tournSidebar = document.getElementById('tournament-sidebar-nav')?.closest('aside');
+      const tournOverlay = document.getElementById('tourn-sidebar-overlay');
+      const tournCurrent = document.getElementById('tourn-mobile-current');
+
+      // Tab label map
+      const tabLabels = {
+        'active-tab': 'Active / Open',
+        'upcoming-tab': 'Upcoming',
+        'past-tab': 'Past Champions',
+        'leaderboard-tab': 'Leaderboard',
+        'rules-tab': 'Rules',
+        'search-tab': 'Team Search',
+        'myteam-tab': 'My Team',
+      };
+
+      function openTournSidebar() {
+        if (tournSidebar) tournSidebar.classList.add('mobile-open');
+        if (tournOverlay) tournOverlay.classList.add('mobile-open');
+        document.body.style.overflow = 'hidden';
       }
+      function closeTournSidebar() {
+        if (tournSidebar) tournSidebar.classList.remove('mobile-open');
+        if (tournOverlay) tournOverlay.classList.remove('mobile-open');
+        document.body.style.overflow = '';
+      }
+
+      if (tournHamburger) tournHamburger.addEventListener('click', openTournSidebar);
+      if (tournOverlay) tournOverlay.addEventListener('click', closeTournSidebar);
+
+      // Close sidebar and update label when tab clicked on mobile
+      document.querySelectorAll('#tournament-sidebar-nav .admin-nav-item').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          if (window.innerWidth <= 768) {
+            closeTournSidebar();
+            if (tournCurrent) tournCurrent.textContent = tabLabels[this.dataset.tab] || '';
+          }
+        });
+      });
 
       // Default to active tab
       switchTab('active-tab');
