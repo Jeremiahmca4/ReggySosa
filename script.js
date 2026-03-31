@@ -4582,9 +4582,32 @@ async function renderLeaderboard() {
       gdEl.textContent = (gdVal > 0 ? '+' : '') + gdVal;
       gdEl.style.color = gdVal > 0 ? 'var(--gold)' : gdVal < 0 ? '#ff6b6b' : 'inherit';
 
+      // Mark champ stat for mobile summary view
+      champEl.classList.add('lb-champ-col');
+
+      // Chevron for mobile expand (hidden on desktop via CSS)
+      const chevron = document.createElement('span');
+      chevron.className = 'lb-chevron';
+      chevron.textContent = '›';
+      chevron.style.display = 'none'; // CSS shows on mobile
+
+      // Mobile expanded details block
+      const expandedDetails = document.createElement('div');
+      expandedDetails.className = 'lb-expanded-details';
+      expandedDetails.innerHTML =
+        '<div class="lb-detail-row"><span class="lb-detail-label">Championships</span><span class="lb-detail-val">' + team.championships + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Wins</span><span class="lb-detail-val">' + team.wins + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Losses</span><span class="lb-detail-val">' + team.losses + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Win %</span><span class="lb-detail-val">' + team.winPct + '%</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Goals For</span><span class="lb-detail-val">' + (team.gf || 0) + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Goals Against</span><span class="lb-detail-val">' + (team.ga || 0) + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Goal Diff</span><span class="lb-detail-val" style="color:' + (gdVal > 0 ? 'var(--gold)' : gdVal < 0 ? '#ff6b6b' : 'inherit') + '">' + ((gdVal > 0 ? '+' : '') + gdVal) + '</span></div>' +
+        '<div class="lb-detail-row"><span class="lb-detail-label">Tournaments</span><span class="lb-detail-val">' + team.tournamentsEntered + '</span></div>';
+
       row.appendChild(rankEl);
       row.appendChild(nameEl);
       row.appendChild(champEl);
+      row.appendChild(chevron);
       row.appendChild(winsEl);
       row.appendChild(lossEl);
       row.appendChild(pctEl);
@@ -4592,6 +4615,14 @@ async function renderLeaderboard() {
       row.appendChild(gaEl);
       row.appendChild(gdEl);
       row.appendChild(playedEl);
+      row.appendChild(expandedDetails);
+
+      // Mobile tap to expand
+      row.addEventListener('click', function(e) {
+        if (window.innerWidth > 768) return;
+        if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+        row.classList.toggle('lb-open');
+      });
 
       // Admin-only three-dot edit button
       if (isAdmin) {

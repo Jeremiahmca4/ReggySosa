@@ -3520,3 +3520,90 @@ a {
     box-sizing: border-box;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   LEADERBOARD — MOBILE CARD VIEW
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Hide the desktop column header on mobile */
+  .leaderboard-col-header {
+    display: none !important;
+  }
+
+  /* Each row becomes a card with just rank + name + champ visible */
+  .leaderboard-row {
+    grid-template-columns: 2rem 1fr auto;
+    grid-template-rows: auto auto;
+    padding: 0.75rem 1rem;
+    position: relative;
+    cursor: pointer;
+  }
+
+  /* Hide all stat columns by default on mobile */
+  .lb-stat,
+  .lb-edit-btn {
+    display: none;
+  }
+
+  /* Show a summary stat (championships) in collapsed view */
+  .lb-stat.lb-champ-col {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: right;
+  }
+
+  /* When card is expanded, show all stats as a detail block */
+  .lb-expanded-details {
+    grid-column: 1 / -1;
+    display: none;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    gap: 0.4rem;
+    flex-direction: column;
+  }
+
+  .leaderboard-row.lb-open .lb-expanded-details {
+    display: flex;
+  }
+
+  .lb-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+  }
+
+  .lb-detail-label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .lb-detail-val {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .lb-chevron {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    transition: transform 0.2s;
+    display: block !important;
+  }
+
+  .leaderboard-row.lb-open .lb-chevron {
+    transform: rotate(90deg);
+  }
+
+  .lb-team {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95rem;
+  }
+}
