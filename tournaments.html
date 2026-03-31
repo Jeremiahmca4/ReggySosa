@@ -174,12 +174,13 @@
           return;
         }
       }
-      // Sync tournaments and teams from the backend
+      // Sync tournaments and teams from the backend (with timeout for mobile)
+      const syncTimeout = (fn, ms) => Promise.race([fn(), new Promise(r => setTimeout(r, ms))]);
       if (typeof syncTournamentsFromBackend === 'function') {
-        await syncTournamentsFromBackend();
+        await syncTimeout(syncTournamentsFromBackend, 6000).catch(() => {});
       }
       if (typeof syncTeamsFromBackend === 'function') {
-        await syncTeamsFromBackend();
+        await syncTimeout(syncTeamsFromBackend, 6000).catch(() => {});
       }
       // Start global real-time subscriptions
       if (typeof initGlobalRealtime === 'function') {

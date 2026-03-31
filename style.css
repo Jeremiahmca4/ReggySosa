@@ -2727,10 +2727,12 @@ a {
     inset: 0;
     background: rgba(0,0,0,0.6);
     z-index: 1399;
+    pointer-events: none;
   }
 
   .admin-sidebar-overlay.mobile-open {
     display: block;
+    pointer-events: auto;
   }
 
   .admin-sidebar-title {
@@ -3344,6 +3346,10 @@ a {
     cursor: pointer;
     margin-bottom: 1rem;
     width: 100%;
+    position: relative;
+    z-index: 10;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 }
 

@@ -42,15 +42,24 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     window.addEventListener('DOMContentLoaded', async function () {
-      if (typeof syncSession === 'function') await syncSession();
-      populateAuthLinks();
-      if (typeof syncTeamsFromBackend === 'function') await syncTeamsFromBackend();
-      // Build the editor UI
-      const loading = document.getElementById('profile-loading');
-      if (loading) loading.remove();
-      if (typeof buildProfileEditor === 'function') buildProfileEditor();
-      // Load existing values into the editor
-      if (typeof loadProfile === 'function') await loadProfile();
+      try {
+        if (typeof syncSession === 'function') await syncSession();
+        populateAuthLinks();
+        // Build UI immediately — don't wait for team sync
+        const loading = document.getElementById('profile-loading');
+        if (loading) loading.remove();
+        if (typeof buildProfileEditor === 'function') buildProfileEditor();
+        // Load profile data
+        if (typeof loadProfile === 'function') await loadProfile().catch(e => console.error('loadProfile error:', e));
+        // Sync teams in background after profile is shown
+        if (typeof syncTeamsFromBackend === 'function') syncTeamsFromBackend().catch(() => {});
+      } catch(e) {
+        console.error('Profile init error:', e);
+        // Last resort — try to show the editor anyway
+        const loading = document.getElementById('profile-loading');
+        if (loading) loading.remove();
+        if (typeof buildProfileEditor === 'function') buildProfileEditor();
+      }
     });
   </script>
 
