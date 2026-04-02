@@ -6414,10 +6414,154 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
       startBtn.textContent = 'Start';
       startBtn.addEventListener('click', () => {
         startTournament(tournament.id);
-        // re-render details after starting
         renderTournamentDetails(tournament.id);
       });
       adminActions.appendChild(startBtn);
+    }
+    // Add Team to Bracket (only when started)
+    if (tournament.status === 'started') {
+      const addTeamBtn = document.createElement('button');
+      addTeamBtn.className = 'button';
+      addTeamBtn.textContent = '➕ Add Team to Bracket';
+      addTeamBtn.style.cssText = 'font-size:0.85rem;';
+      addTeamBtn.addEventListener('click', function() {
+        // Remove any existing panel
+        document.getElementById('add-team-panel')?.remove();
+        if (addTeamBtn._open) { addTeamBtn._open = false; return; }
+        addTeamBtn._open = true;
+
+        // Get all teams registered to this tournament
+        const registeredNames = new Set();
+        if (Array.isArray(tournament.bracket)) {
+          tournament.bracket.forEach(function(round) {
+            round.forEach(function(match) {
+              if (match.team1 && match.team1 !== 'BYE' && match.team1 !== 'TBD') registeredNames.add(match.team1);
+              if (match.team2 && match.team2 !== 'BYE' && match.team2 !== 'TBD') registeredNames.add(match.team2);
+            });
+          });
+        }
+
+        // Get all site teams not already in bracket
+        const allTeams = loadTeams ? loadTeams() : [];
+        const availableTeams = allTeams.filter(function(t) {
+          return t.name && !registeredNames.has(t.name);
+        });
+
+        // Build bracket slot options
+        const slotOptions = [];
+        if (Array.isArray(tournament.bracket)) {
+          tournament.bracket.forEach(function(round, rIdx) {
+            round.forEach(function(match, mIdx) {
+              const roundName = rIdx === tournament.bracket.length - 1 ? 'Final' :
+                rIdx === tournament.bracket.length - 2 ? 'Semis' : 'Round ' + (rIdx + 1);
+              if (!match.winner) {
+                if (!match.team1 || match.team1 === 'BYE' || match.team1 === 'TBD') {
+                  slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 1 slot', rIdx, mIdx, slot: 'team1' });
+                }
+                if (!match.team2 || match.team2 === 'BYE' || match.team2 === 'TBD') {
+                  slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 2 slot', rIdx, mIdx, slot: 'team2' });
+                }
+              }
+            });
+          });
+        }
+
+        const panel = document.createElement('div');
+        panel.id = 'add-team-panel';
+        panel.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;margin-top:1rem;max-width:480px;';
+        panel.innerHTML = '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin:0 0 0.75rem;">➕ Add Team to Bracket</p>';
+
+        if (availableTeams.length === 0) {
+          panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No registered teams available to add. All site teams are already in the bracket.</p>';
+        } else if (slotOptions.length === 0) {
+          panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No open slots in the bracket. Use Edit Match to manually assign a team to a slot.</p>';
+        } else {
+          // Team select
+          const teamLabel = document.createElement('p');
+          teamLabel.textContent = 'Select team to add:';
+          teamLabel.style.cssText = 'font-size:0.82rem;color:var(--text-muted);margin:0 0 0.3rem;';
+          const teamSelect = document.createElement('select');
+          teamSelect.style.cssText = 'width:100%;margin-bottom:0.75rem;padding:0.45rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.88rem;';
+          availableTeams.forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t.name;
+            opt.textContent = t.name;
+            teamSelect.appendChild(opt);
+          });
+
+          // Slot select
+          const slotLabel = document.createElement('p');
+          slotLabel.textContent = 'Place them in slot:';
+          slotLabel.style.cssText = 'font-size:0.82rem;color:var(--text-muted);margin:0 0 0.3rem;';
+          const slotSelect = document.createElement('select');
+          slotSelect.style.cssText = 'width:100%;margin-bottom:0.75rem;padding:0.45rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.88rem;';
+          slotOptions.forEach(function(s, i) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = s.label;
+            slotSelect.appendChild(opt);
+          });
+
+          const confirmBtn = document.createElement('button');
+          confirmBtn.className = 'button';
+          confirmBtn.textContent = 'Add to Bracket';
+          confirmBtn.style.cssText = 'width:100%;margin-top:0.25rem;';
+          confirmBtn.addEventListener('click', async function() {
+            const teamName = teamSelect.value;
+            const slotData = slotOptions[parseInt(slotSelect.value)];
+            if (!teamName || !slotData) return;
+
+            if (!confirm('Add "' + teamName + '" to ' + slotData.label + '?')) return;
+
+            const tournaments2 = loadTournaments();
+            const tIdx = tournaments2.findIndex(function(t) { return t.id === tournament.id; });
+            if (tIdx === -1) return;
+
+            tournaments2[tIdx].bracket[slotData.rIdx][slotData.mIdx][slotData.slot] = teamName;
+            saveTournaments(tournaments2);
+
+            // Also register team to tournament in Supabase if possible
+            if (supabaseClient) {
+              const allTeams2 = loadTeams ? loadTeams() : [];
+              const teamObj = allTeams2.find(function(t) { return t.name === teamName; });
+              if (teamObj) {
+                await supabaseClient.from('tournament_registrations').upsert({
+                  tournament_id: tournament.id,
+                  team_id: teamObj.id,
+                  paid: false,
+                }).catch(function() {});
+              }
+            }
+
+            try {
+              await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bracket: tournaments2[tIdx].bracket }),
+              });
+            } catch(e) { console.error('Add team save error:', e); }
+
+            panel.remove();
+            addTeamBtn._open = false;
+            renderTournamentDetails(tournament.id);
+          });
+
+          panel.appendChild(teamLabel);
+          panel.appendChild(teamSelect);
+          panel.appendChild(slotLabel);
+          panel.appendChild(slotSelect);
+          panel.appendChild(confirmBtn);
+        }
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--radius-sm);padding:0.45rem;cursor:pointer;margin-top:0.5rem;font-size:0.85rem;';
+        cancelBtn.addEventListener('click', function() { panel.remove(); addTeamBtn._open = false; });
+        panel.appendChild(cancelBtn);
+
+        adminActions.appendChild(panel);
+      });
+      adminActions.appendChild(addTeamBtn);
     }
     // Delete button
     const deleteBtn = document.createElement('button');
