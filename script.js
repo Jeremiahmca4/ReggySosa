@@ -6504,41 +6504,56 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
           confirmBtn.addEventListener('click', async function() {
             const teamName = teamSelect.value;
             const slotData = slotOptions[parseInt(slotSelect.value)];
-            if (!teamName || !slotData) return;
+            if (!teamName || !slotData) { alert('Please select a team and slot.'); return; }
 
             if (!confirm('Add "' + teamName + '" to ' + slotData.label + '?')) return;
 
-            const tournaments2 = loadTournaments();
-            const tIdx = tournaments2.findIndex(function(t) { return t.id === tournament.id; });
-            if (tIdx === -1) return;
-
-            tournaments2[tIdx].bracket[slotData.rIdx][slotData.mIdx][slotData.slot] = teamName;
-            saveTournaments(tournaments2);
-
-            // Also register team to tournament in Supabase if possible
-            if (supabaseClient) {
-              const allTeams2 = loadTeams ? loadTeams() : [];
-              const teamObj = allTeams2.find(function(t) { return t.name === teamName; });
-              if (teamObj) {
-                await supabaseClient.from('tournament_registrations').upsert({
-                  tournament_id: tournament.id,
-                  team_id: teamObj.id,
-                  paid: false,
-                }).catch(function() {});
-              }
-            }
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Adding...';
 
             try {
+              // Update bracket directly using tournament object in memory
+              const updatedBracket = JSON.parse(JSON.stringify(tournament.bracket));
+              updatedBracket[slotData.rIdx][slotData.mIdx][slotData.slot] = teamName;
+
+              // Save to localStorage
+              const tournaments2 = loadTournaments();
+              const tIdx = tournaments2.findIndex(function(t) { return String(t.id) === String(tournament.id); });
+              if (tIdx !== -1) {
+                tournaments2[tIdx].bracket = updatedBracket;
+                saveTournaments(tournaments2);
+              }
+
+              // Register team in Supabase tournament_registrations
+              if (supabaseClient) {
+                const { data: teamRows } = await supabaseClient.from('teams').select('id').eq('name', teamName).limit(1);
+                if (teamRows && teamRows.length > 0) {
+                  await supabaseClient.from('tournament_registrations').upsert({
+                    tournament_id: String(tournament.id),
+                    team_id: teamRows[0].id,
+                    paid: false,
+                  }, { onConflict: 'tournament_id,team_id' }).catch(function() {});
+                }
+
+                // Also update bracket in Supabase directly
+                await supabaseClient.from('tournaments').update({ bracket: updatedBracket }).eq('id', tournament.id);
+              }
+
+              // Sync to backend
               await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bracket: tournaments2[tIdx].bracket }),
-              });
-            } catch(e) { console.error('Add team save error:', e); }
+                body: JSON.stringify({ bracket: updatedBracket }),
+              }).catch(function() {});
 
-            panel.remove();
-            addTeamBtn._open = false;
-            renderTournamentDetails(tournament.id);
+              panel.remove();
+              renderTournamentDetails(tournament.id);
+            } catch(e) {
+              console.error('Add team error:', e);
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'Add to Bracket';
+              alert('Error adding team. Check console for details.');
+            }
           });
 
           panel.appendChild(teamLabel);
