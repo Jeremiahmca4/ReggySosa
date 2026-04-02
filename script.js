@@ -6424,22 +6424,22 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
       addTeamBtn.className = 'button';
       addTeamBtn.textContent = '➕ Add Team to Bracket';
       addTeamBtn.style.cssText = 'font-size:0.85rem;';
-      addTeamBtn.addEventListener('click', function() {
-        // Remove any existing panel
-        document.getElementById('add-team-panel')?.remove();
-        if (addTeamBtn._open) { addTeamBtn._open = false; return; }
-        addTeamBtn._open = true;
+      addTeamBtn.addEventListener('click', async function() {
+        // Toggle — if panel already open, close it
+        const existing = document.getElementById('add-team-panel');
+        if (existing) { existing.remove(); return; }
 
-        // Fetch ALL teams from Supabase directly (don't rely on localStorage)
+        // Build panel immediately
         const panel = document.createElement('div');
         panel.id = 'add-team-panel';
         panel.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;margin-top:1rem;max-width:480px;';
         panel.innerHTML = '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin:0 0 0.75rem;">➕ Add Team to Bracket</p>' +
           '<p style="color:var(--text-muted);font-size:0.85rem;">Loading teams...</p>';
-        adminActions.appendChild(panel);
+        // Append to detail container so re-renders don't kill it
+        detail.appendChild(panel);
 
-        // Load teams async
-        (async function() {
+        // Load teams
+        try {
           let allTeams = [];
           if (supabaseClient) {
             try {
@@ -6553,7 +6553,10 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         cancelBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--radius-sm);padding:0.45rem;cursor:pointer;margin-top:0.5rem;font-size:0.85rem;';
         cancelBtn.addEventListener('click', function() { panel.remove(); addTeamBtn._open = false; });
         panel.appendChild(cancelBtn);
-        })(); // end async IIFE
+        } catch(err) {
+          console.error('Add team panel error:', err);
+          panel.innerHTML += '<p style="color:#ff6b6b;font-size:0.85rem;margin-top:0.5rem;">Error loading teams. Please try again.</p>';
+        }
       });
       adminActions.appendChild(addTeamBtn);
     }
