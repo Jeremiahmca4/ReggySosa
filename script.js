@@ -220,6 +220,7 @@ var WEBHOOK_KEYS = {
   submissions:   'webhook_submissions',
   registrations: 'webhook_registrations',
   created:       'webhook_created',
+  checkIn:       'webhook_checkin',
 };
 
 // === Seeded random helpers ===
@@ -2467,7 +2468,8 @@ function announceCheckInOpen(tournamentId) {
   const ts = loadTournaments();
   const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
   if (!t) return;
-  const webhookUrl = getWebhookUrl('teamRegistrations');
+  // Use dedicated check-in webhook, fall back to registrations webhook
+  const webhookUrl = getWebhookUrl('checkIn') || getWebhookUrl('registrations');
   if (!webhookUrl) return;
   const startStr = formatTournamentDateTime(t.startDate, t.startTime) || 'TBD';
   const tournamentUrl = 'https://reggysosa.com/tournament.html?id=' + t.id;
