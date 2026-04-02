@@ -6326,10 +6326,73 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
       detail.appendChild(settingsCard);
     }
 
+    // ── Mobile round tabs + Desktop horizontal bracket ──────────────────────
+    // Strategy: single bracketDiv used for both.
+    // On desktop: shown as horizontal flex via .bracket-wrapper CSS
+    // On mobile: tab bar controls which .round is visible; others hidden
+    const totalRounds = tournament.bracket.length;
+
+    let activeRoundIndex = totalRounds - 1;
+    for (let rr = 0; rr < totalRounds; rr++) {
+      const hasUnfinished = tournament.bracket[rr].some(function(m) {
+        return m.team1 !== 'BYE' && m.team2 !== 'BYE' && !m.winner;
+      });
+      if (hasUnfinished) { activeRoundIndex = rr; break; }
+    }
+
+    function getRoundLabel(rIdx, total) {
+      if (total <= 1) return 'Final';
+      if (rIdx === total - 1) return '🏆 Final';
+      if (rIdx === total - 2) return 'Semis';
+      return 'Round ' + (rIdx + 1);
+    }
+
+    // Give each round a data-round attribute for tab targeting
+    Array.from(bracketDiv.children).forEach(function(roundDiv, rIdx) {
+      roundDiv.dataset.round = rIdx;
+      // On mobile, hide all rounds except active one (CSS handles this show/hide)
+      roundDiv.classList.add('bracket-round-item');
+    });
+
+    // Mobile tab bar
+    const mobileTabs = document.createElement('div');
+    mobileTabs.className = 'bracket-mobile-tabs';
+
+    tournament.bracket.forEach(function(round, rIdx) {
+      const allDone = round.every(function(m) {
+        return m.winner || m.team2 === 'BYE' || m.team1 === 'BYE';
+      });
+      const tabBtn = document.createElement('button');
+      tabBtn.className = 'bracket-mobile-tab' + (rIdx === activeRoundIndex ? ' active' : '');
+      tabBtn.innerHTML = getRoundLabel(rIdx, totalRounds) +
+        (allDone ? ' ✅' : rIdx === activeRoundIndex ? ' <span class="bracket-live-dot"></span>' : '');
+      tabBtn.dataset.round = rIdx;
+      mobileTabs.appendChild(tabBtn);
+    });
+
+    // Set initial mobile visibility
+    Array.from(bracketDiv.children).forEach(function(roundDiv) {
+      roundDiv.dataset.mobileVisible = parseInt(roundDiv.dataset.round) === activeRoundIndex ? '1' : '0';
+    });
+
+    // Tab switching — toggle data-mobile-visible on rounds
+    mobileTabs.addEventListener('click', function(e) {
+      const btn = e.target.closest('.bracket-mobile-tab');
+      if (!btn) return;
+      const rIdx = parseInt(btn.dataset.round);
+      mobileTabs.querySelectorAll('.bracket-mobile-tab').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      Array.from(bracketDiv.children).forEach(function(roundDiv) {
+        roundDiv.dataset.mobileVisible = parseInt(roundDiv.dataset.round) === rIdx ? '1' : '0';
+      });
+    });
+
     const bracketWrapper = document.createElement('div');
     bracketWrapper.className = 'bracket-wrapper';
     bracketWrapper.appendChild(bracketDiv);
+
     detail.appendChild(bracketHeading);
+    detail.appendChild(mobileTabs);
     detail.appendChild(bracketWrapper);
 
     // Init floating chat for players in an active match (non-admin only)

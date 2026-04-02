@@ -3673,3 +3673,123 @@ a {
     box-sizing: border-box;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   BRACKET — MOBILE ROUND TABS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Hide mobile tab bar on desktop */
+.bracket-mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Show tab bar */
+  .bracket-mobile-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.3rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+
+  .bracket-mobile-tabs::-webkit-scrollbar { display: none; }
+
+  .bracket-mobile-tab {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .bracket-mobile-tab.active {
+    background: rgba(212,160,23,0.15);
+    color: var(--gold);
+    border-bottom: 2px solid var(--gold);
+  }
+
+  /* On mobile: bracketWrapper becomes a vertical stack, not horizontal scroll */
+  .bracket-wrapper {
+    overflow-x: visible !important;
+  }
+
+  /* bracketDiv becomes vertical stack on mobile */
+  .bracket {
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* Hide rounds that are not active (controlled via data-mobile-visible) */
+  .bracket-round-item[data-mobile-visible="0"] {
+    display: none !important;
+  }
+
+  .bracket-round-item[data-mobile-visible="1"] {
+    display: flex !important;
+    flex-direction: column;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100%;
+  }
+
+  /* Match cards full width */
+  .bracket-round-item[data-mobile-visible="1"] .match {
+    margin: 0 0 0.75rem 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Match title readable */
+  .bracket-round-item[data-mobile-visible="1"] .match p:first-child {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  /* All buttons full width */
+  .bracket-round-item[data-mobile-visible="1"] .match .button,
+  .bracket-round-item[data-mobile-visible="1"] .match .delete,
+  .bracket-round-item[data-mobile-visible="1"] .report-score button,
+  .bracket-round-item[data-mobile-visible="1"] .report-score select {
+    width: 100% !important;
+    box-sizing: border-box;
+    font-size: 0.82rem !important;
+    padding: 0.45rem 0.5rem !important;
+  }
+
+  .bracket-round-item[data-mobile-visible="1"] .report-score {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .bracket-round-item[data-mobile-visible="1"] .score-admin-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Hide round connectors on mobile */
+  .round-connector {
+    display: none !important;
+  }
+}
