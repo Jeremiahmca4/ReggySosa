@@ -3597,3 +3597,17 @@ a {
   font-size: 0.82rem;
   padding: 0.5rem;
 }
+
+/* Admin sidebar close button — mobile only */
+@media (max-width: 768px) {
+  .admin-sidebar-close {
+    display: block !important;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+  }
+}
