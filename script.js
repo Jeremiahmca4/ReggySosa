@@ -1080,7 +1080,7 @@ function renderTournaments() {
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
-    // Prepare start date element if available; we'll append after teams count
+    // Prepare start date element if available; we will append after teams count
     let startP = null;
     if (t.startDate) {
       // Convert YYYY-MM-DD to a local date by appending a time portion. Without
@@ -1164,7 +1164,7 @@ function renderActiveTournaments() {
         statusText = 'Open';
       }
     }
-    badge.classList.add('badge-' + statusText.toLowerCase());
+    badge.classList.add('badge-' + statusText.toLowerCase().replace('-', ''));
     badge.textContent = statusText;
     card.appendChild(badge);
     const title = document.createElement('h3');
@@ -1260,7 +1260,9 @@ function renderUpcomingTournaments() {
     let statusText;
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
-    if (maxCount && currentCount >= maxCount) {
+    if (t.status === 'check_in') {
+      statusText = 'Check-In';
+    } else if (maxCount && currentCount >= maxCount) {
       statusText = 'Full';
     } else {
       statusText = 'Open';
@@ -1548,7 +1550,7 @@ function renderAdminTournaments() {
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
-    // Prepare start date element if available; we'll append after team count for consistent ordering
+    // Prepare start date element if available; we will append after team count for consistent ordering
     let startEl = null;
     if (t.startDate) {
       // Use local parsing for the date to avoid UTC offset issues
@@ -2216,6 +2218,158 @@ async function checkDiscordGate(onConfirmed) {
   });
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// CHECK-IN & WAITLIST SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+// Open check-in for a tournament (admin only)
+async function openCheckIn(tournamentId) {
+  try {
+    if (supabaseClient) {
+      await supabaseClient.from('tournaments').update({ status: 'check_in' }).eq('id', tournamentId);
+    }
+    await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournamentId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'check_in' }),
+    }).catch(() => {});
+    // Fire Discord ping
+    try { announceCheckInOpen(tournamentId); } catch(e) {}
+    // Update local
+    const ts = loadTournaments();
+    const i = ts.findIndex(function(t) { return String(t.id) === String(tournamentId); });
+    if (i !== -1) { ts[i].status = 'check_in'; saveTournaments(ts); }
+  } catch(e) { console.error('openCheckIn error:', e); }
+}
+
+// Close check-in (admin sets back to open so they can review before starting)
+async function closeCheckIn(tournamentId) {
+  try {
+    if (supabaseClient) {
+      await supabaseClient.from('tournaments').update({ status: 'open' }).eq('id', tournamentId);
+    }
+    await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournamentId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'open' }),
+    }).catch(() => {});
+    const ts = loadTournaments();
+    const i = ts.findIndex(function(t) { return String(t.id) === String(tournamentId); });
+    if (i !== -1) { ts[i].status = 'open'; saveTournaments(ts); }
+  } catch(e) { console.error('closeCheckIn error:', e); }
+}
+
+// Player checks in
+async function checkInTeam(tournamentId, teamId) {
+  if (!supabaseClient) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('tournament_registrations')
+      .update({ checked_in: true })
+      .eq('tournament_id', String(tournamentId))
+      .eq('team_id', String(teamId));
+    return !error;
+  } catch(e) { console.error('checkInTeam error:', e); return false; }
+}
+
+// Join waitlist (free tournaments only)
+async function joinWaitlist(tournamentId, teamId) {
+  if (!supabaseClient) return false;
+  try {
+    // Get current max waitlist position
+    const { data: existing } = await supabaseClient
+      .from('tournament_registrations')
+      .select('waitlist_position')
+      .eq('tournament_id', String(tournamentId))
+      .eq('waitlisted', true)
+      .order('waitlist_position', { ascending: false })
+      .limit(1);
+    const nextPos = (existing && existing.length > 0 && existing[0].waitlist_position)
+      ? existing[0].waitlist_position + 1 : 1;
+    const { error } = await supabaseClient
+      .from('tournament_registrations')
+      .upsert({
+        tournament_id: String(tournamentId),
+        team_id: String(teamId),
+        waitlisted: true,
+        waitlist_position: nextPos,
+        paid: false,
+      });
+    return !error;
+  } catch(e) { console.error('joinWaitlist error:', e); return false; }
+}
+
+// Promote waitlisted team to active (admin action)
+async function promoteFromWaitlist(tournamentId, teamId, teamName) {
+  if (!supabaseClient) return false;
+  try {
+    await supabaseClient
+      .from('tournament_registrations')
+      .update({ waitlisted: false, waitlist_position: null })
+      .eq('tournament_id', String(tournamentId))
+      .eq('team_id', String(teamId));
+    // Add to tournament.teams in localStorage
+    const ts = loadTournaments();
+    const i = ts.findIndex(function(t) { return String(t.id) === String(tournamentId); });
+    if (i !== -1) {
+      if (!ts[i].teams) ts[i].teams = [];
+      if (!ts[i].teams.some(function(t) { return String(t.id) === String(teamId); })) {
+        ts[i].teams.push({ id: teamId, name: teamName });
+      }
+      saveTournaments(ts);
+    }
+    // DM the team captain via Discord bot if possible
+    try { announceWaitlistPromotion(teamName, tournamentId); } catch(e) {}
+    return true;
+  } catch(e) { console.error('promoteFromWaitlist error:', e); return false; }
+}
+
+// Discord ping for check-in open
+function announceCheckInOpen(tournamentId) {
+  const ts = loadTournaments();
+  const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
+  if (!t) return;
+  const webhookUrl = getWebhookUrl('teamRegistrations');
+  if (!webhookUrl) return;
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: '@everyone',
+      embeds: [{
+        title: '✅ Check-In Is Now Open!',
+        description: '**' + t.name + '** - Check in now at reggysosa.com. Teams that do not check in may be removed.',
+        color: 0xd4a017,
+        fields: [
+          { name: 'Tournament', value: t.name, inline: true },
+          { name: 'Teams Registered', value: String((t.teams || []).length), inline: true },
+        ],
+      }],
+    }),
+  }).catch(() => {});
+}
+
+// Discord DM placeholder for waitlist promotion
+function announceWaitlistPromotion(teamName, tournamentId) {
+  const ts = loadTournaments();
+  const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
+  if (!t) return;
+  const webhookUrl = getWebhookUrl('teamRegistrations');
+  if (!webhookUrl) return;
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [{
+        title: '🎉 Waitlist Promotion!',
+        description: '**' + teamName + '** has been moved from the waitlist into **' + t.name + '**! Head to reggysosa.com to check in and confirm your spot.',
+        color: 0x50c878,
+      }],
+    }),
+  }).catch(() => {});
+}
+
 function registerTeamToTournament(tournamentId, teamId) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => String(t.id) === String(tournamentId));
@@ -2378,7 +2532,7 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
   const bracket = tournament.bracket;
   if (!bracket || !bracket[roundIndex] || !bracket[roundIndex][matchIndex]) return;
   const match = bracket[roundIndex][matchIndex];
-  // Delete chat messages for this match since it's now over
+  // Delete chat messages for this match since it is now over
   if (match.code) {
     deleteMatchMessages(match.code);
     if (activeChatSubscriptions[match.code]) {
@@ -3498,7 +3652,7 @@ async function submitScoreRequest(tournamentId, roundIndex, matchIndex, reported
       if (uploadError) {
         console.error('Screenshot storage upload error:', uploadError);
         const bucketMsg = uploadError.message || JSON.stringify(uploadError);
-        // If it's a bucket/permissions issue, warn but continue — save record with null URL
+        // If it is a bucket/permissions issue, warn but continue — save record with null URL
         if (uploadError.statusCode === 404 || uploadError.message?.includes('bucket') || uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
           alert('⚠️ Screenshot storage not configured — your result will still be submitted but without the image.\n\nAdmin: create the \'score-screenshots\' bucket in Supabase Storage.');
           screenshotUrl = null; // continue without screenshot
@@ -4695,7 +4849,7 @@ async function renderLeaderboard() {
                 });
               }
 
-              // Championships note (can't easily edit these without touching tournament records)
+              // Championships note (cannot easily edit these without touching tournament records)
               const { data: champData } = await supa.from('tournaments')
                 .select('id').eq('winner', team.name).eq('status', 'completed');
               const bracketChamps = (champData || []).length;
@@ -5831,18 +5985,125 @@ function renderTournamentDetails(id) {
       link.textContent = 'Create a team here.';
       detail.appendChild(link);
     } else {
-      // Check if current team is already registered
+      const entryFee = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+      const isFree = entryFee === 0;
       const alreadyRegistered = tournament.teams && tournament.teams.some((team) => team.id === currentTeam.id);
+      const isFull = maxCount && currentCount >= maxCount;
+
       if (alreadyRegistered) {
-        const registeredMsg = document.createElement('p');
-        registeredMsg.textContent = 'Your team is already registered for this tournament.';
-        detail.appendChild(registeredMsg);
-      } else {
-      const registerBtn = document.createElement('button');
-        // Show entry fee on button if applicable
-        const entryFee = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+        // ── Already registered: show check-in button if check-in is open ──
+        if (tournament.status === 'check_in') {
+          (async function() {
+            // Check if already checked in
+            let checkedIn = false;
+            if (supabaseClient) {
+              try {
+                const { data } = await supabaseClient
+                  .from('tournament_registrations')
+                  .select('checked_in')
+                  .eq('tournament_id', String(tournament.id))
+                  .eq('team_id', String(currentTeam.id))
+                  .single();
+                checkedIn = data && data.checked_in;
+              } catch(e) {}
+            }
+            if (checkedIn) {
+              const checkedMsg = document.createElement('div');
+              checkedMsg.style.cssText = 'background:rgba(80,200,120,0.12);border:1px solid rgba(80,200,120,0.4);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-top:1rem;color:#50c878;font-weight:700;font-size:0.95rem;';
+              checkedMsg.textContent = '✅ You are checked in and ready!';
+              detail.appendChild(checkedMsg);
+            } else {
+              const checkInBtn = document.createElement('button');
+              checkInBtn.className = 'button';
+              checkInBtn.style.cssText = 'margin-top:1rem;background:linear-gradient(135deg,#50c878,#2ecc71);color:#000;font-weight:800;font-size:1rem;width:100%;';
+              checkInBtn.textContent = '✅ Check In Now';
+              checkInBtn.addEventListener('click', async function() {
+                checkInBtn.disabled = true;
+                checkInBtn.textContent = 'Checking in...';
+                const ok = await checkInTeam(tournament.id, currentTeam.id);
+                if (ok) {
+                  checkInBtn.textContent = '✅ Checked In!';
+                  checkInBtn.style.background = 'rgba(80,200,120,0.2)';
+                  checkInBtn.style.color = '#50c878';
+                  checkInBtn.style.border = '1px solid #50c878';
+                } else {
+                  checkInBtn.disabled = false;
+                  checkInBtn.textContent = '✅ Check In Now';
+                  alert('Check-in failed. Please try again.');
+                }
+              });
+              const checkInNote = document.createElement('p');
+              checkInNote.style.cssText = 'color:#ff6b6b;font-size:0.82rem;margin-top:0.4rem;';
+              checkInNote.textContent = '⚠️ Check-in is open — confirm your spot or you may be removed from the bracket.';
+              detail.appendChild(checkInBtn);
+              detail.appendChild(checkInNote);
+            }
+          })();
+        } else {
+          const registeredMsg = document.createElement('p');
+          registeredMsg.style.cssText = 'color:var(--gold);font-weight:600;margin-top:0.5rem;';
+          registeredMsg.textContent = '✅ Your team is registered for this tournament.';
+          detail.appendChild(registeredMsg);
+        }
+      } else if (isFull && isFree && tournament.status === 'open') {
+        // ── Tournament full + free → offer waitlist ──
+        (async function() {
+          let onWaitlist = false;
+          let waitlistPos = null;
+          if (supabaseClient) {
+            try {
+              const { data } = await supabaseClient
+                .from('tournament_registrations')
+                .select('waitlisted, waitlist_position')
+                .eq('tournament_id', String(tournament.id))
+                .eq('team_id', String(currentTeam.id))
+                .single();
+              onWaitlist = data && data.waitlisted;
+              waitlistPos = data && data.waitlist_position;
+            } catch(e) {}
+          }
+          if (onWaitlist) {
+            const wlMsg = document.createElement('div');
+            wlMsg.style.cssText = 'background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-top:1rem;';
+            wlMsg.innerHTML = '<p style="color:var(--gold);font-weight:700;margin:0 0 0.25rem;">⏳ You are on the waitlist</p>' +
+              '<p style="color:var(--text-muted);font-size:0.85rem;margin:0;">Position #' + waitlistPos + ' — we will notify you if a spot opens up.</p>';
+            detail.appendChild(wlMsg);
+          } else {
+            const fullMsg = document.createElement('p');
+            fullMsg.style.cssText = 'color:#ff6b6b;font-weight:600;margin-top:0.5rem;';
+            fullMsg.textContent = 'Tournament is full.';
+            detail.appendChild(fullMsg);
+            const wlBtn = document.createElement('button');
+            wlBtn.className = 'button';
+            wlBtn.style.cssText = 'margin-top:0.5rem;background:transparent;border-color:var(--gold);color:var(--gold);';
+            wlBtn.textContent = '⏳ Join Waitlist';
+            wlBtn.addEventListener('click', async function() {
+              checkDiscordGate(async function() {
+                wlBtn.disabled = true;
+                wlBtn.textContent = 'Joining...';
+                const ok = await joinWaitlist(tournament.id, currentTeam.id);
+                if (ok) {
+                  renderTournamentDetails(tournament.id);
+                } else {
+                  wlBtn.disabled = false;
+                  wlBtn.textContent = '⏳ Join Waitlist';
+                  alert('Could not join waitlist. Please try again.');
+                }
+              });
+            });
+            const wlNote = document.createElement('p');
+            wlNote.style.cssText = 'color:var(--text-muted);font-size:0.8rem;margin-top:0.3rem;';
+            wlNote.textContent = 'No payment required. You will be notified if a spot opens.';
+            detail.appendChild(fullMsg);
+            detail.appendChild(wlBtn);
+            detail.appendChild(wlNote);
+          }
+        })();
+      } else if (!isFull) {
+        // ── Normal registration ──
+        const registerBtn = document.createElement('button');
         registerBtn.textContent = entryFee > 0
-          ? `💳 Pay $${entryFee.toFixed(2)} & Register`
+          ? '💳 Pay $' + entryFee.toFixed(2) + ' & Register'
           : 'Register Your Team';
         registerBtn.className = 'button';
         registerBtn.style.marginTop = '1rem';
@@ -5852,7 +6113,6 @@ function renderTournamentDetails(id) {
             registerBtn.textContent = 'Loading...';
             try {
               if (entryFee > 0) {
-                // Paid tournament — show info modal first, then Stripe
                 openEntryInfoModal({
                   tournament,
                   teamId: currentTeam.id,
@@ -5871,26 +6131,26 @@ function renderTournamentDetails(id) {
                   }
                 });
                 registerBtn.disabled = false;
-                registerBtn.textContent = `💳 Pay $${entryFee.toFixed(2)} & Register`;
+                registerBtn.textContent = '💳 Pay $' + entryFee.toFixed(2) + ' & Register';
               } else {
-                // Free tournament — register directly as before
                 registerTeamToTournament(tournament.id, currentTeam.id);
                 if (typeof syncTournamentsFromBackend === 'function') {
                   await syncTournamentsFromBackend().catch(() => {});
-                }
-                if (typeof syncTeamsFromBackend === 'function') {
-                  await syncTeamsFromBackend().catch(() => {});
                 }
                 renderTournamentDetails(tournament.id);
               }
             } catch(e) {
               console.error('Registration error:', e);
               registerBtn.disabled = false;
-              registerBtn.textContent = entryFee > 0 ? `💳 Pay $${entryFee.toFixed(2)} & Register` : 'Register Your Team';
+              registerBtn.textContent = entryFee > 0 ? '💳 Pay $' + entryFee.toFixed(2) + ' & Register' : 'Register Your Team';
             }
           });
         });
         detail.appendChild(registerBtn);
+      } else {
+        const fullMsg = document.createElement('p');
+        fullMsg.textContent = 'Registration is full for this tournament.';
+        detail.appendChild(fullMsg);
       }
     }
   }
@@ -6447,6 +6707,147 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
       });
       adminActions.appendChild(startBtn);
     }
+    // ── Check-in controls (free tournaments only, not started) ──
+    const entryFeeAdmin = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+    if (entryFeeAdmin === 0 && tournament.status !== 'started' && tournament.status !== 'completed') {
+      if (tournament.status !== 'check_in') {
+        // Open check-in button
+        const openCIBtn = document.createElement('button');
+        openCIBtn.className = 'button';
+        openCIBtn.textContent = '✅ Open Check-In';
+        openCIBtn.style.cssText = 'background:linear-gradient(135deg,#50c878,#2ecc71);color:#000;font-weight:800;';
+        openCIBtn.addEventListener('click', async function() {
+          openCIBtn.disabled = true;
+          openCIBtn.textContent = 'Opening...';
+          await openCheckIn(tournament.id);
+          renderTournamentDetails(tournament.id);
+        });
+        adminActions.appendChild(openCIBtn);
+      } else {
+        // Check-in is open — show status panel + close button
+        const ciPanel = document.createElement('div');
+        ciPanel.style.cssText = 'background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.3);border-radius:var(--radius-md);padding:1rem;margin-bottom:0.75rem;';
+        ciPanel.innerHTML = '<p style="color:#50c878;font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 0.5rem;">✅ Check-In Is Open</p>';
+
+        // Load check-in status from Supabase
+        (async function() {
+          if (!supabaseClient) return;
+          try {
+            const { data: regs } = await supabaseClient
+              .from('tournament_registrations')
+              .select('team_id, checked_in, waitlisted')
+              .eq('tournament_id', String(tournament.id));
+
+            if (!regs) return;
+            const active = regs.filter(function(r) { return !r.waitlisted; });
+            const checkedIn = active.filter(function(r) { return r.checked_in; });
+            const notCheckedIn = active.filter(function(r) { return !r.checked_in; });
+            const waitlisted = regs.filter(function(r) { return r.waitlisted; });
+
+            // Summary
+            const summary = document.createElement('p');
+            summary.style.cssText = 'font-size:0.88rem;color:var(--text-muted);margin:0 0 0.75rem;';
+            summary.textContent = checkedIn.length + ' of ' + active.length + ' teams checked in' + (waitlisted.length > 0 ? ' · ' + waitlisted.length + ' on waitlist' : '');
+            ciPanel.appendChild(summary);
+
+            // Get team names from tournament object
+            const teamNameMap = {};
+            (tournament.teams || []).forEach(function(t) { teamNameMap[String(t.id)] = t.name; });
+
+            // Checked in list
+            if (checkedIn.length > 0) {
+              const checkedTitle = document.createElement('p');
+              checkedTitle.style.cssText = 'font-size:0.78rem;font-weight:700;color:#50c878;margin:0 0 0.3rem;text-transform:uppercase;letter-spacing:0.05em;';
+              checkedTitle.textContent = '✅ Checked In';
+              ciPanel.appendChild(checkedTitle);
+              checkedIn.forEach(function(r) {
+                const row = document.createElement('p');
+                row.style.cssText = 'font-size:0.85rem;color:var(--text);margin:0 0 0.2rem;padding-left:0.75rem;';
+                row.textContent = teamNameMap[String(r.team_id)] || r.team_id;
+                ciPanel.appendChild(row);
+              });
+            }
+
+            // Not checked in list + remove option
+            if (notCheckedIn.length > 0) {
+              const notTitle = document.createElement('p');
+              notTitle.style.cssText = 'font-size:0.78rem;font-weight:700;color:#ff6b6b;margin:0.75rem 0 0.3rem;text-transform:uppercase;letter-spacing:0.05em;';
+              notTitle.textContent = '⏳ Not Checked In';
+              ciPanel.appendChild(notTitle);
+              notCheckedIn.forEach(function(r) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:0.3rem;';
+                const nameEl = document.createElement('span');
+                nameEl.style.cssText = 'font-size:0.85rem;color:#ff6b6b;padding-left:0.75rem;';
+                nameEl.textContent = teamNameMap[String(r.team_id)] || r.team_id;
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remove';
+                removeBtn.style.cssText = 'font-size:0.7rem;padding:0.2rem 0.5rem;background:#8b0000;border:1px solid #cc0000;color:#fff;border-radius:var(--radius-sm);cursor:pointer;';
+                removeBtn.addEventListener('click', async function() {
+                  if (!confirm('Remove ' + (teamNameMap[String(r.team_id)] || r.team_id) + ' from the tournament?')) return;
+                  // Check if waitlist has someone to promote
+                  if (waitlisted.length > 0) {
+                    const promote = confirm('There are ' + waitlisted.length + ' team(s) on the waitlist. Promote the next team in line?');
+                    if (promote) {
+                      // Get waitlisted team info
+                      const { data: wlData } = await supabaseClient
+                        .from('tournament_registrations')
+                        .select('team_id')
+                        .eq('tournament_id', String(tournament.id))
+                        .eq('waitlisted', true)
+                        .order('waitlist_position', { ascending: true })
+                        .limit(1);
+                      if (wlData && wlData.length > 0) {
+                        const wlTeamId = wlData[0].team_id;
+                        const { data: teamData } = await supabaseClient.from('teams').select('name').eq('id', wlTeamId).single();
+                        const wlTeamName = teamData ? teamData.name : wlTeamId;
+                        await promoteFromWaitlist(tournament.id, wlTeamId, wlTeamName);
+                      }
+                    }
+                  }
+                  // Remove the non-checked-in team
+                  await supabaseClient.from('tournament_registrations').delete()
+                    .eq('tournament_id', String(tournament.id)).eq('team_id', String(r.team_id));
+                  const ts = loadTournaments();
+                  const ti = ts.findIndex(function(t) { return String(t.id) === String(tournament.id); });
+                  if (ti !== -1) {
+                    ts[ti].teams = (ts[ti].teams || []).filter(function(t) { return String(t.id) !== String(r.team_id); });
+                    saveTournaments(ts);
+                  }
+                  renderTournamentDetails(tournament.id);
+                });
+                row.appendChild(nameEl);
+                row.appendChild(removeBtn);
+                ciPanel.appendChild(row);
+              });
+            }
+
+            // Waitlist section
+            if (waitlisted.length > 0) {
+              const wlTitle = document.createElement('p');
+              wlTitle.style.cssText = 'font-size:0.78rem;font-weight:700;color:var(--gold);margin:0.75rem 0 0.3rem;text-transform:uppercase;letter-spacing:0.05em;';
+              wlTitle.textContent = '⏳ Waitlist (' + waitlisted.length + ')';
+              ciPanel.appendChild(wlTitle);
+            }
+          } catch(e) { console.error('Check-in panel error:', e); }
+        })();
+
+        adminActions.appendChild(ciPanel);
+
+        // Close check-in button
+        const closeCIBtn = document.createElement('button');
+        closeCIBtn.className = 'button';
+        closeCIBtn.textContent = '🔒 Close Check-In';
+        closeCIBtn.style.cssText = 'font-size:0.85rem;margin-bottom:0.5rem;';
+        closeCIBtn.addEventListener('click', async function() {
+          closeCIBtn.disabled = true;
+          await closeCheckIn(tournament.id);
+          renderTournamentDetails(tournament.id);
+        });
+        adminActions.appendChild(closeCIBtn);
+      }
+    }
+
     // Add Team to Bracket (only when started)
     if (tournament.status === 'started') {
       const addTeamBtn = document.createElement('button');

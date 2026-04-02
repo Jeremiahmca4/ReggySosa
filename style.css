@@ -944,6 +944,12 @@ h3 {
   border: 1px solid rgba(0,255,150,0.25);
 }
 
+.badge-checkin {
+  background: rgba(80,200,120,0.15);
+  color: #50c878;
+  border: 1px solid rgba(80,200,120,0.4);
+}
+
 .badge-full {
   background: rgba(255,165,0,0.1);
   color: #ffb74d;
