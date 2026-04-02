@@ -6057,7 +6057,7 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
               const newT2 = t2Custom || document.getElementById('em-t2-' + panelId).value;
 
               if (!newT1 || !newT2) { statusEl.textContent = 'Both slots required.'; return; }
-              if (newT1 === newT2 && newT1 !== 'BYE') {
+              if (newT1 === newT2 && newT1 !== 'BYE' && newT1 !== 'TBD') {
                 statusEl.textContent = 'Team 1 and Team 2 cannot be the same.';
                 return;
               }
