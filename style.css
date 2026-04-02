@@ -1474,8 +1474,8 @@ button.edit:hover {
 .round {
   display: flex;
   flex-direction: column;
-  min-width: 180px;
-  max-width: 210px;
+  min-width: 220px;
+  max-width: 260px;
   flex: 1;
 }
 
@@ -1562,7 +1562,7 @@ button.edit:hover {
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
+  overflow: visible;
   margin: 6px 8px;
   transition: border-color 0.2s;
   position: relative;
@@ -1637,7 +1637,23 @@ button.edit:hover {
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
+}
+
+.match-admin-controls button,
+.match .button,
+.match .delete,
+.report-score button,
+.report-score select,
+.report-score input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 0.72rem !important;
+  padding: 0.3rem 0.5rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match p {
@@ -3609,5 +3625,51 @@ a {
     cursor: pointer;
     line-height: 1;
     padding: 0;
+  }
+}
+
+/* ── Bracket mobile improvements ── */
+@media (max-width: 768px) {
+  .bracket-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 1rem;
+    margin: 0 -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .bracket {
+    min-width: max-content;
+  }
+
+  .round {
+    min-width: 200px;
+    max-width: 220px;
+  }
+
+  .match-admin-controls button,
+  .match .button,
+  .match .delete {
+    font-size: 0.68rem !important;
+    padding: 0.25rem 0.4rem !important;
+  }
+
+  /* Report score form on mobile */
+  .report-score {
+    width: 100%;
+  }
+
+  .score-admin-input {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Edit match panel */
+  .edit-match-panel {
+    width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    box-sizing: border-box;
   }
 }

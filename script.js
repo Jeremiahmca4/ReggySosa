@@ -5373,73 +5373,82 @@ async function initAdminChatBar(tournament) {
 
   document.body.appendChild(panel);
 
-  // Load chat list
+  // Load chat list — shows ALL bracket matches so admin can start any chat
   async function loadChatList() {
     body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">Loading chats...</p>';
 
-    // Get all active match chats from messages table
+    // Get matches that already have messages
+    let seenCodes = {};
     try {
-      const { data, error } = await supabaseClient
+      const { data } = await supabaseClient
         .from('messages')
         .select('match_code, tournament_id, created_at')
         .order('created_at', { ascending: false });
-
-      if (error || !data || data.length === 0) {
-        body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">No active match chats right now.</p>';
-        return;
-      }
-
-      // Deduplicate by match_code, keep latest
-      const seen = {};
-      data.forEach(function(m) {
-        if (!seen[m.match_code]) seen[m.match_code] = m;
-      });
-
-      body.innerHTML = '';
-
-      // Also build match code -> team names from bracket
-      const codeToTeams = {};
-      if (Array.isArray(tournament.bracket)) {
-        tournament.bracket.forEach(function(round) {
-          round.forEach(function(match) {
-            if (match.code) codeToTeams[match.code] = { team1: match.team1, team2: match.team2 };
-          });
+      if (data) {
+        data.forEach(function(m) {
+          if (!seenCodes[m.match_code]) seenCodes[m.match_code] = m;
         });
       }
+    } catch(e) {}
 
-      Object.entries(seen).forEach(function([matchCode, row]) {
+    body.innerHTML = '';
+
+    // Build list from ALL bracket matches — not just ones with messages
+    if (!Array.isArray(tournament.bracket) || tournament.bracket.length === 0) {
+      body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">No bracket matches yet.</p>';
+      return;
+    }
+
+    let matchCount = 0;
+    tournament.bracket.forEach(function(round, rIdx) {
+      round.forEach(function(match, mIdx) {
+        if (!match.code || match.team1 === 'BYE' || match.team2 === 'BYE') return;
+        matchCount++;
+        const teams = { team1: match.team1, team2: match.team2 };
+        const hasMessages = !!seenCodes[match.code];
+
         const item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s;';
         item.addEventListener('mouseenter', function() { item.style.background = 'rgba(255,199,44,0.06)'; });
         item.addEventListener('mouseleave', function() { item.style.background = ''; });
 
-        const teams = codeToTeams[matchCode];
         const left = document.createElement('div');
         const matchLabel = document.createElement('p');
         matchLabel.style.cssText = 'margin:0 0 0.2rem;font-weight:700;font-size:0.9rem;';
-        matchLabel.textContent = teams ? teams.team1 + ' vs ' + teams.team2 : 'Match Chat';
+        matchLabel.textContent = match.team1 + ' vs ' + (match.team2 || 'BYE');
         const codeLabel = document.createElement('p');
         codeLabel.style.cssText = 'margin:0;font-family:monospace;font-size:0.78rem;color:var(--gold);';
-        codeLabel.textContent = 'Code: ' + matchCode;
+        codeLabel.textContent = 'Code: ' + match.code + (match.winner ? ' ✅ Done' : '') + (hasMessages ? ' 💬' : '');
         left.appendChild(matchLabel);
         left.appendChild(codeLabel);
 
+        const right = document.createElement('div');
+        right.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
+        const statusBadge = document.createElement('span');
+        statusBadge.style.cssText = 'font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:10px;font-weight:700;' +
+          (match.winner ? 'background:rgba(80,200,120,0.15);color:#50c878;' :
+           hasMessages ? 'background:rgba(212,160,23,0.15);color:var(--gold);' :
+           'background:rgba(255,255,255,0.06);color:var(--text-muted);');
+        statusBadge.textContent = match.winner ? 'Completed' : hasMessages ? 'Active' : 'Open';
         const arrow = document.createElement('span');
         arrow.style.cssText = 'color:var(--text-muted);font-size:1.1rem;';
         arrow.textContent = '›';
+        right.appendChild(statusBadge);
+        right.appendChild(arrow);
 
         item.appendChild(left);
-        item.appendChild(arrow);
+        item.appendChild(right);
 
         item.addEventListener('click', function() {
-          openSingleChat(matchCode, row.tournament_id, teams);
+          openSingleChat(match.code, tournament.id, teams);
         });
 
         body.appendChild(item);
       });
+    });
 
-    } catch(e) {
-      body.innerHTML = '<p style="color:#ff6b6b;padding:1.25rem;font-size:0.9rem;">Error loading chats.</p>';
+    if (matchCount === 0) {
+      body.innerHTML = '<p style="color:var(--text-muted);padding:1.25rem;font-size:0.9rem;">No matches to chat with yet.</p>';
     }
   }
 
@@ -6283,8 +6292,11 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
       detail.appendChild(settingsCard);
     }
 
+    const bracketWrapper = document.createElement('div');
+    bracketWrapper.className = 'bracket-wrapper';
+    bracketWrapper.appendChild(bracketDiv);
     detail.appendChild(bracketHeading);
-    detail.appendChild(bracketDiv);
+    detail.appendChild(bracketWrapper);
 
     // Init floating chat for players in an active match (non-admin only)
     if (role !== 'admin') {
