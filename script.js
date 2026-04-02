@@ -1104,7 +1104,8 @@ function renderTournaments() {
     const title = document.createElement('h3');
     title.textContent = t.name;
     const status = document.createElement('p');
-    status.textContent = 'Status: ' + (t.status || 'open');
+    const statusLabels = { 'open': 'Open', 'check_in': '✅ Check-In Open', 'started': 'Started', 'completed': 'Completed' };
+    status.textContent = 'Status: ' + (statusLabels[t.status] || t.status || 'open');
     const teamsCount = document.createElement('p');
     // Display current number of teams and maximum slots if defined
     const currentCount = t.teams ? t.teams.length : 0;
@@ -1572,19 +1573,18 @@ function renderAdminTournaments() {
     const title = document.createElement('h3');
     title.textContent = t.name;
     const status = document.createElement('p');
-    status.textContent = 'Status: ' + (t.status || 'open');
+    const statusLabels = { 'open': 'Open', 'check_in': '✅ Check-In Open', 'started': 'Started', 'completed': 'Completed' };
+    status.textContent = 'Status: ' + (statusLabels[t.status] || t.status || 'open');
     // Display current team count and maximum
     const teamsCount = document.createElement('p');
     const currentCount = t.teams ? t.teams.length : 0;
     const maxCount = t.maxTeams ? t.maxTeams : null;
     teamsCount.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
-    // Prepare start date element if available; we will append after team count for consistent ordering
+    // Start date + time
     let startEl = null;
     if (t.startDate) {
-      // Use local parsing for the date to avoid UTC offset issues
-      const sd = new Date(t.startDate + 'T00:00:00');
       startEl = document.createElement('p');
-      startEl.textContent = 'Starts: ' + sd.toLocaleDateString();
+      startEl.textContent = 'Starts: ' + formatTournamentDateTime(t.startDate, t.startTime);
     }
     // Display max teams explicitly (optional)
     // const maxTeamsEl = document.createElement('p');
@@ -1602,6 +1602,9 @@ function renderAdminTournaments() {
     } else if (t.status === 'started') {
       startBtn.textContent = 'Started';
       startBtn.disabled = true;
+    } else if (t.status === 'check_in') {
+      startBtn.textContent = 'Start';
+      startBtn.addEventListener('click', () => { startTournament(t.id); });
     } else {
       startBtn.textContent = 'Start';
       startBtn.addEventListener('click', () => { startTournament(t.id); });
@@ -1620,6 +1623,36 @@ function renderAdminTournaments() {
     deleteBtn.addEventListener('click', () => {
       deleteTournament(t.id);
     });
+    // ── Check-In button (free tournaments only) ──
+    const feeForCI = parseFloat(t.entry_fee || t.entryFee) || 0;
+    if (feeForCI === 0 && t.status !== 'started' && t.status !== 'completed') {
+      if (t.status !== 'check_in') {
+        const openCIBtn = document.createElement('button');
+        openCIBtn.className = 'button';
+        openCIBtn.textContent = '✅ Open Check-In';
+        openCIBtn.style.cssText = 'background:linear-gradient(135deg,#50c878,#2ecc71);color:#000;font-weight:800;font-size:0.78rem;padding:0.3rem 0.7rem;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;';
+        openCIBtn.addEventListener('click', async function() {
+          openCIBtn.disabled = true;
+          openCIBtn.textContent = 'Opening...';
+          await openCheckIn(t.id);
+          renderAdminTournaments();
+        });
+        actions.appendChild(openCIBtn);
+      } else {
+        // Close check-in button
+        const closeCIBtn = document.createElement('button');
+        closeCIBtn.className = 'button';
+        closeCIBtn.textContent = '🔒 Close Check-In';
+        closeCIBtn.style.cssText = 'background:rgba(80,200,120,0.15);border:1px solid #50c878;color:#50c878;font-size:0.78rem;padding:0.3rem 0.7rem;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;';
+        closeCIBtn.addEventListener('click', async function() {
+          closeCIBtn.disabled = true;
+          await closeCheckIn(t.id);
+          renderAdminTournaments();
+        });
+        actions.appendChild(closeCIBtn);
+      }
+    }
+
     // Post Registration Update to Discord (only when status is open)
     if (!t.status || t.status === 'open') {
       const updateBtn = document.createElement('button');
@@ -2368,19 +2401,30 @@ async function checkInTeam(tournamentId, teamId) {
 async function joinWaitlist(tournamentId, teamId) {
   if (!supabaseClient) return false;
   try {
-    // Get current max waitlist position
-    const { data: existing } = await supabaseClient
+    // Check if already registered (active or waitlisted)
+    const { data: existing2 } = await supabaseClient
+      .from('tournament_registrations')
+      .select('id, waitlisted')
+      .eq('tournament_id', String(tournamentId))
+      .eq('team_id', String(teamId))
+      .limit(1);
+    if (existing2 && existing2.length > 0) {
+      if (!existing2[0].waitlisted) return false; // already active
+      return true; // already on waitlist
+    }
+    // Get max waitlist position
+    const { data: wlRows } = await supabaseClient
       .from('tournament_registrations')
       .select('waitlist_position')
       .eq('tournament_id', String(tournamentId))
       .eq('waitlisted', true)
       .order('waitlist_position', { ascending: false })
       .limit(1);
-    const nextPos = (existing && existing.length > 0 && existing[0].waitlist_position)
-      ? existing[0].waitlist_position + 1 : 1;
+    const nextPos = (wlRows && wlRows.length > 0 && wlRows[0].waitlist_position)
+      ? wlRows[0].waitlist_position + 1 : 1;
     const { error } = await supabaseClient
       .from('tournament_registrations')
-      .upsert({
+      .insert({
         tournament_id: String(tournamentId),
         team_id: String(teamId),
         waitlisted: true,
@@ -6114,12 +6158,7 @@ function renderTournamentDetails(id) {
       detail.appendChild(goalieNotice);
     }
 
-    // If tournament is full
-    if (maxCount && currentCount >= maxCount) {
-      const fullMsg = document.createElement('p');
-      fullMsg.textContent = 'Registration is full for this tournament.';
-      detail.appendChild(fullMsg);
-    } else if (!currentTeam) {
+    if (!currentTeam) {
       // No team yet
       const noTeamMsg = document.createElement('p');
       noTeamMsg.textContent = 'You need to create a team before you can register.';
@@ -6189,7 +6228,7 @@ function renderTournamentDetails(id) {
           registeredMsg.textContent = '✅ Your team is registered for this tournament.';
           detail.appendChild(registeredMsg);
         }
-      } else if (isFull && isFree && tournament.status === 'open') {
+      } else if (isFull && isFree && (tournament.status === 'open' || tournament.status === 'check_in')) {
         // ── Tournament full + free → offer waitlist ──
         (async function() {
           let onWaitlist = false;
@@ -6243,7 +6282,7 @@ function renderTournamentDetails(id) {
             detail.appendChild(wlNote);
           }
         })();
-      } else if (!isFull) {
+      } else if (!isFull && tournament.status !== 'check_in') {
         // ── Normal registration ──
         const registerBtn = document.createElement('button');
         registerBtn.textContent = entryFee > 0
