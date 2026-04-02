@@ -2513,11 +2513,16 @@ function announceCheckInOpen(tournamentId) {
   const ts = loadTournaments();
   const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
   if (!t) return;
-  // Use dedicated check-in webhook, fall back to registrations webhook
-  const webhookUrl = getWebhookUrl('checkIn') || getWebhookUrl('registrations');
-  if (!webhookUrl) return;
   const startStr = formatTournamentDateTime(t.startDate, t.startTime) || 'TBD';
   const tournamentUrl = 'https://reggysosa.com/tournament.html?id=' + t.id;
+
+  // Use checkIn webhook key, fall back to registrations if not set
+  var checkInKey = localStorage.getItem(WEBHOOK_KEYS.checkIn);
+  var webhookType = checkInKey ? 'checkIn' : 'registrations';
+  var webhookUrl = localStorage.getItem(checkInKey ? WEBHOOK_KEYS.checkIn : WEBHOOK_KEYS.registrations);
+  if (!webhookUrl) { console.warn('[Webhook] No check-in or registrations webhook set'); return; }
+
+  // Send with @everyone content + embed
   fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2525,36 +2530,37 @@ function announceCheckInOpen(tournamentId) {
       content: '@everyone',
       embeds: [{
         title: '✅ Check-In Is Now Open — ' + t.name,
-        description: 'Check-in is now open for **' + t.name + '**! Head to reggysosa.com to confirm your spot. Teams that do not check in by start time may be removed. Check in here: ' + tournamentUrl,
+        description: 'Check-in is now open for **' + t.name + '**! Head to the tournament page and check in to confirm your spot. Teams that do not check in by start time will be removed and replaced by the next team on the waitlist.',
         color: 0xd4a017,
         fields: [
           { name: '📅 Start Time', value: startStr, inline: true },
-          { name: '👥 Teams Registered', value: String((t.teams || []).length) + (t.maxTeams ? ' / ' + t.maxTeams : ''), inline: true },
+          { name: '👥 Teams', value: String((t.teams || []).length) + (t.maxTeams ? ' / ' + t.maxTeams : ''), inline: true },
+          { name: '🔗 Check In Now', value: tournamentUrl, inline: false },
         ],
         footer: { text: 'reggysosa.com — CHEL Tournaments' },
       }],
     }),
-  }).catch(() => {});
+  }).then(function(res) {
+    if (res.ok) {
+      console.log('[Webhook] check-in open sent OK');
+    } else {
+      console.error('[Webhook] check-in open failed: HTTP ' + res.status);
+    }
+  }).catch(function(e) {
+    console.error('[Webhook] check-in open error:', e.message);
+  });
 }
 
-// Discord DM placeholder for waitlist promotion
+// Waitlist promotion notification
 function announceWaitlistPromotion(teamName, tournamentId) {
   const ts = loadTournaments();
   const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
   if (!t) return;
-  const webhookUrl = getWebhookUrl('teamRegistrations');
-  if (!webhookUrl) return;
-  fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      embeds: [{
-        title: '🎉 Waitlist Promotion!',
-        description: '**' + teamName + '** has been moved from the waitlist into **' + t.name + '**! Head to reggysosa.com to check in and confirm your spot.',
-        color: 0x50c878,
-      }],
-    }),
-  }).catch(() => {});
+  sendToWebhook('registrations', [{
+    title: '🎉 Waitlist Promotion!',
+    description: '**' + teamName + '** has been moved from the waitlist into **' + t.name + '**! Head to reggysosa.com to check in and confirm your spot.',
+    color: 0x50c878,
+  }]);
 }
 
 function registerTeamToTournament(tournamentId, teamId) {
