@@ -862,6 +862,8 @@ function initGlobalRealtime() {
     // Tournaments page
     if (typeof renderActiveTournaments === 'function' && document.getElementById('active-tab')) {
       renderActiveTournaments();
+      // Prompt new users without a team
+      if (typeof checkNewUserPrompt === 'function') checkNewUserPrompt();
     }
     if (typeof renderUpcomingTournaments === 'function' && document.getElementById('upcoming-tab')) {
       renderUpcomingTournaments();
@@ -963,6 +965,53 @@ function initGlobalRealtime() {
     .subscribe();
 
   console.log('[Realtime] Global subscriptions active');
+
+  // ── Mobile reconnect handler ─────────────────────────────────────────────
+  // iOS Safari kills WebSocket connections when the app is backgrounded.
+  // When the user comes back to the tab, re-subscribe all channels.
+  var _realtimeChannels = [];
+  // Track channels so we can unsub/resub
+  function _resubscribeAll() {
+    console.log('[Realtime] Reconnecting all subscriptions...');
+    try {
+      supabaseClient.removeAllChannels();
+    } catch(e) {}
+    // Re-run global realtime setup
+    setTimeout(function() {
+      initGlobalRealtime();
+    }, 500);
+  }
+
+  // Reconnect on page visibility change (tab/app foreground)
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      _resubscribeAll();
+      // Also sync fresh data immediately
+      syncTournamentsFromBackend().catch(function() {});
+      // Re-render current page
+      if (typeof renderActiveTournaments === 'function' && document.getElementById('active-tab')) {
+        renderActiveTournaments();
+      }
+      if (typeof renderUpcomingTournaments === 'function' && document.getElementById('upcoming-tab')) {
+        renderUpcomingTournaments();
+      }
+      if (typeof renderAdminTournaments === 'function' && document.getElementById('admin-tournament-list')) {
+        renderAdminTournaments();
+      }
+      if (typeof renderTournamentDetails === 'function') {
+        var urlParams = new URLSearchParams(window.location.search);
+        var tid = urlParams.get('id');
+        if (tid) renderTournamentDetails(String(tid));
+      }
+    }
+  });
+
+  // Also reconnect on network restore
+  window.addEventListener('online', function() {
+    console.log('[Realtime] Network restored — reconnecting');
+    _resubscribeAll();
+    syncTournamentsFromBackend().catch(function() {});
+  });
 }
 
 
@@ -1173,6 +1222,37 @@ function renderTournaments() {
  * appear here. Each card shows a status badge indicating whether it is
  * Open, Full, Started or Completed, along with team counts and start date.
  */
+// Show new user prompt if logged in but has no team
+async function checkNewUserPrompt() {
+  const email = getCurrentUser ? getCurrentUser() : null;
+  if (!email) return; // not logged in
+  const role = getCurrentUserRole ? getCurrentUserRole() : null;
+  if (role === 'admin') return; // admin doesn't need a team
+  const team = getUserTeam ? getUserTeam() : null;
+  if (team) return; // already has a team
+  // Check if they've dismissed this before
+  if (localStorage.getItem('new_user_prompt_dismissed')) return;
+  // Small delay so page renders first
+  await new Promise(function(r) { setTimeout(r, 800); });
+  // Don't show if already shown
+  if (document.getElementById('new-user-prompt')) return;
+  const banner = document.createElement('div');
+  banner.id = 'new-user-prompt';
+  banner.style.cssText = 'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:1500;background:#1a1a2e;border:1px solid #d4a017;border-radius:var(--radius-md);padding:1.25rem 1.5rem;max-width:420px;width:calc(100% - 2rem);box-shadow:0 8px 32px rgba(0,0,0,0.5);';
+  banner.innerHTML =
+    '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.06em;color:#d4a017;margin:0 0 0.4rem;">👋 Welcome to Reggy Sosa!</p>' +
+    '<p style="color:var(--text-muted);font-size:0.88rem;line-height:1.5;margin:0 0 1rem;">You need a team before you can register for tournaments. Create your team now — it only takes a minute.</p>' +
+    '<div style="display:flex;gap:0.5rem;">' +
+      '<a href="profile.html" class="button" style="flex:1;text-align:center;text-decoration:none;font-size:0.9rem;">🏒 Create My Team</a>' +
+      '<button id="new-user-dismiss" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--radius-sm);padding:0.5rem 0.75rem;cursor:pointer;font-size:0.85rem;white-space:nowrap;">Not now</button>' +
+    '</div>';
+  document.body.appendChild(banner);
+  document.getElementById('new-user-dismiss').addEventListener('click', function() {
+    banner.remove();
+    localStorage.setItem('new_user_prompt_dismissed', '1');
+  });
+}
+
 function renderActiveTournaments() {
   const listEl = document.getElementById('active-tournaments-list');
   if (!listEl) return;
@@ -1268,11 +1348,39 @@ function renderActiveTournaments() {
     }
     card.appendChild(badgeRow);
 
-    const link = document.createElement('a');
-    link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
-    link.className = 'button';
-    link.textContent = 'View Tournament';
-    card.appendChild(link);
+    // Button row — context aware
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;';
+    const viewLink = document.createElement('a');
+    viewLink.href = 'tournament.html?id=' + encodeURIComponent(t.id);
+    viewLink.className = 'button';
+    viewLink.style.cssText = 'flex:1;text-align:center;text-decoration:none;font-size:0.88rem;';
+    viewLink.textContent = 'View Tournament';
+    btnRow.appendChild(viewLink);
+    // If full and free — show Join Waitlist button directly on card
+    const isFull_a = maxCount && currentCount >= maxCount;
+    const isFree_a = (parseFloat(t.entry_fee || t.entryFee) || 0) === 0;
+    const currentUser_a = getUserTeam ? getUserTeam() : null;
+    const alreadyIn_a = currentUser_a && t.teams && t.teams.some(function(tm) { return String(tm.id) === String(currentUser_a.id); });
+    if (isFull_a && isFree_a && !alreadyIn_a && (t.status === 'open' || t.status === 'check_in')) {
+      const wlBtn = document.createElement('button');
+      wlBtn.className = 'button';
+      wlBtn.style.cssText = 'flex:1;background:transparent;border-color:var(--gold);color:var(--gold);font-size:0.88rem;';
+      wlBtn.textContent = '⏳ Join Waitlist';
+      wlBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        if (!currentUser_a) { window.location.href = 'tournament.html?id=' + encodeURIComponent(t.id); return; }
+        checkDiscordGate(async function() {
+          wlBtn.disabled = true;
+          wlBtn.textContent = 'Joining...';
+          const ok = await joinWaitlist(t.id, currentUser_a.id);
+          wlBtn.textContent = ok ? '✅ On Waitlist!' : '⏳ Join Waitlist';
+          wlBtn.disabled = !ok;
+        });
+      });
+      btnRow.appendChild(wlBtn);
+    }
+    card.appendChild(btnRow);
     listEl.appendChild(card);
   });
 }
@@ -1368,11 +1476,38 @@ function renderUpcomingTournaments() {
     }
     card.appendChild(badgeRow2);
 
-    const link = document.createElement('a');
-    link.href = 'tournament.html?id=' + encodeURIComponent(t.id);
-    link.className = 'button';
-    link.textContent = 'View Tournament';
-    card.appendChild(link);
+    // Button row — context aware
+    const btnRow2 = document.createElement('div');
+    btnRow2.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;';
+    const viewLink2 = document.createElement('a');
+    viewLink2.href = 'tournament.html?id=' + encodeURIComponent(t.id);
+    viewLink2.className = 'button';
+    viewLink2.style.cssText = 'flex:1;text-align:center;text-decoration:none;font-size:0.88rem;';
+    viewLink2.textContent = 'View Tournament';
+    btnRow2.appendChild(viewLink2);
+    const isFull_u = maxCount && currentCount >= maxCount;
+    const isFree_u = (parseFloat(t.entry_fee || t.entryFee) || 0) === 0;
+    const currentUser_u = getUserTeam ? getUserTeam() : null;
+    const alreadyIn_u = currentUser_u && t.teams && t.teams.some(function(tm) { return String(tm.id) === String(currentUser_u.id); });
+    if (isFull_u && isFree_u && !alreadyIn_u && (t.status === 'open' || t.status === 'check_in')) {
+      const wlBtn2 = document.createElement('button');
+      wlBtn2.className = 'button';
+      wlBtn2.style.cssText = 'flex:1;background:transparent;border-color:var(--gold);color:var(--gold);font-size:0.88rem;';
+      wlBtn2.textContent = '⏳ Join Waitlist';
+      wlBtn2.addEventListener('click', async function(e) {
+        e.preventDefault();
+        if (!currentUser_u) { window.location.href = 'tournament.html?id=' + encodeURIComponent(t.id); return; }
+        checkDiscordGate(async function() {
+          wlBtn2.disabled = true;
+          wlBtn2.textContent = 'Joining...';
+          const ok = await joinWaitlist(t.id, currentUser_u.id);
+          wlBtn2.textContent = ok ? '✅ On Waitlist!' : '⏳ Join Waitlist';
+          wlBtn2.disabled = !ok;
+        });
+      });
+      btnRow2.appendChild(wlBtn2);
+    }
+    card.appendChild(btnRow2);
     listEl.appendChild(card);
   });
 }
