@@ -382,10 +382,12 @@ async function syncTournamentsFromBackend() {
             // Get all team IDs registered for this tournament
             const { data: regs, error: regsErr } = await supabaseClient
               .from('tournament_registrations')
-              .select('team_id')
+              .select('team_id, waitlisted')
               .eq('tournament_id', row.id);
             if (!regsErr && Array.isArray(regs) && regs.length > 0) {
-              const teamIds = regs.map((r) => r.team_id);
+              // Only count active (non-waitlisted) teams
+              const activeRegs = regs.filter(function(r) { return !r.waitlisted; });
+              const teamIds = activeRegs.map((r) => r.team_id);
               // Fetch team names for these IDs
               const { data: teamsData, error: teamsErr } = await supabaseClient
                 .from('teams')
@@ -6170,7 +6172,7 @@ function renderTournamentDetails(id) {
     } else {
       const entryFee = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
       const isFree = entryFee === 0;
-      const alreadyRegistered = tournament.teams && tournament.teams.some((team) => team.id === currentTeam.id);
+      const alreadyRegistered = tournament.teams && tournament.teams.some((team) => String(team.id) === String(currentTeam.id));
       const isFull = maxCount && currentCount >= maxCount;
 
       if (alreadyRegistered) {
