@@ -366,6 +366,7 @@ async function syncTournamentsFromBackend() {
           teams: [],
           maxTeams: row.max_teams ?? row.maxTeams ?? null,
           startDate: row.start_date ?? row.startDate ?? null,
+          startTime: row.start_time ?? row.startTime ?? null,
           status: row.status || 'open',
           created: row.created_at ?? row.created ?? new Date().toISOString(),
           bracket: Array.isArray(row.bracket) ? row.bracket : (row.bracket && typeof row.bracket === 'object' ? Object.values(row.bracket) : []),
@@ -442,6 +443,34 @@ async function syncTeamsFromBackend() {
  * If a session exists, set currentUser to the authenticated email.
  * Otherwise, clear currentUser.
  */
+
+// ── Date/Time formatter (Eastern Time) ──────────────────────────────────────
+function formatTournamentDateTime(startDate, startTime) {
+  if (!startDate) return null;
+  try {
+    // Build a date string in EST
+    const timeStr = startTime || '00:00';
+    // Parse as local date in ET by constructing ISO string with ET offset
+    // We treat the stored date+time as Eastern Time
+    const [year, month, day] = startDate.split('-').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    // Format display string
+    const dateObj = new Date(year, month - 1, day, hours, minutes);
+    const dateFormatted = dateObj.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+    if (startTime) {
+      const timeFormatted = dateObj.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+      return dateFormatted + ' at ' + timeFormatted + ' ET';
+    }
+    return dateFormatted;
+  } catch(e) {
+    return startDate + (startTime ? ' ' + startTime + ' ET' : '');
+  }
+}
+
 async function syncSession() {
   if (!supabaseClient) {
     return;
@@ -1180,9 +1209,8 @@ function renderActiveTournaments() {
     teamsLabel.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
     metaRow.appendChild(teamsLabel);
     if (t.startDate) {
-      const sd = new Date(t.startDate + 'T00:00:00');
       const dateSpan = document.createElement('span');
-      dateSpan.textContent = sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      dateSpan.textContent = formatTournamentDateTime(t.startDate, t.startTime);
       metaRow.appendChild(dateSpan);
     }
     card.appendChild(metaRow);
@@ -1281,9 +1309,8 @@ function renderUpcomingTournaments() {
     teamsLabel2.textContent = 'Teams: ' + currentCount + (maxCount ? ' / ' + maxCount : '');
     metaRow2.appendChild(teamsLabel2);
     if (t.startDate) {
-      const sd = new Date(t.startDate + 'T00:00:00');
       const dateSpan2 = document.createElement('span');
-      dateSpan2.textContent = sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      dateSpan2.textContent = formatTournamentDateTime(t.startDate, t.startTime);
       metaRow2.appendChild(dateSpan2);
     }
     card.appendChild(metaRow2);
@@ -1910,6 +1937,8 @@ async function createTournamentFromForm() {
   // Entry fee — read from admin form input, default to 0 (free)
   const entryFeeInput = document.getElementById('entry-fee-input');
   const entryFee = entryFeeInput && entryFeeInput.value ? parseFloat(entryFeeInput.value) || 0 : 0;
+  const timeInput = document.getElementById('tournament-start-time');
+  const startTime = timeInput && timeInput.value ? timeInput.value : null; // HH:MM in EST
   const newTournament = {
     id,
     name,
@@ -1917,6 +1946,7 @@ async function createTournamentFromForm() {
     maxTeams: maxVal,
     created: new Date().toISOString(),
     startDate: dateInput && dateInput.value ? dateInput.value : null,
+    startTime: startTime,
     status: 'open',
     bracket: [],
     winner: null,
@@ -1940,6 +1970,7 @@ async function createTournamentFromForm() {
         name: name,
         maxTeams: maxVal,
         startDate: newTournament.startDate,
+        startTime: newTournament.startTime,
         password: newTournament.password || null,
         entryFee: entryFee,
         goalieRequired: goalieRequired,
@@ -1955,6 +1986,9 @@ async function createTournamentFromForm() {
   maxTeamsInput.value = '';
   if (dateInput) {
     dateInput.value = '';
+  }
+  if (timeInput) {
+    timeInput.value = '';
   }
   if (passwordInput) {
     passwordInput.value = '';
@@ -2332,19 +2366,22 @@ function announceCheckInOpen(tournamentId) {
   if (!t) return;
   const webhookUrl = getWebhookUrl('teamRegistrations');
   if (!webhookUrl) return;
+  const startStr = formatTournamentDateTime(t.startDate, t.startTime) || 'TBD';
+  const tournamentUrl = 'https://reggysosa.com/tournament.html?id=' + t.id;
   fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       content: '@everyone',
       embeds: [{
-        title: '✅ Check-In Is Now Open!',
-        description: '**' + t.name + '** - Check in now at reggysosa.com. Teams that do not check in may be removed.',
+        title: '✅ Check-In Is Now Open — ' + t.name,
+        description: 'Check-in is now open for **' + t.name + '**! Head to reggysosa.com to confirm your spot. Teams that do not check in by start time may be removed. Check in here: ' + tournamentUrl,
         color: 0xd4a017,
         fields: [
-          { name: 'Tournament', value: t.name, inline: true },
-          { name: 'Teams Registered', value: String((t.teams || []).length), inline: true },
+          { name: '📅 Start Time', value: startStr, inline: true },
+          { name: '👥 Teams Registered', value: String((t.teams || []).length) + (t.maxTeams ? ' / ' + t.maxTeams : ''), inline: true },
         ],
+        footer: { text: 'reggysosa.com — CHEL Tournaments' },
       }],
     }),
   }).catch(() => {});
