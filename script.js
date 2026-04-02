@@ -1957,7 +1957,7 @@ async function createTournamentFromForm() {
   tournaments.push(newTournament);
   saveTournaments(tournaments);
   // Fire Discord webhook — new tournament announced
-  try { announceTournamentCreated(name, newTournament.startDate, maxVal, goalieRequired, entryFee); }
+  try { announceTournamentCreated(name, newTournament.startDate, maxVal, goalieRequired, entryFee, newTournament.startTime); }
   catch(e) { console.warn('[Webhook] Tournament created error:', e); }
   // Persist the new tournament to the back‑end. This call is fire‑and‑forget;
   // any network errors will be logged to the console. The backend expects
@@ -4211,12 +4211,20 @@ function announceScoreSubmission(tournamentName, reportedWinner, submitterEmail)
 }
 
 // 4. Team registered → #registrations
-function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRequired, entryFee) {
+function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRequired, entryFee, startTime) {
   var dateStr = 'TBD';
   if (startDate) {
     var parts = startDate.split('-');
     var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     dateStr = localDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (startTime) {
+      var timeParts = startTime.split(':');
+      var h = parseInt(timeParts[0]);
+      var m = timeParts[1];
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      var h12 = h % 12 || 12;
+      dateStr += ' at ' + h12 + ':' + m + ' ' + ampm + ' ET';
+    }
   }
   var feeVal = parseFloat(entryFee) || 0;
   var feeStr = feeVal > 0 ? '💰 $' + feeVal.toFixed(2) + ' per team' : '🆓 Free Entry';
@@ -4224,7 +4232,7 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRe
   var maxPrizePool = feeVal > 0 ? '$' + (Math.round(feeVal * maxTeams * (pct / 100) * 100) / 100).toFixed(2) + ' (' + pct + '% of total entry fees)' : 'N/A';
   var fields = [
     { name: 'Tournament',      value: tournamentName || 'Unknown',                                        inline: false },
-    { name: 'Start Date',      value: dateStr,                                                            inline: true  },
+    { name: 'Start Date & Time', value: dateStr,                                                          inline: true  },
     { name: 'Max Teams',       value: String(maxTeams || '?'),                                            inline: true  },
     { name: 'Entry Fee',       value: feeStr,                                                             inline: true  },
     { name: '🏆 Prize Pool',   value: maxPrizePool,                                                      inline: true  },
@@ -4248,7 +4256,7 @@ function announceRegistrationUpdate(tournament) {
   var spotsStr = spotsLeft !== null ? String(spotsLeft) + ' spot' + (spotsLeft !== 1 ? 's' : '') + ' left' : 'Open';
   var statusStr = spotsLeft === 0 ? 'Full — Registration Closed' : 'Open';
 
-  // Format start date in EST, no UTC shift
+  // Format start date + time in ET
   var dateStr = 'TBD';
   if (tournament.startDate || tournament.start_date) {
     var raw = tournament.startDate || tournament.start_date;
@@ -4256,8 +4264,16 @@ function announceRegistrationUpdate(tournament) {
     var localDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     dateStr = localDate.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      timeZone: 'America/New_York'
     });
+    var st = tournament.startTime || tournament.start_time;
+    if (st) {
+      var tp = st.split(':');
+      var hh = parseInt(tp[0]);
+      var mm = tp[1];
+      var ap = hh >= 12 ? 'PM' : 'AM';
+      var h12 = hh % 12 || 12;
+      dateStr += ' at ' + h12 + ':' + mm + ' ' + ap + ' ET';
+    }
   }
 
   // Entry fee
