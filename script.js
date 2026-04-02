@@ -2221,7 +2221,7 @@ async function checkDiscordGate(onConfirmed) {
 
 function registerTeamToTournament(tournamentId, teamId) {
   let tournaments = loadTournaments();
-  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  const idx = tournaments.findIndex((t) => String(t.id) === String(tournamentId));
   if (idx === -1) {
     console.warn("Tournament not in localStorage, firing backend registration directly.");
     try {
@@ -2302,7 +2302,7 @@ function registerTeamToTournament(tournamentId, teamId) {
 // Remove a team from a tournament (admin only)
 function removeTeamFromTournament(tournamentId, teamId) {
   let tournaments = loadTournaments();
-  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  const idx = tournaments.findIndex((t) => String(t.id) === String(tournamentId));
   if (idx === -1) return;
   const tournament = tournaments[idx];
 
@@ -2373,7 +2373,7 @@ function removeTeamFromTournament(tournamentId, teamId) {
 // the winner to the next round. Only called by admins.
 async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName, t1Score, t2Score) {
   let tournaments = loadTournaments();
-  const idx = tournaments.findIndex((t) => t.id === tournamentId);
+  const idx = tournaments.findIndex((t) => String(t.id) === String(tournamentId));
   if (idx === -1) return;
   const tournament = tournaments[idx];
   const bracket = tournament.bracket;
@@ -2423,6 +2423,11 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
     patchBody.winner = tournament.winner;
   }
   try {
+    // Write directly to Supabase for instant persistence
+    if (supabaseClient) {
+      await supabaseClient.from('tournaments').update(patchBody).eq('id', tournamentId);
+    }
+    // Also sync to backend
     const patchRes = await fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(tournamentId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -2431,7 +2436,6 @@ async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerNam
     const patchData = await patchRes.json();
     if (!patchData.ok) {
       console.error('Backend failed to save match result:', patchData);
-      alert('Warning: match result may not have saved. Please try again.');
     }
   } catch (err) {
     console.error('Failed to persist match result to backend:', err);
@@ -6148,17 +6152,30 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
               advBtn1.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;background:transparent;border-color:rgba(255,199,44,0.35);color:var(--text-muted);';
               advBtn1.addEventListener('click', async function() {
                 if (!confirm('Mark "' + match.team1 + '" as advanced (no score recorded)?')) return;
+                advBtn1.disabled = true;
+                const advancedTeam = match.team1;
+                const updatedBracket = JSON.parse(JSON.stringify(tournament.bracket));
+                updatedBracket[rIndex][mIndex].advanced = advancedTeam;
+                updatedBracket[rIndex][mIndex].winner = advancedTeam;
+                // Propagate to next round
+                if (updatedBracket[rIndex + 1]) {
+                  const nextMatchIdx = Math.floor(mIndex / 2);
+                  const nextMatch = updatedBracket[rIndex + 1][nextMatchIdx];
+                  if (nextMatch) {
+                    if (mIndex % 2 === 0) nextMatch.team1 = advancedTeam;
+                    else nextMatch.team2 = advancedTeam;
+                  }
+                }
+                // Save to localStorage
                 let t2 = loadTournaments();
-                const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
-                if (tIdx === -1) return;
-                t2[tIdx].bracket[rIndex][mIndex].advanced = match.team1;
-                t2[tIdx].bracket[rIndex][mIndex].winner = null;
-                saveTournaments(t2);
+                const tIdx = t2.findIndex(function(x) { return String(x.id) === String(tournament.id); });
+                if (tIdx !== -1) { t2[tIdx].bracket = updatedBracket; saveTournaments(t2); }
+                // Save to Supabase + backend
                 try {
+                  if (supabaseClient) await supabaseClient.from('tournaments').update({ bracket: updatedBracket }).eq('id', tournament.id);
                   await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bracket: updatedBracket }),
                   });
                 } catch(e) { console.error('Advance save error:', e); }
                 renderTournamentDetails(tournament.id);
@@ -6173,17 +6190,30 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
               advBtn2.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;background:transparent;border-color:rgba(255,199,44,0.35);color:var(--text-muted);';
               advBtn2.addEventListener('click', async function() {
                 if (!confirm('Mark "' + match.team2 + '" as advanced (no score recorded)?')) return;
+                advBtn2.disabled = true;
+                const advancedTeam = match.team2;
+                const updatedBracket = JSON.parse(JSON.stringify(tournament.bracket));
+                updatedBracket[rIndex][mIndex].advanced = advancedTeam;
+                updatedBracket[rIndex][mIndex].winner = advancedTeam;
+                // Propagate to next round
+                if (updatedBracket[rIndex + 1]) {
+                  const nextMatchIdx = Math.floor(mIndex / 2);
+                  const nextMatch = updatedBracket[rIndex + 1][nextMatchIdx];
+                  if (nextMatch) {
+                    if (mIndex % 2 === 0) nextMatch.team1 = advancedTeam;
+                    else nextMatch.team2 = advancedTeam;
+                  }
+                }
+                // Save to localStorage
                 let t2 = loadTournaments();
-                const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
-                if (tIdx === -1) return;
-                t2[tIdx].bracket[rIndex][mIndex].advanced = match.team2;
-                t2[tIdx].bracket[rIndex][mIndex].winner = null;
-                saveTournaments(t2);
+                const tIdx = t2.findIndex(function(x) { return String(x.id) === String(tournament.id); });
+                if (tIdx !== -1) { t2[tIdx].bracket = updatedBracket; saveTournaments(t2); }
+                // Save to Supabase + backend
                 try {
+                  if (supabaseClient) await supabaseClient.from('tournaments').update({ bracket: updatedBracket }).eq('id', tournament.id);
                   await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bracket: updatedBracket }),
                   });
                 } catch(e) { console.error('Advance save error:', e); }
                 renderTournamentDetails(tournament.id);
