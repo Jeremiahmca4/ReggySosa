@@ -206,7 +206,7 @@ window.onStripePaymentSuccess = async function({ tournamentId, teamId }) {
       }
     } catch(e) { console.warn('[Webhook] Paid registration announce error:', e); }
     if (typeof renderTournamentDetails === 'function' && tournamentId) {
-      renderTournamentDetails(tournamentId);
+      renderTournamentDetails(String(tournamentId));
     }
   } catch(e) {
     console.error('onStripePaymentSuccess error:', e);
@@ -840,12 +840,9 @@ function initGlobalRealtime() {
     if (typeof renderAdminTournaments === 'function' && document.getElementById('admin-tournament-list')) {
       renderAdminTournaments();
     }
-    // Tournament detail page — re-render if open
-    const urlParams = new URLSearchParams(window.location.search);
-    const tid = urlParams.get('id');
-    if (tid && typeof renderTournamentDetails === 'function') {
-      renderTournamentDetails(tid);
-    }
+    // Tournament detail page — skip global re-render here
+    // The bracket has its own dedicated realtime subscription that handles updates
+    // Re-rendering here causes race conditions with admin actions
     // Index page past winners
     if (typeof renderPastWinners === 'function' && document.getElementById('past-winners-section')) {
       renderPastWinners();
@@ -2374,8 +2371,10 @@ function removeTeamFromTournament(tournamentId, teamId) {
 async function reportMatchResult(tournamentId, roundIndex, matchIndex, winnerName, t1Score, t2Score) {
   let tournaments = loadTournaments();
   const idx = tournaments.findIndex((t) => String(t.id) === String(tournamentId));
-  if (idx === -1) return;
+  if (idx === -1) { console.error('Tournament not found in localStorage:', tournamentId); return; }
   const tournament = tournaments[idx];
+  // Deep copy bracket to avoid mutation issues
+  tournament.bracket = JSON.parse(JSON.stringify(tournament.bracket));
   const bracket = tournament.bracket;
   if (!bracket || !bracket[roundIndex] || !bracket[roundIndex][matchIndex]) return;
   const match = bracket[roundIndex][matchIndex];
@@ -5647,7 +5646,7 @@ function renderTournamentDetails(id) {
   const container = document.getElementById('tournament-container');
   if (!container) return;
   const tournaments = loadTournaments();
-  const tournament = tournaments.find((t) => t.id === id);
+  const tournament = tournaments.find((t) => String(t.id) === String(id));
   if (!tournament) {
     container.innerHTML = '<p>Tournament not found.</p>';
     return;
@@ -5672,7 +5671,7 @@ function renderTournamentDetails(id) {
     teamNames = teamNames.slice().sort((a, b) => a.localeCompare(b));
     tournament.bracket = generateBracket(teamNames, tournament.id);
     // Save back to local storage AND backend
-    const idx = tournaments.findIndex((t) => t.id === id);
+    const idx = tournaments.findIndex((t) => String(t.id) === String(id));
     if (idx !== -1) {
       tournaments[idx] = tournament;
       saveTournaments(tournaments);
