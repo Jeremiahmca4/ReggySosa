@@ -2279,12 +2279,8 @@ async function checkDiscordGate(onConfirmed) {
           .eq('email', email)
           .single();
         if (data && data.discord_confirmed) {
-          // Already confirmed discord — check if they need check-in reminder
-          if (!data.checkin_reminded) {
-            showCheckInReminderModal(onConfirmed);
-          } else {
-            onConfirmed();
-          }
+          // Already confirmed discord — always show check-in reminder on register
+          showCheckInReminderModal(onConfirmed);
           return;
         }
       }
@@ -2351,25 +2347,9 @@ async function checkDiscordGate(onConfirmed) {
 }
 
 
-// Shows a one-time check-in reminder after a team registers for the first time
+// Shows check-in reminder every time a team registers for a tournament
 async function showCheckInReminderModal(onConfirmed) {
-  // Check if already shown
-  if (supabaseClient) {
-    try {
-      const email = getCurrentUser();
-      if (email) {
-        const { data } = await supabaseClient
-          .from('profiles')
-          .select('checkin_reminded')
-          .eq('email', email)
-          .single();
-        if (data && data.checkin_reminded) {
-          onConfirmed();
-          return;
-        }
-      }
-    } catch(e) { /* fallback — show modal */ }
-  }
+  // Always show — check-in is mandatory every tournament
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
@@ -2400,19 +2380,6 @@ async function showCheckInReminderModal(onConfirmed) {
     const btn = document.getElementById('checkin-reminder-got-it');
     btn.disabled = true;
     btn.textContent = 'Registering...';
-
-    // Save checkin_reminded to profile
-    if (supabaseClient) {
-      try {
-        const email = getCurrentUser();
-        if (email) {
-          await supabaseClient
-            .from('profiles')
-            .update({ checkin_reminded: true })
-            .eq('email', email);
-        }
-      } catch(e) { /* ignore */ }
-    }
 
     overlay.remove();
     onConfirmed();
@@ -6135,6 +6102,18 @@ function renderTournamentDetails(id) {
   crossplayBadge.textContent = '🎮 PS5 + Xbox · NA-East';
   infoBadges.appendChild(crossplayBadge);
   detail.appendChild(infoBadges);
+
+  // ── Check-In Required banner (always visible) ──────────────────────────
+  const checkInBanner = document.createElement('div');
+  checkInBanner.style.cssText = 'background:linear-gradient(135deg,rgba(255,199,44,0.12),rgba(255,199,44,0.06));border:1px solid rgba(255,199,44,0.5);border-left:4px solid #d4a017;border-radius:var(--radius-sm);padding:0.85rem 1rem;margin-bottom:1rem;';
+  checkInBanner.innerHTML =
+    '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:0.95rem;text-transform:uppercase;letter-spacing:0.06em;color:#d4a017;margin:0 0 0.4rem;">⏰ Check-In Required</p>' +
+    '<p style="color:var(--text);font-size:0.85rem;line-height:1.6;margin:0;">' +
+      'All registered teams must <strong>check in 10 minutes before</strong> the tournament starts to hold their spot. ' +
+      'If you do not check in by start time, your spot gets cycled to the next team in the waitlist.' +
+    '</p>' +
+    '<p style="color:var(--text-muted);font-size:0.78rem;margin:0.4rem 0 0;">📢 Watch the Discord announcements channel — we will ping when check-in opens.</p>';
+  detail.appendChild(checkInBanner);
 
   // Quick rules card
   const quickRules = document.createElement('div');
