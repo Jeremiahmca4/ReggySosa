@@ -373,7 +373,8 @@ async function syncTournamentsFromBackend() {
           winner: row.winner || null,
           password: row.password || null,
           entry_fee: parseFloat(row.entry_fee) || 0,
-          goalieRequired: row.goalie_required || false,
+          goalieRequired: row.goalie_required === true || row.goalie_required === 'true' || row.goalieRequired === true || false,
+          startTime: row.start_time ?? row.startTime ?? null,
         };
         // If we have a Supabase client, fetch registered teams for this tournament.
         if (supabaseClient) {
@@ -2048,87 +2049,143 @@ function deleteTournament(id) {
   renderAdminTournaments();
 }
 
-// Allow the admin to edit tournament details (name and maximum number of teams)
+// Allow the admin to edit tournament details via a clean modal
 function editTournament(id) {
-  let tournaments = loadTournaments();
-  const index = tournaments.findIndex((t) => t.id === id);
+  const tournaments = loadTournaments();
+  const index = tournaments.findIndex((t) => String(t.id) === String(id));
   if (index === -1) return;
   const t = tournaments[index];
-  // Prompt the admin for a new name
-  const newName = prompt('Edit tournament name:', t.name);
-  if (newName !== null) {
-    const trimmed = newName.trim();
-    if (trimmed.length > 0) {
-      t.name = trimmed;
-    }
+  const currentTeams = t.teams ? t.teams.length : 0;
+  const started = t.status === 'started' || t.status === 'completed';
+
+  // Remove any existing edit modal
+  document.getElementById('edit-tourney-modal')?.remove();
+  document.getElementById('edit-tourney-overlay')?.remove();
+
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'edit-tourney-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:2000;';
+  document.body.appendChild(overlay);
+
+  // Modal
+  const modal = document.createElement('div');
+  modal.id = 'edit-tourney-modal';
+  modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2001;background:#1a1a2e;border:1px solid #d4a017;border-radius:12px;padding:2rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+
+  modal.innerHTML =
+    '<h2 style="font-family:Barlow Condensed,sans-serif;text-transform:uppercase;letter-spacing:0.06em;color:#d4a017;font-size:1.3rem;margin:0 0 1.5rem;">✏️ Edit Tournament</h2>' +
+
+    '<label style="display:block;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.3rem;">Tournament Name</label>' +
+    '<input id="et-name" type="text" value="' + (t.name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.95rem;margin-bottom:1rem;box-sizing:border-box;" />' +
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">' +
+      '<div>' +
+        '<label style="display:block;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.3rem;">Start Date</label>' +
+        '<input id="et-date" type="date" value="' + (t.startDate || '') + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.9rem;box-sizing:border-box;" />' +
+      '</div>' +
+      '<div>' +
+        '<label style="display:block;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.3rem;">Start Time (ET)</label>' +
+        '<input id="et-time" type="time" value="' + (t.startTime || '') + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.9rem;box-sizing:border-box;" />' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">' +
+      '<div>' +
+        '<label style="display:block;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.3rem;">Max Teams</label>' +
+        '<input id="et-max" type="number" min="' + currentTeams + '" value="' + (t.maxTeams || 8) + '" ' + (started ? 'disabled' : '') + ' style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.9rem;box-sizing:border-box;opacity:' + (started ? '0.5' : '1') + ';" />' +
+      '</div>' +
+      '<div>' +
+        '<label style="display:block;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.3rem;">Password (optional)</label>' +
+        '<input id="et-password" type="text" value="' + (t.password || '') + '" placeholder="Leave blank for open" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.9rem;box-sizing:border-box;" />' +
+      '</div>' +
+    '</div>' +
+
+    '<label style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;cursor:pointer;">' +
+      '<input id="et-goalie" type="checkbox" ' + (t.goalieRequired ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:#d4a017;cursor:pointer;" />' +
+      '<span style="font-size:0.9rem;color:var(--text);">🥅 Goalie Required</span>' +
+    '</label>' +
+
+    '<div style="display:flex;gap:0.75rem;">' +
+      '<button id="et-save" style="flex:1;background:linear-gradient(135deg,#d4a017,#f0c040);color:#1a1a2e;border:none;border-radius:var(--radius-sm);padding:0.75rem;font-family:Barlow Condensed,sans-serif;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;">Save Changes</button>' +
+      '<button id="et-cancel" style="flex:1;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.75rem;font-size:0.9rem;cursor:pointer;">Cancel</button>' +
+    '</div>' +
+    '<p id="et-status" style="color:#ff6b6b;font-size:0.85rem;margin-top:0.75rem;display:none;"></p>';
+
+  document.body.appendChild(modal);
+
+  function closeModal() {
+    modal.remove();
+    overlay.remove();
   }
-  // If the tournament has not started yet, allow editing maxTeams
-    if (t.status !== 'started') {
-    const currentTeams = t.teams ? t.teams.length : 0;
-    const maxPrompt = prompt('Edit maximum number of teams:', t.maxTeams || currentTeams || 2);
-    if (maxPrompt !== null && maxPrompt !== '') {
-      const maxVal = parseInt(maxPrompt, 10);
-      if (isNaN(maxVal) || maxVal < 2 || maxVal < currentTeams) {
-        alert(
-          'Invalid maximum. It must be a number at least equal to the number of registered teams (' +
-            currentTeams +
-            ') and at least 2.'
-        );
-      } else {
-        t.maxTeams = maxVal;
-      }
-      // Prompt the admin to edit start date. Accept an empty value to clear the date.
-      const newDate = prompt('Edit start date (YYYY-MM-DD):', t.startDate || '');
-      if (newDate !== null) {
-        const trimmedDate = newDate.trim();
-        if (trimmedDate) {
-          t.startDate = trimmedDate;
-        } else {
-          t.startDate = null;
-        }
-      }
+
+  overlay.addEventListener('click', closeModal);
+  document.getElementById('et-cancel').addEventListener('click', closeModal);
+
+  document.getElementById('et-save').addEventListener('click', async function() {
+    const saveBtn = document.getElementById('et-save');
+    const statusEl = document.getElementById('et-status');
+    const newName = document.getElementById('et-name').value.trim();
+    const newDate = document.getElementById('et-date').value.trim();
+    const newTime = document.getElementById('et-time').value.trim();
+    const newMax = parseInt(document.getElementById('et-max').value, 10);
+    const newPassword = document.getElementById('et-password').value.trim();
+    const newGoalie = document.getElementById('et-goalie').checked;
+
+    if (!newName) { statusEl.textContent = 'Tournament name cannot be empty.'; statusEl.style.display = 'block'; return; }
+    if (!started && (!newMax || newMax < 2 || newMax < currentTeams)) {
+      statusEl.textContent = 'Max teams must be at least ' + Math.max(2, currentTeams) + '.';
+      statusEl.style.display = 'block'; return;
     }
-  } else {
-    alert('Cannot edit maximum teams after the tournament has started.');
-  }
-  tournaments[index] = t;
-  saveTournaments(tournaments);
-  // Persist the updated tournament details to the back‑end. If a specific
-  // update endpoint exists on the server, call it. Otherwise, attempt to
-  // update via Supabase if the client is configured. We prefer calling
-  // the REST API, but fall back to Supabase client update if available.
-  (async () => {
-    // Try REST API update if available
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    // Update local
+    const ts = loadTournaments();
+    const i = ts.findIndex((x) => String(x.id) === String(id));
+    if (i !== -1) {
+      ts[i].name = newName;
+      ts[i].startDate = newDate || null;
+      ts[i].startTime = newTime || null;
+      if (!started) ts[i].maxTeams = newMax;
+      ts[i].password = newPassword || null;
+      ts[i].goalieRequired = newGoalie;
+      saveTournaments(ts);
+    }
+
+    // Save to Supabase + backend
+    const patchData = {
+      name: newName,
+      startDate: newDate || null,
+      startTime: newTime || null,
+      maxTeams: started ? undefined : newMax,
+      goalieRequired: newGoalie,
+    };
+
     try {
-      await fetch(`${API_BASE_URL}/api/tournaments/${encodeURIComponent(id)}`, {
+      if (supabaseClient) {
+        await supabaseClient.from('tournaments').update({
+          name: newName,
+          start_date: newDate || null,
+          start_time: newTime || null,
+          goalie_required: newGoalie,
+          ...(started ? {} : { max_teams: newMax }),
+          password: newPassword || null,
+        }).eq('id', id);
+      }
+      await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: t.name,
-          maxTeams: t.maxTeams,
-          startDate: t.startDate,
-        }),
-      });
-    } catch (err) {
-      // If fetch fails or no endpoint, try Supabase direct update
-      if (supabaseClient) {
-        try {
-          await supabaseClient
-            .from('tournaments')
-            .update({
-              name: t.name,
-              max_teams: t.maxTeams,
-              start_date: t.startDate || null,
-            })
-            .eq('id', id);
-        } catch (e) {
-          console.error('Failed to update tournament in Supabase:', e);
-        }
-      }
+        body: JSON.stringify(patchData),
+      }).catch(() => {});
+    } catch(e) {
+      console.error('Edit tournament save error:', e);
     }
-  })();
-  renderAdminTournaments();
-  alert('Tournament updated.');
+
+    closeModal();
+    renderAdminTournaments();
+  });
 }
 
 function startTournament(id) {
@@ -5921,14 +5978,48 @@ function renderTournamentDetails(id) {
   created.textContent = 'Created: ' + date.toLocaleString();
   detail.appendChild(status);
   detail.appendChild(created);
-  // Display start date if defined
+  // Display start date + time
   if (tournament.startDate) {
-    // Parse start date as local date for correct display
-    const sd = new Date(tournament.startDate + 'T00:00:00');
     const startP = document.createElement('p');
-    startP.textContent = 'Start date: ' + sd.toLocaleDateString();
+    startP.textContent = 'Start: ' + formatTournamentDateTime(tournament.startDate, tournament.startTime);
     detail.appendChild(startP);
   }
+
+  // Quick info badges row
+  const infoBadges = document.createElement('div');
+  infoBadges.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.5rem 0 1rem;';
+  const entryFeeBadge = document.createElement('span');
+  const feeAmt = parseFloat(tournament.entry_fee || tournament.entryFee) || 0;
+  entryFeeBadge.style.cssText = 'padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;' +
+    (feeAmt > 0 ? 'background:rgba(212,160,23,0.15);border:1px solid rgba(212,160,23,0.4);color:#d4a017;' : 'background:rgba(80,200,120,0.1);border:1px solid rgba(80,200,120,0.3);color:#50c878;');
+  entryFeeBadge.textContent = feeAmt > 0 ? '💰 $' + feeAmt.toFixed(2) + ' Entry' : '🆓 Free Entry';
+  infoBadges.appendChild(entryFeeBadge);
+  if (tournament.goalieRequired) {
+    const goalieBadge = document.createElement('span');
+    goalieBadge.style.cssText = 'padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;background:rgba(255,199,44,0.12);border:1px solid rgba(255,199,44,0.4);color:#ffc72c;';
+    goalieBadge.textContent = '🥅 Goalie Required';
+    infoBadges.appendChild(goalieBadge);
+  }
+  const formatBadge = document.createElement('span');
+  formatBadge.style.cssText = 'padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-muted);';
+  formatBadge.textContent = '⚡ Single Elimination · 3 Min Periods';
+  infoBadges.appendChild(formatBadge);
+  const crossplayBadge = document.createElement('span');
+  crossplayBadge.style.cssText = 'padding:0.2rem 0.65rem;border-radius:20px;font-size:0.78rem;font-weight:600;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-muted);';
+  crossplayBadge.textContent = '🎮 PS5 + Xbox · NA-East';
+  infoBadges.appendChild(crossplayBadge);
+  detail.appendChild(infoBadges);
+
+  // Quick rules card
+  const quickRules = document.createElement('div');
+  quickRules.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid var(--border);border-left:3px solid #d4a017;border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text-muted);line-height:1.6;';
+  quickRules.innerHTML =
+    '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em;color:#d4a017;margin:0 0 0.4rem;">📋 Quick Rules</p>' +
+    '<p style="margin:0;">• Private Match · World of CHEL → Clubs → Play → Private Match</p>' +
+    '<p style="margin:0;">• Highest seed = Home side &nbsp;|&nbsp; NA‑East servers &nbsp;|&nbsp; Crossplay ON</p>' +
+    '<p style="margin:0;color:#ff6b6b;font-weight:600;">• Lag-outs = DQ &nbsp;|&nbsp; No screenshot = no win</p>' +
+    '<p style="margin:0;font-size:0.78rem;margin-top:0.3rem;"><a href="rules.html" style="color:#d4a017;">View full rules →</a></p>';
+  detail.appendChild(quickRules);
   // Display champion if tournament completed
   if (tournament.status === 'completed' && tournament.winner) {
     const champTitle = document.createElement('h3');
@@ -6015,7 +6106,7 @@ function renderTournamentDetails(id) {
     const currentCount = tournament.teams ? tournament.teams.length : 0;
     const currentTeam = getUserTeam();
 
-    // Show goalie required notice if applicable
+    // Show goalie required notice always if applicable
     if (tournament.goalieRequired) {
       const goalieNotice = document.createElement('div');
       goalieNotice.style.cssText = 'background:rgba(255,199,44,0.1);border:1px solid var(--gold);border-radius:var(--radius-sm);padding:0.6rem 0.9rem;margin-bottom:1rem;font-size:0.88rem;color:var(--gold);font-weight:600;display:flex;align-items:center;gap:0.5rem;';
