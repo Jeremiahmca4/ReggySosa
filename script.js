@@ -873,12 +873,31 @@ function initGlobalRealtime() {
     if (typeof renderAdminTournaments === 'function' && document.getElementById('admin-tournament-list')) {
       renderAdminTournaments();
     }
-    // Tournament detail page — skip global re-render here
-    // The bracket has its own dedicated realtime subscription that handles updates
-    // Re-rendering here causes race conditions with admin actions
+    // Tournament detail page — re-render for status changes (check_in open/close, etc)
+    // Bracket updates are handled by its own dedicated subscription
+    if (typeof renderTournamentDetails === 'function') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tid = urlParams.get('id');
+      if (tid) renderTournamentDetails(String(tid));
+    }
     // Index page past winners
     if (typeof renderPastWinners === 'function' && document.getElementById('past-winners-section')) {
       renderPastWinners();
+    }
+  }
+
+  // Separate handler for registration changes (check-ins, waitlist)
+  // This re-renders the tournament detail page so players see check-in status instantly
+  async function onRegistrationsChange() {
+    if (typeof renderTournamentDetails === 'function') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tid = urlParams.get('id');
+      if (tid) renderTournamentDetails(String(tid));
+    }
+    // Also update admin dashboard
+    if (typeof renderAdminTournaments === 'function' && document.getElementById('admin-tournament-list')) {
+      await syncTournamentsFromBackend().catch(() => {});
+      renderAdminTournaments();
     }
   }
 
@@ -911,11 +930,11 @@ function initGlobalRealtime() {
     })
     .subscribe();
 
-  // Subscribe to tournament_registrations table
+  // Subscribe to tournament_registrations table (check-ins, waitlist, new registrations)
   supabaseClient
     .channel('global-registrations')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_registrations' }, function() {
-      onTournamentsChange();
+      onRegistrationsChange();
     })
     .subscribe();
 
@@ -2441,7 +2460,27 @@ async function checkInTeam(tournamentId, teamId) {
       .update({ checked_in: true })
       .eq('tournament_id', String(tournamentId))
       .eq('team_id', String(teamId));
-    return !error;
+    if (error) return false;
+    // Fire Discord webhook — team checked in
+    try {
+      const ts = loadTournaments();
+      const t = ts.find(function(x) { return String(x.id) === String(tournamentId); });
+      const { data: teamData } = await supabaseClient.from('teams').select('name').eq('id', String(teamId)).single();
+      const teamName = teamData ? teamData.name : 'A team';
+      if (t) {
+        const tournamentUrl = 'https://reggysosa.com/tournament.html?id=' + t.id;
+        sendToWebhook('checkIn', [{
+          title: '✅ Team Checked In — ' + t.name,
+          description: '**' + teamName + '** has checked in for **' + t.name + '** and is confirmed ready to play.',
+          color: 0x50c878,
+          fields: [
+            { name: '🔗 Tournament', value: tournamentUrl, inline: false },
+          ],
+          footer: { text: 'reggysosa.com — CHEL Tournaments' },
+        }]);
+      }
+    } catch(we) { console.warn('[Webhook] Check-in notify failed:', we.message); }
+    return true;
   } catch(e) { console.error('checkInTeam error:', e); return false; }
 }
 
@@ -2619,7 +2658,7 @@ function registerTeamToTournament(tournamentId, teamId) {
     var _total = tournament.teams.length;
     var _max = tournament.max_teams || tournament.maxTeams || null;
     var _fee = tournament.entry_fee || tournament.entryFee || 0;
-    announceTeamRegistration(teamObj.name, _tName, _total, _max, _fee);
+    announceTeamRegistration(teamObj.name, _tName, _total, _max, _fee, tournamentId);
   } catch(e) { console.warn('[Webhook] Registration error:', e); }
 
   // Persist the registration to the back‑end.
@@ -4328,11 +4367,17 @@ function announceMatchResult(tournamentName, team1, team2, winner, score1, score
   var hasScores = (score1 != null && score2 != null && !isNaN(score1) && !isNaN(score2));
   var desc = '**' + winner + '** defeated **' + loser + '**';
   if (hasScores) desc += '\n📊 **' + team1 + '** ' + score1 + ' – ' + score2 + ' **' + team2 + '**';
+  var ts = loadTournaments();
+  var t = ts.find(function(x) { return x.name === tournamentName; });
+  var tUrl = t ? 'https://reggysosa.com/tournament.html?id=' + t.id : 'https://reggysosa.com/tournaments.html';
   sendToWebhook('results', [{
     title: '🏒 Match Result',
     description: desc,
     color: 0xffc72c,
-    fields: [{ name: 'Tournament', value: tournamentName || 'Unknown', inline: true }],
+    fields: [
+      { name: 'Tournament', value: tournamentName || 'Unknown', inline: true },
+      { name: '🔗 View Bracket', value: tUrl, inline: false },
+    ],
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
@@ -4340,11 +4385,15 @@ function announceMatchResult(tournamentName, team1, team2, winner, score1, score
 
 // 2. Tournament champion → #champions
 function announceTournamentComplete(tournamentName, winner) {
+  var ts = loadTournaments();
+  var t = ts.find(function(x) { return x.name === tournamentName; });
+  var tUrl = t ? 'https://reggysosa.com/tournament.html?id=' + t.id : 'https://reggysosa.com/tournaments.html';
   sendToWebhook('champions', [{
     title: '🏆 ' + winner + ' are the Champions!',
     description: '**' + winner + '** are the champions of **' + tournamentName + '**!\n\n🎉 Congratulations! 👑',
     color: 0xffd700,
     thumbnail: { url: 'https://www.reggysosa.com/logo.png' },
+    fields: [{ name: '🔗 View Results', value: tUrl, inline: false }],
     footer: { text: 'Reggy Sosa Tournaments • ' + new Date().toLocaleDateString() },
     timestamp: new Date().toISOString(),
   }]);
@@ -4394,12 +4443,16 @@ function announceTournamentCreated(tournamentName, startDate, maxTeams, goalieRe
     { name: '🏆 Prize Pool',   value: maxPrizePool,                                                      inline: true  },
     { name: 'Goalie Required', value: goalieRequired ? '✅ Yes — a goalie is required' : '❌ No',         inline: false },
   ];
+  var ts2 = loadTournaments();
+  var t2 = ts2.find(function(x) { return x.name === tournamentName; });
+  var regUrl = t2 ? 'https://reggysosa.com/tournament.html?id=' + t2.id : 'https://reggysosa.com/tournaments.html';
+  fields.push({ name: '🔗 Register Now', value: regUrl, inline: false });
   sendToWebhook('created', [{
     title: '🏆 New Tournament — Registration Open!',
     description: 'A new tournament has been created. Sign up now before spots fill up!',
     color: 0xffc72c,
     fields: fields,
-    footer: { text: 'Head to reggysosa.com/tournaments.html to register' },
+    footer: { text: 'reggysosa.com' },
     timestamp: new Date().toISOString(),
   }]);
 }
@@ -4451,6 +4504,10 @@ function announceRegistrationUpdate(tournament) {
     hour: 'numeric', minute: '2-digit', hour12: true
   }) + ' EST';
 
+  var tReg = loadTournaments().find(function(x) { return x.name === name; });
+  var tRegUrl = tReg ? 'https://reggysosa.com/tournament.html?id=' + tReg.id : 'https://reggysosa.com/tournaments.html';
+  // Add register link to fields
+  fields.push({ name: '🔗 Register Now', value: tRegUrl, inline: false });
   sendToWebhook('created', [{
     title: '🏒 Registration Update — ' + name,
     description: spotsLeft === 0
@@ -4467,24 +4524,29 @@ function announceRegistrationUpdate(tournament) {
       { name: 'Goalie Required', value: goalieStr,                                 inline: true  },
       { name: 'Status',          value: statusStr,                                 inline: true  },
     ],
-    footer: { text: 'reggysosa.com/tournaments.html • Posted ' + estTime },
+    footer: { text: 'reggysosa.com • Posted ' + estTime },
     timestamp: new Date().toISOString(),
   }]);
 }
 
-function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams, entryFee) {
+function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams, entryFee, tournamentId) {
   var feeVal = parseFloat(entryFee) || 0;
+  // Look up tournament URL
+  var tReg2 = tournamentId
+    ? loadTournaments().find(function(x) { return String(x.id) === String(tournamentId); })
+    : loadTournaments().find(function(x) { return x.name === tournamentName; });
+  var tRegUrl2 = tReg2 ? 'https://reggysosa.com/tournament.html?id=' + tReg2.id : 'https://reggysosa.com/tournaments.html';
   var fields = [
     { name: 'Tournament',   value: tournamentName || 'Unknown',                          inline: true },
     { name: 'Spots Filled', value: (totalTeams || '?') + ' / ' + (maxTeams || '∞'),     inline: true },
     { name: 'Entry Fee',    value: feeVal > 0 ? '💰 $' + feeVal.toFixed(2) : '🆓 Free', inline: true },
   ];
-  // Add prize pool if applicable
   if (feeVal > 0) {
     var pct = getPrizePoolPct();
     var pool = Math.round(feeVal * (totalTeams || 1) * (pct / 100) * 100) / 100;
     fields.push({ name: '🏆 Current Prize Pool', value: '$' + pool.toFixed(2), inline: false });
   }
+  fields.push({ name: '🔗 View Tournament', value: tRegUrl2, inline: false });
   sendToWebhook('registrations', [{
     title: '👥 New Team Registered',
     description: '**' + teamName + '** has entered **' + tournamentName + '**!',
@@ -4496,16 +4558,21 @@ function announceTeamRegistration(teamName, tournamentName, totalTeams, maxTeams
 }
 
 // 5. Bracket posted → #score-results (no match codes)
-function announceBracketGenerated(tournamentName, bracket) {
+function announceBracketGenerated(tournamentName, bracket, tournamentId) {
   if (!bracket || !Array.isArray(bracket) || !bracket[0]) return;
   var lines = bracket[0]
     .filter(function(m) { return m.team1 && m.team2 && m.team1 !== 'BYE' && m.team2 !== 'BYE'; })
     .map(function(m) { return '⚔️ **' + m.team1 + '** vs **' + m.team2 + '**'; })
     .join('\n');
+  var tBracket = tournamentId
+    ? loadTournaments().find(function(x) { return String(x.id) === String(tournamentId); })
+    : loadTournaments().find(function(x) { return x.name === tournamentName; });
+  var tBracketUrl = tBracket ? 'https://reggysosa.com/tournament.html?id=' + tBracket.id : 'https://reggysosa.com/tournaments.html';
   sendToWebhook('results', [{
     title: '🏒 Bracket Set — ' + tournamentName,
-    description: 'Round 1 matchups:\n\n' + (lines || 'TBD') + '\n\nHead to **reggysosa.com** to find your match!',
+    description: 'Round 1 matchups:\n\n' + (lines || 'TBD'),
     color: 0xffc72c,
+    fields: [{ name: '🔗 View Bracket & Find Your Match', value: tBracketUrl, inline: false }],
     footer: { text: 'Reggy Sosa Tournaments' },
     timestamp: new Date().toISOString(),
   }]);
