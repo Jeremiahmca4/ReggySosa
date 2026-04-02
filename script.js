@@ -2279,8 +2279,12 @@ async function checkDiscordGate(onConfirmed) {
           .eq('email', email)
           .single();
         if (data && data.discord_confirmed) {
-          // Already confirmed — skip modal
-          onConfirmed();
+          // Already confirmed discord — check if they need check-in reminder
+          if (!data.checkin_reminded) {
+            showCheckInReminderModal(onConfirmed);
+          } else {
+            onConfirmed();
+          }
           return;
         }
       }
@@ -2336,7 +2340,8 @@ async function checkDiscordGate(onConfirmed) {
     }
 
     overlay.remove();
-    onConfirmed();
+    // Show check-in reminder before completing registration
+    showCheckInReminderModal(onConfirmed);
   });
 
   // Close on overlay click (outside modal)
@@ -2345,6 +2350,79 @@ async function checkDiscordGate(onConfirmed) {
   });
 }
 
+
+// Shows a one-time check-in reminder after a team registers for the first time
+async function showCheckInReminderModal(onConfirmed) {
+  // Check if already shown
+  if (supabaseClient) {
+    try {
+      const email = getCurrentUser();
+      if (email) {
+        const { data } = await supabaseClient
+          .from('profiles')
+          .select('checkin_reminded')
+          .eq('email', email)
+          .single();
+        if (data && data.checkin_reminded) {
+          onConfirmed();
+          return;
+        }
+      }
+    } catch(e) { /* fallback — show modal */ }
+  }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--card);border:1px solid var(--gold);border-radius:var(--radius-lg);padding:2rem;max-width:420px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,199,44,0.2);';
+
+  modal.innerHTML =
+    '<div style="font-size:2.5rem;margin-bottom:0.75rem;">⏰</div>' +
+    '<h2 style="font-family:Barlow Condensed,sans-serif;font-size:1.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin-bottom:0.75rem;">Check-In Required</h2>' +
+    '<p style="color:var(--text);font-size:0.95rem;line-height:1.6;margin-bottom:1rem;">' +
+      'Hey! Be on the lookout to check in before the tournament starts.' +
+    '</p>' +
+    '<div style="background:rgba(255,199,44,0.08);border:1px solid rgba(255,199,44,0.3);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1.25rem;text-align:left;">' +
+      '<p style="color:var(--gold);font-weight:700;font-size:0.9rem;margin:0 0 0.5rem;">📋 What you need to know:</p>' +
+      '<p style="color:var(--text-muted);font-size:0.85rem;line-height:1.6;margin:0;">' +
+        '• Every team must check in <strong style="color:var(--text);">10 minutes before</strong> the tournament starts to hold their spot.<br>' +
+        '• If you do not check in by the start time, your spot gets cycled out to the next team waiting in line.<br>' +
+        '• Watch the <strong style="color:var(--text);">Discord announcements</strong> channel — we will ping when check-in opens.' +
+      '</p>' +
+    '</div>' +
+    '<button id="checkin-reminder-got-it" class="button" style="width:100%;font-size:1rem;padding:0.65rem;">Got It — Register Me</button>';
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  document.getElementById('checkin-reminder-got-it').addEventListener('click', async function() {
+    const btn = document.getElementById('checkin-reminder-got-it');
+    btn.disabled = true;
+    btn.textContent = 'Registering...';
+
+    // Save checkin_reminded to profile
+    if (supabaseClient) {
+      try {
+        const email = getCurrentUser();
+        if (email) {
+          await supabaseClient
+            .from('profiles')
+            .update({ checkin_reminded: true })
+            .eq('email', email);
+        }
+      } catch(e) { /* ignore */ }
+    }
+
+    overlay.remove();
+    onConfirmed();
+  });
+
+  // Close on outside click — don't proceed, user must acknowledge
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
 
 // ═══════════════════════════════════════════════════════════
 // CHECK-IN & WAITLIST SYSTEM
