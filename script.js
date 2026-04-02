@@ -6528,11 +6528,13 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
               if (supabaseClient) {
                 const { data: teamRows } = await supabaseClient.from('teams').select('id').eq('name', teamName).limit(1);
                 if (teamRows && teamRows.length > 0) {
-                  await supabaseClient.from('tournament_registrations').upsert({
-                    tournament_id: String(tournament.id),
-                    team_id: teamRows[0].id,
-                    paid: false,
-                  }, { onConflict: 'tournament_id,team_id' }).catch(function() {});
+                  try {
+                    await supabaseClient.from('tournament_registrations').upsert({
+                      tournament_id: String(tournament.id),
+                      team_id: teamRows[0].id,
+                      paid: false,
+                    }, { onConflict: 'tournament_id,team_id' });
+                  } catch(_) {}
                 }
 
                 // Also update bracket in Supabase directly
