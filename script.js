@@ -6430,52 +6430,47 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         if (addTeamBtn._open) { addTeamBtn._open = false; return; }
         addTeamBtn._open = true;
 
-        // Get all teams registered to this tournament
-        const registeredNames = new Set();
-        if (Array.isArray(tournament.bracket)) {
-          tournament.bracket.forEach(function(round) {
-            round.forEach(function(match) {
-              if (match.team1 && match.team1 !== 'BYE' && match.team1 !== 'TBD') registeredNames.add(match.team1);
-              if (match.team2 && match.team2 !== 'BYE' && match.team2 !== 'TBD') registeredNames.add(match.team2);
-            });
-          });
-        }
-
-        // Get all site teams not already in bracket
-        const allTeams = loadTeams ? loadTeams() : [];
-        const availableTeams = allTeams.filter(function(t) {
-          return t.name && !registeredNames.has(t.name);
-        });
-
-        // Build bracket slot options
-        const slotOptions = [];
-        if (Array.isArray(tournament.bracket)) {
-          tournament.bracket.forEach(function(round, rIdx) {
-            round.forEach(function(match, mIdx) {
-              const roundName = rIdx === tournament.bracket.length - 1 ? 'Final' :
-                rIdx === tournament.bracket.length - 2 ? 'Semis' : 'Round ' + (rIdx + 1);
-              if (!match.winner) {
-                if (!match.team1 || match.team1 === 'BYE' || match.team1 === 'TBD') {
-                  slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 1 slot', rIdx, mIdx, slot: 'team1' });
-                }
-                if (!match.team2 || match.team2 === 'BYE' || match.team2 === 'TBD') {
-                  slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 2 slot', rIdx, mIdx, slot: 'team2' });
-                }
-              }
-            });
-          });
-        }
-
+        // Fetch ALL teams from Supabase directly (don't rely on localStorage)
         const panel = document.createElement('div');
         panel.id = 'add-team-panel';
         panel.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;margin-top:1rem;max-width:480px;';
-        panel.innerHTML = '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin:0 0 0.75rem;">➕ Add Team to Bracket</p>';
+        panel.innerHTML = '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin:0 0 0.75rem;">➕ Add Team to Bracket</p>' +
+          '<p style="color:var(--text-muted);font-size:0.85rem;">Loading teams...</p>';
+        adminActions.appendChild(panel);
 
-        if (availableTeams.length === 0) {
-          panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No registered teams available to add. All site teams are already in the bracket.</p>';
-        } else if (slotOptions.length === 0) {
-          panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No open slots in the bracket. Use Edit Match to manually assign a team to a slot.</p>';
-        } else {
+        // Load teams async
+        (async function() {
+          let allTeams = [];
+          if (supabaseClient) {
+            try {
+              const { data } = await supabaseClient.from('teams').select('id, name');
+              if (data && data.length > 0) allTeams = data;
+            } catch(e) {}
+          }
+          if (allTeams.length === 0) allTeams = loadTeams ? loadTeams() : [];
+
+          // Build bracket slot options — ALL slots in unfinished matches
+          const slotOptions = [];
+          if (Array.isArray(tournament.bracket)) {
+            tournament.bracket.forEach(function(round, rIdx) {
+              round.forEach(function(match, mIdx) {
+                if (match.winner) return; // skip completed matches
+                const roundName = rIdx === tournament.bracket.length - 1 ? 'Final' :
+                  rIdx === tournament.bracket.length - 2 ? 'Semis' : 'Round ' + (rIdx + 1);
+                slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 1 (' + (match.team1 || 'empty') + ')', rIdx, mIdx, slot: 'team1', current: match.team1 });
+                slotOptions.push({ label: roundName + ' Match ' + (mIdx+1) + ' — Team 2 (' + (match.team2 || 'empty') + ')', rIdx, mIdx, slot: 'team2', current: match.team2 });
+              });
+            });
+          }
+
+          // Rebuild panel content
+          panel.innerHTML = '<p style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold);margin:0 0 0.75rem;">➕ Add Team to Bracket</p>';
+
+          if (allTeams.length === 0) {
+            panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No teams found on this platform.</p>';
+          } else if (slotOptions.length === 0) {
+            panel.innerHTML += '<p style="color:var(--text-muted);font-size:0.88rem;">No available slots — all matches are completed.</p>';
+          } else {
           // Team select
           const teamLabel = document.createElement('p');
           teamLabel.textContent = 'Select team to add:';
@@ -6558,8 +6553,7 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
         cancelBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--radius-sm);padding:0.45rem;cursor:pointer;margin-top:0.5rem;font-size:0.85rem;';
         cancelBtn.addEventListener('click', function() { panel.remove(); addTeamBtn._open = false; });
         panel.appendChild(cancelBtn);
-
-        adminActions.appendChild(panel);
+        })(); // end async IIFE
       });
       adminActions.appendChild(addTeamBtn);
     }
