@@ -6477,7 +6477,7 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
           teamLabel.style.cssText = 'font-size:0.82rem;color:var(--text-muted);margin:0 0 0.3rem;';
           const teamSelect = document.createElement('select');
           teamSelect.style.cssText = 'width:100%;margin-bottom:0.75rem;padding:0.45rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:0.88rem;';
-          availableTeams.forEach(function(t) {
+          allTeams.forEach(function(t) {
             const opt = document.createElement('option');
             opt.value = t.name;
             opt.textContent = t.name;
