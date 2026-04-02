@@ -6218,6 +6218,40 @@ const showCode = role === 'admin' || isUserInMatch(match, tournament);
               renderTournamentDetails(tournament.id);
             });
             advRow.appendChild(clearBtn);
+
+            // ── Delete match button (only for empty/bye/tbd matches) ────────
+            const isEmpty = function(name) {
+              return !name || name === 'BYE' || name === 'TBD';
+            };
+            if (isEmpty(match.team1) && isEmpty(match.team2)) {
+              const deleteMatchBtn = document.createElement('button');
+              deleteMatchBtn.className = 'button delete';
+              deleteMatchBtn.textContent = '🗑 Delete Match';
+              deleteMatchBtn.style.cssText = 'font-size:0.72rem;padding:0.25rem 0.55rem;background:#8b0000;border-color:#cc0000;';
+              deleteMatchBtn.addEventListener('click', async function() {
+                if (!confirm('Permanently delete this match from the bracket? This cannot be undone.')) return;
+                let t2 = loadTournaments();
+                const tIdx = t2.findIndex(function(x) { return x.id === tournament.id; });
+                if (tIdx === -1) return;
+                // Remove this match from the round
+                t2[tIdx].bracket[rIndex].splice(mIndex, 1);
+                // If round is now empty, remove the round too
+                if (t2[tIdx].bracket[rIndex].length === 0) {
+                  t2[tIdx].bracket.splice(rIndex, 1);
+                }
+                saveTournaments(t2);
+                try {
+                  await fetch(API_BASE_URL + '/api/tournaments/' + encodeURIComponent(tournament.id), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bracket: t2[tIdx].bracket }),
+                  });
+                } catch(e) { console.error('Delete match error:', e); }
+                renderTournamentDetails(tournament.id);
+              });
+              advRow.appendChild(deleteMatchBtn);
+            }
+
             matchDiv.appendChild(advRow);
           }
 
